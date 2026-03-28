@@ -1,0 +1,85 @@
+# EU5 Mod Launcher — Project Overview
+
+## What this is
+
+A standalone desktop application for managing mods for Europa Universalis 5 (and similar Paradox-style games). Built with **Wails v2** (Go backend + Vue 3 + TypeScript frontend), compiled to a single native binary.
+
+The launcher sits outside the game itself. It reads mod metadata from a well-known directory, lets the user curate a load order, define ordering constraints between mods, and writes the final load order back to a format the game understands.
+
+---
+
+## Core user flows
+
+1. **Discovery** — App scans the mods directory and shows all installed mods with metadata (name, version, tags, thumbnail if present).
+2. **Load order curation** — User enables/disables mods and arranges them via drag-and-drop in an ordered list.
+3. **Constraint authoring** — User right-clicks a mod to define relations: "this mod always loads after X" or "always before Y". These are stored as a directed graph.
+4. **Autosort** — User triggers a sort that resolves the constraint graph (topological sort) and reorders the active list accordingly, warning on cycles.
+5. **Launch** — App writes the resolved load order to the game's config and optionally launches the game executable.
+
+---
+
+## Architecture
+
+```
+/                        ← Wails project root
+├── main.go              ← Wails bootstrap
+├── app.go               ← Go backend: all business logic exposed to frontend
+├── internal/
+│   ├── mods/            ← Mod scanning, metadata parsing
+│   ├── loadorder/       ← Load order state, persistence
+│   └── graph/           ← Constraint graph, topological sort
+├── frontend/
+│   ├── src/
+│   │   ├── components/  ← Vue components
+│   │   ├── stores/      ← Pinia stores (mod list, load order, settings)
+│   │   ├── views/       ← Top-level page views
+│   │   └── wailsjs/     ← Auto-generated Go bindings (DO NOT edit)
+│   └── ...
+└── tasks/               ← You are here
+```
+
+---
+
+## Tech choices
+
+| Concern | Choice |
+|---|---|
+| GUI framework | Wails v2 |
+| Frontend | Vue 3 + TypeScript + Vite |
+| State management | Pinia |
+| Drag and drop | vuedraggable (wraps SortableJS) |
+| Styling | CSS custom properties + scoped component styles |
+| Config persistence | JSON file in OS user config dir |
+| Graph / sort | Pure Go, stdlib only |
+
+---
+
+## Task index
+
+Tasks are designed to be **maximally independent**. Each one has a clear input, clear output, and minimal assumptions about other tasks being done first. Do them roughly in order, but most can be handed to an AI agent as a standalone context.
+
+| # | File | Scope |
+|---|---|---|
+| 01 | `01-go-mod-scanner.md` | Go: scan mods directory, parse metadata |
+| 02 | `02-go-loadorder-store.md` | Go: persist & load the load order JSON |
+| 03 | `03-go-constraint-graph.md` | Go: constraint graph data structure + topological sort |
+| 04 | `04-go-app-bridge.md` | Go: wire internal packages into Wails `app.go` methods |
+| 05 | `05-fe-project-setup.md` | Frontend: Pinia stores skeleton, Wails bindings integration |
+| 06 | `06-fe-design-system.md` | Frontend: global CSS design tokens, typography, base component stubs |
+| 07 | `07-fe-mod-list-panel.md` | Frontend: "All mods" panel, search/filter, enable toggle |
+| 08 | `08-fe-load-order-panel.md` | Frontend: ordered list of active mods, drag-and-drop reorder |
+| 09 | `09-fe-context-menu.md` | Frontend: right-click context menu component (reusable) |
+| 10 | `10-fe-constraint-modal.md` | Frontend: modal for adding/viewing constraints on a mod |
+| 11 | `11-fe-autosort.md` | Frontend: autosort button, cycle error display |
+| 12 | `12-fe-settings.md` | Frontend: settings panel (mods path, game executable path) |
+| 13 | `13-integration-smoke-test.md` | Manual checklist: full flow works end to end |
+
+---
+
+## Conventions to keep consistent across tasks
+
+- All Go public methods on `App` struct are what Wails exposes — keep them flat and serialization-friendly (return plain structs, not interfaces).
+- Frontend never mutates backend state directly — always calls a Go method, then refreshes from the returned value.
+- Pinia stores are the single source of truth on the frontend. Components read from stores, never from local component state for anything that needs to persist.
+- Error handling: Go methods return `(Result, error)`. Wails surfaces errors as rejected JS promises. Frontend must handle them.
+- File paths use `filepath` package on Go side — never string concatenation.

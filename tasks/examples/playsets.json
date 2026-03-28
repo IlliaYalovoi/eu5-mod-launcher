@@ -1,0 +1,484 @@
+{
+	"file_version":	"1.0.0",
+	"playsets":	[{
+			"name":	"Initial playset",
+			"isAutomaticallySorted":	true,
+			"orderedListMods":	[{
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3623235218/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3624986503/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3624485168/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3613650416/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3601047146/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3608501286/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3608237308/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3610757528/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3612318635/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3619130338/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3613232232/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3604105554/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3599914929/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3603031599/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3600623918/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3616070040/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3626895335/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3627476594/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628422792/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3605651135/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3620370583/",
+					"isEnabled":	true
+				}],
+			"DLC":	[{
+					"paradoxAppId":	"Ancient Monument Pack",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Shared DLC Data",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Sacred Sites",
+					"isEnabled":	false
+				}]
+		}, {
+			"name":	"1.0.10 ",
+			"isAutomaticallySorted":	true,
+			"orderedListMods":	[{
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3601047146/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3603031599/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3610757528/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3612318635/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3613650416/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3616070040/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3619130338/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3624485168/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3624986503/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3626895335/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3627476594/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628422792/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3619518010/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3599514412/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3620996432/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3610687692/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3617910693/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3602513956/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3599857706/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3602694948/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3608237308/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3634577447/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3608501286/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3607293096/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3641260773/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3638408612/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3632118965/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3605651135/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3623235218/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628410126/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628407631/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3603329466/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3622998962/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628883955/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3626172812/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3641466083/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3652214415/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3647323747/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3643793330/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3605692406/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3620370583/",
+					"isEnabled":	true
+				}],
+			"DLC":	[{
+					"paradoxAppId":	"Ancient Monument Pack",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Shared DLC Data",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Sacred Sites",
+					"isEnabled":	true
+				}]
+		}, {
+			"name":	"1.0.11",
+			"isAutomaticallySorted":	false,
+			"orderedListMods":	[{
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3599514412/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3600623918/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3601047146/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3602694948/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3603031599/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3603329466/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3604105554/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3605651135/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3605692406/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3607293096/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3610687692/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3610757528/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3613232232/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3613650416/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3617910693/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3619130338/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3619518010/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3620996432/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3622998962/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3623235218/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3624485168/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3624986503/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3627476594/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628422792/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628883955/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3634577447/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3638408612/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3641466083/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3647323747/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3632718683/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3644173888/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3644897537/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3644927989/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3652366787/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3652405898/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3655298668/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3653797011/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3620370583/",
+					"isEnabled":	true
+				}],
+			"DLC":	[{
+					"paradoxAppId":	"Ancient Monument Pack",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Shared DLC Data",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Sacred Sites",
+					"isEnabled":	true
+				}]
+		}, {
+			"name":	"1.1",
+			"isActive":	true,
+			"isAutomaticallySorted":	false,
+			"orderedListMods":	[{
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3692202776/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3686173031/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3603031599/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3622342734/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3655298668/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3692358459/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3601047146/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3688963094/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3617910693/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3624485168/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3690555276/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3691046296/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3683328614/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3691046858/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3691186720/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3619130338/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3660538353/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3599857706/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3619518010/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628410126/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3628422792/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3634577447/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3686775112/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3641466083/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3681210690/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3675958825/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3676256435/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3672842038/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3652214415/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3679472784/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3681510822/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3681629733/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3613232232/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3662193478/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3662933683/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3675113573/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3606305941/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3626542508/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3629368670/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3632118965/",
+					"isEnabled":	true
+				}, {
+					"path":	"C:/Program Files (x86)/Steam/steamapps/workshop/content/3450310/3647884749/",
+					"isEnabled":	true
+				}],
+			"DLC":	[{
+					"paradoxAppId":	"Ancient Monument Pack",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Shared DLC Data",
+					"isEnabled":	true
+				}, {
+					"paradoxAppId":	"Sacred Sites",
+					"isEnabled":	true
+				}]
+		}]
+}

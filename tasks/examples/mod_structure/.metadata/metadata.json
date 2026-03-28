@@ -1,0 +1,11 @@
+﻿{
+	"name":	"Reduce antagonism cabinect action",
+	"id":	"illiayalovoi.reduceantagonismcabinetaction",
+	"version":	"1.0",
+	"supported_game_version":	"1.0.10",
+	"short_description":	"no desc",
+	"tags":	["Balance", "Diplomacy", "Gameplay", "Government and Estates"],
+	"relationships":	[],
+	"game_custom_data":	{
+}
+}
