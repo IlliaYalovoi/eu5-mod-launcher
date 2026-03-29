@@ -5,6 +5,7 @@ import {
   GetConfigPath,
   GetGameExe,
   GetModsDirStatus,
+  LaunchGame,
   OpenConfigFolder,
   PickExecutable,
   PickFolder,
@@ -38,6 +39,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoDetectedGameExe = ref('')
   const configPath = ref('')
   const isLoaded = ref(false)
+  const isLaunching = ref(false)
+  const launchError = ref<string | null>(null)
+  const lastLaunchAt = ref<number | null>(null)
 
   const modsDir = computed(() => modsDirStatus.value.effectiveDir)
   const requiresManualPaths = computed(() => isLoaded.value && !modsDirStatus.value.effectiveExists)
@@ -92,6 +96,23 @@ export const useSettingsStore = defineStore('settings', () => {
     await OpenConfigFolder()
   }
 
+  async function launchGame(): Promise<void> {
+    isLaunching.value = true
+    launchError.value = null
+    try {
+      await LaunchGame()
+      lastLaunchAt.value = Date.now()
+    } catch (err) {
+      launchError.value = err instanceof Error ? err.message : String(err)
+    } finally {
+      isLaunching.value = false
+    }
+  }
+
+  function clearLaunchError(): void {
+    launchError.value = null
+  }
+
   return {
     modsDir,
     modsDirStatus,
@@ -99,6 +120,9 @@ export const useSettingsStore = defineStore('settings', () => {
     autoDetectedGameExe,
     configPath,
     isLoaded,
+    isLaunching,
+    launchError,
+    lastLaunchAt,
     requiresManualPaths,
     fetch,
     setModsDir,
@@ -108,5 +132,7 @@ export const useSettingsStore = defineStore('settings', () => {
     browseGameExecutable,
     autoDetectGameExecutable,
     openConfigFolder,
+    launchGame,
+    clearLaunchError,
   }
 })

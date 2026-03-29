@@ -44,6 +44,8 @@ export function GetPlaysetNames():Promise<Array<string>>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function LaunchGame():Promise<void>;
+
 export function OpenConfigFolder():Promise<void>;
 
 export function PickExecutable():Promise<string>;

@@ -10,9 +10,10 @@ import (
 )
 
 type appSettings struct {
-	ModsDir                    string `json:"mods_dir,omitempty"`
-	GameExe                    string `json:"game_exe,omitempty"`
-	LauncherActivePlaysetIndex *int   `json:"launcher_active_playset_index,omitempty"`
+	ModsDir                    string   `json:"mods_dir,omitempty"`
+	GameExe                    string   `json:"game_exe,omitempty"`
+	GameArgs                   []string `json:"game_args,omitempty"`
+	LauncherActivePlaysetIndex *int     `json:"launcher_active_playset_index,omitempty"`
 }
 
 func loadSettings(path string) (appSettings, error) {

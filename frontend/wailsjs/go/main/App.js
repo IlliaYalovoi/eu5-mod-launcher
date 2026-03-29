@@ -82,6 +82,10 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function LaunchGame() {
+  return window['go']['main']['App']['LaunchGame']();
+}
+
 export function OpenConfigFolder() {
   return window['go']['main']['App']['OpenConfigFolder']();
 }

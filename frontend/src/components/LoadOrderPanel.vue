@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import type { LauncherLayout, Mod } from '../types'
 import AutosortButton from './AutosortButton.vue'
 import CycleErrorPanel from './CycleErrorPanel.vue'
+import LaunchButton from './LaunchButton.vue'
 import { useLoadOrderStore } from '../stores/loadorder'
 import { useModsStore } from '../stores/mods'
 import BaseButton from './ui/BaseButton.vue'
@@ -378,6 +379,7 @@ function onSaveCompiled(): void {
         <p class="count">{{ activeCountLabel }}</p>
       </div>
       <div class="head-actions">
+        <LaunchButton />
         <AutosortButton />
         <BaseButton :loading="isSavingCompiled" @click="onSaveCompiled">Save to Game</BaseButton>
       </div>

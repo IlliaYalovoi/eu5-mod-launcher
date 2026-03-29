@@ -22,6 +22,7 @@ const (
 	constraintsFileName = "constraints.json"
 	settingsFileName    = "settings.json"
 	launcherLayoutFile  = "launcher_layout.json"
+	eu5SteamAppID       = "3450310"
 )
 
 // App wires Wails-exposed methods to internal business packages.
@@ -602,6 +603,60 @@ func (a *App) GetGameExe() string {
 	return a.effectiveGameExe()
 }
 
+// LaunchGame starts the configured game executable in a detached process.
+func (a *App) LaunchGame() error {
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("launch game: %w", err)
+	}
+
+	exePath := strings.TrimSpace(a.effectiveGameExe())
+	if exePath == "" {
+		return fmt.Errorf("launch game: executable path is not configured")
+	}
+
+	absExe, err := filepath.Abs(exePath)
+	if err != nil {
+		return fmt.Errorf("launch game: resolve executable path %q: %w", exePath, err)
+	}
+
+	info, err := os.Stat(absExe)
+	if err != nil {
+		return fmt.Errorf("launch game: stat executable %q: %w", absExe, err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("launch game: executable path %q is a directory", absExe)
+	}
+
+	if shouldLaunchViaSteam(absExe) {
+		steamCmd, err := buildSteamLaunchCommand(a.settings.GameArgs)
+		if err != nil {
+			logging.Warnf("launch game: steam launch unavailable, falling back to direct executable: %v", err)
+		} else if err := steamCmd.Start(); err == nil {
+			steamPID := 0
+			if steamCmd.Process != nil {
+				steamPID = steamCmd.Process.Pid
+			}
+			logging.Infof("launch game: started via steam appid=%s pid=%d", eu5SteamAppID, steamPID)
+			return nil
+		} else {
+			logging.Warnf("launch game: steam launch failed, falling back to direct executable: %v", err)
+		}
+	}
+
+	cmd := buildLaunchCommand(absExe, a.settings.GameArgs)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("launch game: start detached process %q: %w", absExe, err)
+	}
+
+	pid := 0
+	if cmd.Process != nil {
+		pid = cmd.Process.Pid
+	}
+	logging.Infof("launch game: started detached process %q pid=%d", absExe, pid)
+
+	return nil
+}
+
 // GetAutoDetectedGameExe returns autodetected EU5 executable path.
 func (a *App) GetAutoDetectedGameExe() string {
 	return a.gamePaths.GameExePath
@@ -1053,6 +1108,44 @@ func openDirectoryInOS(path string) error {
 		cmd = exec.Command("xdg-open", path)
 	}
 	return cmd.Start()
+}
+
+func buildLaunchCommand(exePath string, args []string) *exec.Cmd {
+	cmd := exec.Command(exePath, args...)
+	cmd.Dir = filepath.Dir(exePath)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	cmd.Stdin = nil
+	applyDetachedProcessAttributes(cmd)
+	return cmd
+}
+
+func shouldLaunchViaSteam(exePath string) bool {
+	if goruntime.GOOS != "windows" {
+		return false
+	}
+	normalized := strings.ToLower(filepath.ToSlash(exePath))
+	return strings.Contains(normalized, "/steamapps/common/europa universalis v/")
+}
+
+func buildSteamLaunchCommand(_ []string) (*exec.Cmd, error) {
+	switch goruntime.GOOS {
+	case "windows":
+		cmd := exec.Command("rundll32", "url.dll,FileProtocolHandler", "steam://rungameid/"+eu5SteamAppID)
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		cmd.Stdin = nil
+		applyDetachedProcessAttributes(cmd)
+		return cmd, nil
+	case "darwin":
+		cmd := exec.Command("open", "steam://rungameid/"+eu5SteamAppID)
+		applyDetachedProcessAttributes(cmd)
+		return cmd, nil
+	default:
+		cmd := exec.Command("xdg-open", "steam://rungameid/"+eu5SteamAppID)
+		applyDetachedProcessAttributes(cmd)
+		return cmd, nil
+	}
 }
 
 func uniqueIDs(ids []string) []string {
