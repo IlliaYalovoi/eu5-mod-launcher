@@ -9,6 +9,7 @@ import (
 	goruntime "runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/graph"
@@ -135,9 +136,33 @@ func (a *App) startup(ctx context.Context) {
 	a.settingsPath = filepath.Join(configDir, settingsFileName)
 	a.layoutPath = filepath.Join(configDir, launcherLayoutFile)
 
-	repoSettings, err := a.settingsRepo.Load(a.settingsPath)
-	if err != nil {
-		logging.Warnf("startup: load settings, using defaults: %v", err)
+	var (
+		repoSettings   repo.AppSettingsData
+		settingsErr    error
+		loadedGraph    *graph.Graph
+		constraintsErr error
+		repoLayout     repo.LauncherLayoutData
+		layoutLoadErr  error
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		repoSettings, settingsErr = a.settingsRepo.Load(a.settingsPath)
+	}()
+	go func() {
+		defer wg.Done()
+		loadedGraph, constraintsErr = a.constraintsRepo.Load(a.constraintsPath)
+	}()
+	go func() {
+		defer wg.Done()
+		repoLayout, layoutLoadErr = a.layoutRepo.Load(a.layoutPath)
+	}()
+	wg.Wait()
+
+	if settingsErr != nil {
+		logging.Warnf("startup: load settings, using defaults: %v", settingsErr)
 	}
 	a.settings = fromRepoSettings(repoSettings)
 
@@ -162,18 +187,19 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}
 
-	loadedGraph, err := a.constraintsRepo.Load(a.constraintsPath)
-	if err != nil {
-		logging.Warnf("startup: load constraints, using empty graph: %v", err)
+	if constraintsErr != nil {
+		logging.Warnf("startup: load constraints, using empty graph: %v", constraintsErr)
 		a.conGraph = graph.New()
 	} else {
+		if loadedGraph == nil {
+			loadedGraph = graph.New()
+		}
 		a.conGraph = loadedGraph
 	}
 	a.initConstraintsService()
 
-	repoLayout, err := a.layoutRepo.Load(a.layoutPath)
-	if err != nil {
-		logging.Warnf("startup: load launcher layout, using defaults: %v", err)
+	if layoutLoadErr != nil {
+		logging.Warnf("startup: load launcher layout, using defaults: %v", layoutLoadErr)
 		repoLayout = toRepoLayout(defaultLauncherLayout(a.loState.OrderedIDs))
 	}
 
@@ -778,30 +804,7 @@ func (a *App) reorderLauncherLayoutAfterAutosort(sorted []string) (LauncherLayou
 	for i, id := range sorted {
 		position[id] = i
 	}
-
-	sortModIDs := func(ids []string) []string {
-		out := append([]string(nil), ids...)
-		sort.Slice(out, func(i, j int) bool {
-			pi, okI := position[out[i]]
-			pj, okJ := position[out[j]]
-			if !okI {
-				pi = len(sorted) + 1_000_000
-			}
-			if !okJ {
-				pj = len(sorted) + 1_000_000
-			}
-			if pi == pj {
-				return out[i] < out[j]
-			}
-			return pi < pj
-		})
-		return out
-	}
-
-	layout.Ungrouped = sortModIDs(layout.Ungrouped)
-	for i := range layout.Categories {
-		layout.Categories[i].ModIDs = sortModIDs(layout.Categories[i].ModIDs)
-	}
+	sortLayoutModIDs(&layout, position, len(sorted))
 
 	categoryByID := map[string]LauncherCategory{}
 	for _, cat := range layout.Categories {
@@ -944,6 +947,70 @@ func (a *App) reorderLauncherLayoutAfterAutosort(sorted []string) (LauncherLayou
 
 	layout.Order = result
 	return layout, nil
+}
+
+func sortIDsByPosition(ids []string, position map[string]int, fallback int) []string {
+	out := append([]string(nil), ids...)
+	sort.Slice(out, func(i, j int) bool {
+		pi, okI := position[out[i]]
+		pj, okJ := position[out[j]]
+		if !okI {
+			pi = fallback
+		}
+		if !okJ {
+			pj = fallback
+		}
+		if pi == pj {
+			return out[i] < out[j]
+		}
+		return pi < pj
+	})
+	return out
+}
+
+func sortLayoutModIDs(layout *LauncherLayout, position map[string]int, sortedCount int) {
+	workers := goruntime.NumCPU()
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > 8 {
+		workers = 8
+	}
+	if len(layout.Categories) < 8 || workers == 1 {
+		sortLayoutModIDsSequential(layout, position, sortedCount)
+		return
+	}
+	sortLayoutModIDsConcurrent(layout, position, sortedCount, workers)
+}
+
+func sortLayoutModIDsSequential(layout *LauncherLayout, position map[string]int, sortedCount int) {
+	fallback := sortedCount + 1_000_000
+	layout.Ungrouped = sortIDsByPosition(layout.Ungrouped, position, fallback)
+	for i := range layout.Categories {
+		layout.Categories[i].ModIDs = sortIDsByPosition(layout.Categories[i].ModIDs, position, fallback)
+	}
+}
+
+func sortLayoutModIDsConcurrent(layout *LauncherLayout, position map[string]int, sortedCount, workers int) {
+	fallback := sortedCount + 1_000_000
+	layout.Ungrouped = sortIDsByPosition(layout.Ungrouped, position, fallback)
+
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				layout.Categories[idx].ModIDs = sortIDsByPosition(layout.Categories[idx].ModIDs, position, fallback)
+			}
+		}()
+	}
+	for i := range layout.Categories {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
 }
 
 func toRepoSettings(settings appSettings) repo.AppSettingsData {
