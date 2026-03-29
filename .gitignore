@@ -34,4 +34,4 @@ go.work.sum
 build/bin
 node_modules
 frontend/dist
-!/.idea/
+frontend/package.json.md5

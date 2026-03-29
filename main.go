@@ -2,6 +2,9 @@ package main
 
 import (
 	"embed"
+	"fmt"
+
+	"eu5-mod-launcher/internal/logging"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -31,6 +34,6 @@ func main() {
 	})
 
 	if err != nil {
-		println("Error:", err.Error())
+		logging.Errorf("wails run failed: %v", fmt.Errorf("run wails app: %w", err))
 	}
 }
