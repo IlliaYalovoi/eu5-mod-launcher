@@ -5,16 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"sort"
 	"strings"
 
+	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/loadorder"
 	"eu5-mod-launcher/internal/logging"
 	"eu5-mod-launcher/internal/mods"
+	"eu5-mod-launcher/internal/repo"
+	"eu5-mod-launcher/internal/service"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -35,9 +37,20 @@ type App struct {
 	launcherIndex   int
 	modPathByID     map[string]string
 	launcherLayout  LauncherLayout
+	modsService     *service.ModsService
+	loadorderSvc    *service.LoadOrderService
+	settingsSvc     *service.SettingsService
+	layoutSvc       *service.LayoutService[LauncherLayout]
+	launchSvc       *service.LaunchService
+	playsetSvc      *service.PlaysetService
+	constraintsRepo repo.ConstraintsRepository
+	playsetRepo     repo.PlaysetRepository
+	settingsRepo    repo.SettingsRepository
+	layoutRepo      repo.LayoutRepository
 	loStore         *loadorder.Store
 	loState         loadorder.State
 	conGraph        *graph.Graph
+	conService      *service.ConstraintsService
 	constraintsPath string
 	settingsPath    string
 	layoutPath      string
@@ -54,7 +67,7 @@ type ModsDirStatus struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{
+	app := &App{
 		loState:         loadorder.State{OrderedIDs: []string{}},
 		conGraph:        graph.New(),
 		modPathByID:     map[string]string{},
@@ -63,6 +76,27 @@ func NewApp() *App {
 		gameActiveIndex: -1,
 		launcherIndex:   -1,
 	}
+	app.initCoreServices()
+	return app
+}
+
+func (a *App) initCoreServices() {
+	a.constraintsRepo = repo.NewFileConstraintsRepository()
+	a.playsetRepo = repo.NewFilePlaysetRepository()
+	a.settingsRepo = repo.NewFileSettingsRepository()
+	a.layoutRepo = repo.NewFileLayoutRepository()
+
+	a.modsService = service.NewModsService()
+	a.loadorderSvc = service.NewLoadOrderService()
+	a.settingsSvc = service.NewSettingsService()
+	a.launchSvc = service.NewLaunchService()
+	a.playsetSvc = service.NewPlaysetService(a.playsetRepo)
+	a.layoutSvc = service.NewLayoutService(normalizeLauncherLayout, func(layout LauncherLayout) error {
+		if strings.TrimSpace(a.layoutPath) == "" {
+			return nil
+		}
+		return a.layoutRepo.Save(a.layoutPath, toRepoLayout(layout))
+	})
 }
 
 // startup is called when the app starts. The context is saved
@@ -101,22 +135,22 @@ func (a *App) startup(ctx context.Context) {
 	a.settingsPath = filepath.Join(configDir, settingsFileName)
 	a.layoutPath = filepath.Join(configDir, launcherLayoutFile)
 
-	settings, err := loadSettings(a.settingsPath)
+	repoSettings, err := a.settingsRepo.Load(a.settingsPath)
 	if err != nil {
 		logging.Warnf("startup: load settings, using defaults: %v", err)
 	}
-	a.settings = settings
+	a.settings = fromRepoSettings(repoSettings)
 
 	if a.gamePaths.PlaysetsPath != "" {
-		playsetNames, gameActiveIndex, err := loadorder.ListPlaysets(a.gamePaths.PlaysetsPath)
+		playsetNames, gameActiveIndex, err := a.playsetSvc.List(a.gamePaths.PlaysetsPath)
 		if err != nil {
 			logging.Warnf("startup: read playset list: %v", err)
 		} else {
 			a.playsetNames = playsetNames
 			a.gameActiveIndex = gameActiveIndex
-			a.launcherIndex = resolveLauncherPlaysetIndex(len(playsetNames), gameActiveIndex, a.settings.LauncherActivePlaysetIndex)
+			a.launcherIndex = a.playsetSvc.ResolveLauncherIndex(len(playsetNames), gameActiveIndex, a.settings.LauncherActivePlaysetIndex)
 
-			playsetState, pathByID, loadErr := loadorder.LoadStateFromPlaysets(a.gamePaths.PlaysetsPath, a.launcherIndex)
+			playsetState, pathByID, loadErr := a.playsetSvc.Load(a.gamePaths.PlaysetsPath, a.launcherIndex)
 			if loadErr != nil {
 				logging.Warnf("startup: load selected playset state, using fallback state: %v", loadErr)
 			} else {
@@ -128,23 +162,25 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}
 
-	loadedGraph, err := graph.LoadConstraints(a.constraintsPath)
+	loadedGraph, err := a.constraintsRepo.Load(a.constraintsPath)
 	if err != nil {
 		logging.Warnf("startup: load constraints, using empty graph: %v", err)
 		a.conGraph = graph.New()
 	} else {
 		a.conGraph = loadedGraph
 	}
+	a.initConstraintsService()
 
-	storedLayout, err := loadLauncherLayout(a.layoutPath)
+	repoLayout, err := a.layoutRepo.Load(a.layoutPath)
 	if err != nil {
 		logging.Warnf("startup: load launcher layout, using defaults: %v", err)
-		storedLayout = defaultLauncherLayout(a.loState.OrderedIDs)
+		repoLayout = toRepoLayout(defaultLauncherLayout(a.loState.OrderedIDs))
 	}
 
-	a.launcherLayout = normalizeLauncherLayout(storedLayout, a.loState.OrderedIDs)
-	if err := saveLauncherLayout(a.layoutPath, a.launcherLayout); err != nil {
-		logging.Warnf("startup: persist normalized launcher layout: %v", err)
+	nextLayout, layoutErr := a.layoutSvc.Persist(fromRepoLayout(repoLayout), a.loState.OrderedIDs)
+	a.launcherLayout = nextLayout
+	if layoutErr != nil {
+		logging.Warnf("startup: persist normalized launcher layout: %v", layoutErr)
 	}
 
 	logging.Infof(
@@ -169,22 +205,12 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 	scanRoots = append(scanRoots, a.effectiveModsDir())
 	scanRoots = append(scanRoots, a.gamePaths.WorkshopModDirs...)
 
-	allMods, err := mods.ScanDirs(scanRoots)
+	allMods, nextPaths, err := a.modsService.Discover(scanRoots, a.loState.OrderedIDs, a.modPathByID)
 	if err != nil {
 		logging.Errorf("mods scan failed for roots %q: %v", scanRoots, err)
-		return nil, fmt.Errorf("scan mods roots %q: %w", scanRoots, err)
+		return nil, fmt.Errorf("get all mods: %w", err)
 	}
-
-	enabled := make(map[string]struct{}, len(a.loState.OrderedIDs))
-	for _, id := range a.loState.OrderedIDs {
-		enabled[id] = struct{}{}
-	}
-
-	for i := range allMods {
-		a.modPathByID[allMods[i].ID] = allMods[i].DirPath
-		_, ok := enabled[allMods[i].ID]
-		allMods[i].Enabled = ok
-	}
+	a.modPathByID = nextPaths
 
 	return allMods, nil
 }
@@ -205,22 +231,27 @@ func (a *App) SetLoadOrder(ids []string) error {
 		return fmt.Errorf("set load order: %w", err)
 	}
 
-	next := uniqueIDs(ids)
+	next, err := a.loadorderSvc.ValidateAndNormalize(ids)
+	if err != nil {
+		return fmt.Errorf("set load order: %w", err)
+	}
 	newState := loadorder.State{OrderedIDs: next}
 	if err := a.loStore.Save(newState); err != nil {
 		return fmt.Errorf("save fallback load order: %w", err)
 	}
 
 	if a.gamePaths.PlaysetsPath != "" {
-		if err := loadorder.SaveStateToPlaysets(a.gamePaths.PlaysetsPath, a.launcherIndex, newState, a.modPathByID); err != nil {
+		if err := a.playsetSvc.Save(a.gamePaths.PlaysetsPath, a.launcherIndex, newState, a.modPathByID); err != nil {
 			return fmt.Errorf("save load order to playsets %q: %w", a.gamePaths.PlaysetsPath, err)
 		}
 	}
 
 	a.loState = newState
-	a.launcherLayout = normalizeLauncherLayout(a.launcherLayout, a.loState.OrderedIDs)
-	if err := saveLauncherLayout(a.layoutPath, a.launcherLayout); err != nil {
+	nextLayout, err := a.layoutSvc.Persist(a.launcherLayout, a.loState.OrderedIDs)
+	if err != nil {
 		logging.Warnf("set load order: failed to save launcher layout: %v", err)
+	} else {
+		a.launcherLayout = nextLayout
 	}
 	return nil
 }
@@ -231,21 +262,9 @@ func (a *App) SetModEnabled(id string, enabled bool) error {
 		return fmt.Errorf("set mod enabled for %q: %w", id, err)
 	}
 
-	next := append([]string(nil), a.loState.OrderedIDs...)
-	index := -1
-	for i, current := range next {
-		if current == id {
-			index = i
-			break
-		}
-	}
-
-	if enabled {
-		if index < 0 {
-			next = append(next, id)
-		}
-	} else if index >= 0 {
-		next = append(next[:index], next[index+1:]...)
+	next, err := a.loadorderSvc.ToggleEnabled(a.loState.OrderedIDs, id, enabled)
+	if err != nil {
+		return fmt.Errorf("set mod enabled for %q: %w", id, err)
 	}
 
 	return a.SetLoadOrder(next)
@@ -257,7 +276,7 @@ func (a *App) GetConstraints() []graph.Constraint {
 		logging.Errorf("GetConstraints called before initialization: %v", err)
 		return []graph.Constraint{}
 	}
-	return a.conGraph.All()
+	return a.conService.All()
 }
 
 // AddConstraint adds and persists a loads-after relationship.
@@ -265,43 +284,9 @@ func (a *App) AddConstraint(from, to string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("add constraint %q -> %q: %w", from, to, err)
 	}
-	fromCategory := isCategoryID(from)
-	toCategory := isCategoryID(to)
-	if fromCategory != toCategory {
-		return fmt.Errorf("add constraint %q -> %q: categories can only constrain categories, and mods can only constrain mods", from, to)
+	if err := a.conService.AddConstraint(from, to); err != nil {
+		return fmt.Errorf("add constraint %q -> %q: %w", from, to, err)
 	}
-
-	if fromCategory {
-		if err := a.addAfterConstraintSingle(from, to); err != nil {
-			return fmt.Errorf("add category constraint %q -> %q: %w", from, to, err)
-		}
-		if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-			return fmt.Errorf("save constraints after add %q -> %q: %w", from, to, err)
-		}
-		return nil
-	}
-
-	fromIDs := a.expandConstraintTarget(from)
-	toIDs := a.expandConstraintTarget(to)
-	if len(fromIDs) == 0 || len(toIDs) == 0 {
-		return fmt.Errorf("add constraint %q -> %q: no mods resolved from target", from, to)
-	}
-
-	for _, fromID := range fromIDs {
-		for _, toID := range toIDs {
-			if fromID == toID {
-				continue
-			}
-			if err := a.addAfterConstraintSingle(fromID, toID); err != nil {
-				return fmt.Errorf("add constraint %q -> %q expanded as %q -> %q: %w", from, to, fromID, toID, err)
-			}
-		}
-	}
-
-	if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-		return fmt.Errorf("save constraints after add %q -> %q: %w", from, to, err)
-	}
-
 	return nil
 }
 
@@ -310,40 +295,9 @@ func (a *App) AddLoadFirst(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("add load-first %q: %w", modID, err)
 	}
-	if modID == "" {
-		return fmt.Errorf("add load-first: mod id must not be empty")
+	if err := a.conService.AddLoadFirst(modID); err != nil {
+		return fmt.Errorf("add load-first %q: %w", modID, err)
 	}
-	if isCategoryID(modID) {
-		if a.conGraph.HasLast(modID) {
-			return fmt.Errorf("add load-first %q: conflict: target is already marked load last", modID)
-		}
-		if a.conGraph.HasOutgoingAfter(modID) {
-			return fmt.Errorf("add load-first %q: conflict: target has 'loads after' dependencies", modID)
-		}
-		a.conGraph.AddFirst(modID)
-		if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-			return fmt.Errorf("save constraints after add load-first %q: %w", modID, err)
-		}
-		return nil
-	}
-	targets := a.expandConstraintTarget(modID)
-	if len(targets) == 0 {
-		return fmt.Errorf("add load-first %q: no mods resolved from target", modID)
-	}
-	for _, target := range targets {
-		if a.conGraph.HasLast(target) {
-			return fmt.Errorf("add load-first %q: conflict: mod %q is already marked load last", modID, target)
-		}
-		if a.conGraph.HasOutgoingAfter(target) {
-			return fmt.Errorf("add load-first %q: conflict: mod %q has 'loads after' dependencies", modID, target)
-		}
-		a.conGraph.AddFirst(target)
-	}
-
-	if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-		return fmt.Errorf("save constraints after add load-first %q: %w", modID, err)
-	}
-
 	return nil
 }
 
@@ -352,40 +306,9 @@ func (a *App) AddLoadLast(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("add load-last %q: %w", modID, err)
 	}
-	if modID == "" {
-		return fmt.Errorf("add load-last: mod id must not be empty")
+	if err := a.conService.AddLoadLast(modID); err != nil {
+		return fmt.Errorf("add load-last %q: %w", modID, err)
 	}
-	if isCategoryID(modID) {
-		if a.conGraph.HasFirst(modID) {
-			return fmt.Errorf("add load-last %q: conflict: target is already marked load first", modID)
-		}
-		if a.conGraph.HasIncomingAfter(modID) {
-			return fmt.Errorf("add load-last %q: conflict: target has incoming constraints", modID)
-		}
-		a.conGraph.AddLast(modID)
-		if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-			return fmt.Errorf("save constraints after add load-last %q: %w", modID, err)
-		}
-		return nil
-	}
-	targets := a.expandConstraintTarget(modID)
-	if len(targets) == 0 {
-		return fmt.Errorf("add load-last %q: no mods resolved from target", modID)
-	}
-	for _, target := range targets {
-		if a.conGraph.HasFirst(target) {
-			return fmt.Errorf("add load-last %q: conflict: mod %q is already marked load first", modID, target)
-		}
-		if a.conGraph.HasIncomingAfter(target) {
-			return fmt.Errorf("add load-last %q: conflict: mod %q has incoming constraints", modID, target)
-		}
-		a.conGraph.AddLast(target)
-	}
-
-	if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-		return fmt.Errorf("save constraints after add load-last %q: %w", modID, err)
-	}
-
 	return nil
 }
 
@@ -394,29 +317,9 @@ func (a *App) RemoveConstraint(from, to string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("remove constraint %q -> %q: %w", from, to, err)
 	}
-	fromCategory := isCategoryID(from)
-	toCategory := isCategoryID(to)
-	if fromCategory != toCategory {
-		return fmt.Errorf("remove constraint %q -> %q: categories can only constrain categories, and mods can only constrain mods", from, to)
+	if err := a.conService.RemoveConstraint(from, to); err != nil {
+		return fmt.Errorf("remove constraint %q -> %q: %w", from, to, err)
 	}
-	if fromCategory {
-		a.conGraph.Remove(from, to)
-		if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-			return fmt.Errorf("save constraints after remove %q -> %q: %w", from, to, err)
-		}
-		return nil
-	}
-	fromIDs := a.expandConstraintTarget(from)
-	toIDs := a.expandConstraintTarget(to)
-	for _, fromID := range fromIDs {
-		for _, toID := range toIDs {
-			a.conGraph.Remove(fromID, toID)
-		}
-	}
-	if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-		return fmt.Errorf("save constraints after remove %q -> %q: %w", from, to, err)
-	}
-
 	return nil
 }
 
@@ -425,21 +328,9 @@ func (a *App) RemoveLoadFirst(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("remove load-first %q: %w", modID, err)
 	}
-	if isCategoryID(modID) {
-		a.conGraph.RemoveFirst(modID)
-		if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-			return fmt.Errorf("save constraints after remove load-first %q: %w", modID, err)
-		}
-		return nil
+	if err := a.conService.RemoveLoadFirst(modID); err != nil {
+		return fmt.Errorf("remove load-first %q: %w", modID, err)
 	}
-
-	for _, target := range a.expandConstraintTarget(modID) {
-		a.conGraph.RemoveFirst(target)
-	}
-	if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-		return fmt.Errorf("save constraints after remove load-first %q: %w", modID, err)
-	}
-
 	return nil
 }
 
@@ -448,19 +339,8 @@ func (a *App) RemoveLoadLast(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("remove load-last %q: %w", modID, err)
 	}
-	if isCategoryID(modID) {
-		a.conGraph.RemoveLast(modID)
-		if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-			return fmt.Errorf("save constraints after remove load-last %q: %w", modID, err)
-		}
-		return nil
-	}
-
-	for _, target := range a.expandConstraintTarget(modID) {
-		a.conGraph.RemoveLast(target)
-	}
-	if err := graph.SaveConstraints(a.constraintsPath, a.conGraph); err != nil {
-		return fmt.Errorf("save constraints after remove load-last %q: %w", modID, err)
+	if err := a.conService.RemoveLoadLast(modID); err != nil {
+		return fmt.Errorf("remove load-last %q: %w", modID, err)
 	}
 
 	return nil
@@ -471,6 +351,8 @@ func (a *App) Autosort() ([]string, error) {
 	if err := a.ensureReady(); err != nil {
 		return nil, fmt.Errorf("autosort: %w", err)
 	}
+	previousOrder := append([]string(nil), a.loState.OrderedIDs...)
+	previousLayout := a.launcherLayout
 
 	sorted, err := a.conGraph.Sort(a.loState.OrderedIDs)
 	if err != nil {
@@ -483,10 +365,18 @@ func (a *App) Autosort() ([]string, error) {
 
 	nextLayout, err := a.reorderLauncherLayoutAfterAutosort(sorted)
 	if err != nil {
+		if rollbackErr := a.SetLoadOrder(previousOrder); rollbackErr != nil {
+			logging.Errorf("autosort rollback failed after category-sort error: %v", rollbackErr)
+		}
+		a.launcherLayout = previousLayout
 		return nil, fmt.Errorf("sort category constraints: %w", err)
 	}
 	a.launcherLayout = nextLayout
-	if err := saveLauncherLayout(a.layoutPath, a.launcherLayout); err != nil {
+	if err := a.layoutRepo.Save(a.layoutPath, toRepoLayout(a.launcherLayout)); err != nil {
+		if rollbackErr := a.SetLoadOrder(previousOrder); rollbackErr != nil {
+			logging.Errorf("autosort rollback failed after layout save error: %v", rollbackErr)
+		}
+		a.launcherLayout = previousLayout
 		return nil, fmt.Errorf("save launcher layout after autosort: %w", err)
 	}
 
@@ -495,7 +385,7 @@ func (a *App) Autosort() ([]string, error) {
 
 // GetLauncherLayout returns the launcher-only categorized ordering model.
 func (a *App) GetLauncherLayout() LauncherLayout {
-	a.launcherLayout = normalizeLauncherLayout(a.launcherLayout, a.loState.OrderedIDs)
+	a.launcherLayout = a.layoutSvc.Normalize(a.launcherLayout, a.loState.OrderedIDs)
 	return a.launcherLayout
 }
 
@@ -505,10 +395,11 @@ func (a *App) SetLauncherLayout(layout LauncherLayout) error {
 		return fmt.Errorf("set launcher layout: %w", err)
 	}
 
-	a.launcherLayout = normalizeLauncherLayout(layout, a.loState.OrderedIDs)
-	if err := saveLauncherLayout(a.layoutPath, a.launcherLayout); err != nil {
+	next, err := a.layoutSvc.Persist(layout, a.loState.OrderedIDs)
+	if err != nil {
 		return fmt.Errorf("save launcher layout: %w", err)
 	}
+	a.launcherLayout = next
 
 	return nil
 }
@@ -526,11 +417,11 @@ func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
 
 	created := LauncherCategory{ID: generateCategoryID(trimmed), Name: trimmed, ModIDs: []string{}}
 	a.launcherLayout.Categories = append(a.launcherLayout.Categories, created)
-	a.launcherLayout = normalizeLauncherLayout(a.launcherLayout, a.loState.OrderedIDs)
-
-	if err := saveLauncherLayout(a.layoutPath, a.launcherLayout); err != nil {
+	next, err := a.layoutSvc.Persist(a.launcherLayout, a.loState.OrderedIDs)
+	if err != nil {
 		return LauncherCategory{}, fmt.Errorf("save launcher layout after category create: %w", err)
 	}
+	a.launcherLayout = next
 
 	return created, nil
 }
@@ -538,6 +429,9 @@ func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
 // DeleteLauncherCategory removes a category and returns its mods to ungrouped section.
 func (a *App) DeleteLauncherCategory(categoryID string) error {
 	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("delete launcher category %q: %w", categoryID, err)
+	}
+	if _, err := domain.ParseCategoryID(categoryID); err != nil {
 		return fmt.Errorf("delete launcher category %q: %w", categoryID, err)
 	}
 
@@ -551,10 +445,11 @@ func (a *App) DeleteLauncherCategory(categoryID string) error {
 		next.Categories = append(next.Categories, cat)
 	}
 
-	a.launcherLayout = normalizeLauncherLayout(next, a.loState.OrderedIDs)
-	if err := saveLauncherLayout(a.layoutPath, a.launcherLayout); err != nil {
+	normalized, err := a.layoutSvc.Persist(next, a.loState.OrderedIDs)
+	if err != nil {
 		return fmt.Errorf("save launcher layout after category delete %q: %w", categoryID, err)
 	}
+	a.launcherLayout = normalized
 
 	return nil
 }
@@ -565,7 +460,7 @@ func (a *App) SaveCompiledLoadOrder() ([]string, error) {
 		return nil, fmt.Errorf("save compiled load order: %w", err)
 	}
 
-	a.launcherLayout = normalizeLauncherLayout(a.launcherLayout, a.loState.OrderedIDs)
+	a.launcherLayout = a.layoutSvc.Normalize(a.launcherLayout, a.loState.OrderedIDs)
 	compiled := compileLauncherLayout(a.launcherLayout)
 	if err := a.SetLoadOrder(compiled); err != nil {
 		return nil, fmt.Errorf("persist compiled load order: %w", err)
@@ -609,26 +504,13 @@ func (a *App) LaunchGame() error {
 		return fmt.Errorf("launch game: %w", err)
 	}
 
-	exePath := strings.TrimSpace(a.effectiveGameExe())
-	if exePath == "" {
-		return fmt.Errorf("launch game: executable path is not configured")
-	}
-
-	absExe, err := filepath.Abs(exePath)
+	absExe, err := a.launchSvc.ValidateExecutable(strings.TrimSpace(a.effectiveGameExe()))
 	if err != nil {
-		return fmt.Errorf("launch game: resolve executable path %q: %w", exePath, err)
+		return fmt.Errorf("launch game: %w", err)
 	}
 
-	info, err := os.Stat(absExe)
-	if err != nil {
-		return fmt.Errorf("launch game: stat executable %q: %w", absExe, err)
-	}
-	if info.IsDir() {
-		return fmt.Errorf("launch game: executable path %q is a directory", absExe)
-	}
-
-	if shouldLaunchViaSteam(absExe) {
-		steamCmd, err := buildSteamLaunchCommand(a.settings.GameArgs)
+	if a.settingsSvc.ShouldLaunchViaSteam(goruntime.GOOS, absExe) {
+		steamCmd, err := a.launchSvc.BuildSteamLaunchCommand(goruntime.GOOS, eu5SteamAppID)
 		if err != nil {
 			logging.Warnf("launch game: steam launch unavailable, falling back to direct executable: %v", err)
 		} else if err := steamCmd.Start(); err == nil {
@@ -643,7 +525,7 @@ func (a *App) LaunchGame() error {
 		}
 	}
 
-	cmd := buildLaunchCommand(absExe, a.settings.GameArgs)
+	cmd := a.launchSvc.BuildLaunchCommand(absExe, a.settings.GameArgs)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("launch game: start detached process %q: %w", absExe, err)
 	}
@@ -668,23 +550,13 @@ func (a *App) SetGameExe(path string) error {
 		return fmt.Errorf("set game executable: %w", err)
 	}
 
-	clean := strings.TrimSpace(path)
-	if clean != "" {
-		abs, err := filepath.Abs(clean)
-		if err != nil {
-			return fmt.Errorf("resolve game executable %q: %w", clean, err)
-		}
-		if !strings.EqualFold(filepath.Ext(abs), ".exe") {
-			return fmt.Errorf("game executable %q must be an .exe file", abs)
-		}
-		if _, err := os.Stat(abs); err != nil {
-			return fmt.Errorf("game executable %q not accessible: %w", abs, err)
-		}
-		clean = abs
+	clean, err := a.settingsSvc.NormalizeGameExe(path)
+	if err != nil {
+		return fmt.Errorf("set game executable: %w", err)
 	}
 
 	a.settings.GameExe = clean
-	if err := saveSettings(a.settingsPath, a.settings); err != nil {
+	if err := a.settingsRepo.Save(a.settingsPath, toRepoSettings(a.settings)); err != nil {
 		return fmt.Errorf("save settings with game executable: %w", err)
 	}
 
@@ -707,7 +579,7 @@ func (a *App) GetConfigPath() string {
 // OpenConfigFolder asks OS to open settings directory.
 func (a *App) OpenConfigFolder() error {
 	dir := filepath.Dir(a.settingsPath)
-	if err := openDirectoryInOS(dir); err != nil {
+	if err := a.launchSvc.OpenDirectory(goruntime.GOOS, dir); err != nil {
 		return fmt.Errorf("open config folder %q: %w", dir, err)
 	}
 	return nil
@@ -771,11 +643,14 @@ func (a *App) SetLauncherActivePlaysetIndex(index int) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("set launcher active playset index %d: %w", index, err)
 	}
-	if index < 0 || index >= len(a.playsetNames) {
-		return fmt.Errorf("playset index %d is out of range", index)
+	if _, err := domain.ParsePlaysetIndex(index); err != nil {
+		return fmt.Errorf("set launcher active playset index %d: %w", index, err)
+	}
+	if err := a.playsetSvc.ValidateIndex(index, len(a.playsetNames)); err != nil {
+		return fmt.Errorf("set launcher active playset index %d: %w", index, err)
 	}
 
-	playsetState, pathByID, err := loadorder.LoadStateFromPlaysets(a.gamePaths.PlaysetsPath, index)
+	playsetState, pathByID, err := a.playsetSvc.Load(a.gamePaths.PlaysetsPath, index)
 	if err != nil {
 		return fmt.Errorf("load playset at index %d: %w", index, err)
 	}
@@ -792,7 +667,7 @@ func (a *App) SetLauncherActivePlaysetIndex(index int) error {
 
 	selectedIndex := index
 	a.settings.LauncherActivePlaysetIndex = &selectedIndex
-	if err := saveSettings(a.settingsPath, a.settings); err != nil {
+	if err := a.settingsRepo.Save(a.settingsPath, toRepoSettings(a.settings)); err != nil {
 		return fmt.Errorf("persist launcher active playset %d: %w", index, err)
 	}
 
@@ -805,21 +680,13 @@ func (a *App) SetModsDir(path string) error {
 		return fmt.Errorf("set mods dir: %w", err)
 	}
 
-	clean := strings.TrimSpace(path)
-	if clean == "" {
-		a.settings.ModsDir = ""
-	} else {
-		abs, err := filepath.Abs(clean)
-		if err != nil {
-			return fmt.Errorf("resolve mods dir %q: %w", clean, err)
-		}
-		if !dirExists(abs) {
-			return fmt.Errorf("mods dir %q does not exist", abs)
-		}
-		a.settings.ModsDir = abs
+	clean, err := a.settingsSvc.NormalizeModsDir(path)
+	if err != nil {
+		return fmt.Errorf("set mods dir: %w", err)
 	}
+	a.settings.ModsDir = clean
 
-	if err := saveSettings(a.settingsPath, a.settings); err != nil {
+	if err := a.settingsRepo.Save(a.settingsPath, toRepoSettings(a.settings)); err != nil {
 		return fmt.Errorf("save settings with mods dir: %w", err)
 	}
 
@@ -856,35 +723,28 @@ func (a *App) ensureReady() error {
 	if a.layoutPath == "" && a.loStore != nil {
 		a.layoutPath = filepath.Join(filepath.Dir(a.loStore.ConfigPath()), launcherLayoutFile)
 	}
+	if a.modsService == nil || a.loadorderSvc == nil || a.settingsSvc == nil || a.layoutSvc == nil {
+		a.initCoreServices()
+	}
+	if a.conService == nil {
+		a.initConstraintsService()
+	}
 	return nil
+}
+
+func (a *App) initConstraintsService() {
+	if a.conGraph == nil {
+		a.conGraph = graph.New()
+	}
+	a.conService = service.NewConstraintsService(a.conGraph, a.constraintsPath, a.constraintsRepo, a.expandConstraintTarget, isCategoryID)
 }
 
 func (a *App) effectiveModsDir() string {
-	if strings.TrimSpace(a.settings.ModsDir) != "" {
-		return a.settings.ModsDir
-	}
-	return a.gamePaths.LocalModsDir
+	return a.settingsSvc.EffectivePath(a.settings.ModsDir, a.gamePaths.LocalModsDir)
 }
 
 func (a *App) effectiveGameExe() string {
-	if strings.TrimSpace(a.settings.GameExe) != "" {
-		return a.settings.GameExe
-	}
-	return a.gamePaths.GameExePath
-}
-
-func (a *App) addAfterConstraintSingle(from, to string) error {
-	if from == to {
-		return fmt.Errorf("source and target must differ")
-	}
-	if a.conGraph.HasFirst(from) {
-		return fmt.Errorf("conflict: %q is marked load first", from)
-	}
-	if a.conGraph.HasLast(to) {
-		return fmt.Errorf("conflict: %q is marked load last", to)
-	}
-	a.conGraph.Add(from, to)
-	return nil
+	return a.settingsSvc.EffectivePath(a.settings.GameExe, a.gamePaths.GameExePath)
 }
 
 func (a *App) expandConstraintTarget(target string) []string {
@@ -1086,6 +946,58 @@ func (a *App) reorderLauncherLayoutAfterAutosort(sorted []string) (LauncherLayou
 	return layout, nil
 }
 
+func toRepoSettings(settings appSettings) repo.AppSettingsData {
+	return repo.AppSettingsData{
+		ModsDir:                    settings.ModsDir,
+		GameExe:                    settings.GameExe,
+		GameArgs:                   append([]string(nil), settings.GameArgs...),
+		LauncherActivePlaysetIndex: settings.LauncherActivePlaysetIndex,
+	}
+}
+
+func fromRepoSettings(settings repo.AppSettingsData) appSettings {
+	return appSettings{
+		ModsDir:                    settings.ModsDir,
+		GameExe:                    settings.GameExe,
+		GameArgs:                   append([]string(nil), settings.GameArgs...),
+		LauncherActivePlaysetIndex: settings.LauncherActivePlaysetIndex,
+	}
+}
+
+func toRepoLayout(layout LauncherLayout) repo.LauncherLayoutData {
+	categories := make([]repo.LauncherCategoryData, 0, len(layout.Categories))
+	for _, category := range layout.Categories {
+		categories = append(categories, repo.LauncherCategoryData{ID: category.ID, Name: category.Name, ModIDs: append([]string(nil), category.ModIDs...)})
+	}
+	collapsed := map[string]bool{}
+	for id, value := range layout.Collapsed {
+		collapsed[id] = value
+	}
+	return repo.LauncherLayoutData{
+		Ungrouped:  append([]string(nil), layout.Ungrouped...),
+		Categories: categories,
+		Order:      append([]string(nil), layout.Order...),
+		Collapsed:  collapsed,
+	}
+}
+
+func fromRepoLayout(layout repo.LauncherLayoutData) LauncherLayout {
+	categories := make([]LauncherCategory, 0, len(layout.Categories))
+	for _, category := range layout.Categories {
+		categories = append(categories, LauncherCategory{ID: category.ID, Name: category.Name, ModIDs: append([]string(nil), category.ModIDs...)})
+	}
+	collapsed := map[string]bool{}
+	for id, value := range layout.Collapsed {
+		collapsed[id] = value
+	}
+	return LauncherLayout{
+		Ungrouped:  append([]string(nil), layout.Ungrouped...),
+		Categories: categories,
+		Order:      append([]string(nil), layout.Order...),
+		Collapsed:  collapsed,
+	}
+}
+
 func dirExists(path string) bool {
 	if strings.TrimSpace(path) == "" {
 		return false
@@ -1095,86 +1007,6 @@ func dirExists(path string) bool {
 		return false
 	}
 	return info.IsDir()
-}
-
-func openDirectoryInOS(path string) error {
-	var cmd *exec.Cmd
-	switch goruntime.GOOS {
-	case "windows":
-		cmd = exec.Command("explorer", path)
-	case "darwin":
-		cmd = exec.Command("open", path)
-	default:
-		cmd = exec.Command("xdg-open", path)
-	}
-	return cmd.Start()
-}
-
-func buildLaunchCommand(exePath string, args []string) *exec.Cmd {
-	cmd := exec.Command(exePath, args...)
-	cmd.Dir = filepath.Dir(exePath)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	cmd.Stdin = nil
-	applyDetachedProcessAttributes(cmd)
-	return cmd
-}
-
-func shouldLaunchViaSteam(exePath string) bool {
-	if goruntime.GOOS != "windows" {
-		return false
-	}
-	normalized := strings.ToLower(filepath.ToSlash(exePath))
-	return strings.Contains(normalized, "/steamapps/common/europa universalis v/")
-}
-
-func buildSteamLaunchCommand(_ []string) (*exec.Cmd, error) {
-	switch goruntime.GOOS {
-	case "windows":
-		cmd := exec.Command("rundll32", "url.dll,FileProtocolHandler", "steam://rungameid/"+eu5SteamAppID)
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-		cmd.Stdin = nil
-		applyDetachedProcessAttributes(cmd)
-		return cmd, nil
-	case "darwin":
-		cmd := exec.Command("open", "steam://rungameid/"+eu5SteamAppID)
-		applyDetachedProcessAttributes(cmd)
-		return cmd, nil
-	default:
-		cmd := exec.Command("xdg-open", "steam://rungameid/"+eu5SteamAppID)
-		applyDetachedProcessAttributes(cmd)
-		return cmd, nil
-	}
-}
-
-func uniqueIDs(ids []string) []string {
-	seen := make(map[string]struct{}, len(ids))
-	out := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if id == "" {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
-}
-
-func resolveLauncherPlaysetIndex(total int, gameActiveIndex int, preferred *int) int {
-	if total <= 0 {
-		return -1
-	}
-	if preferred != nil && *preferred >= 0 && *preferred < total {
-		return *preferred
-	}
-	if gameActiveIndex >= 0 && gameActiveIndex < total {
-		return gameActiveIndex
-	}
-	return 0
 }
 
 // Greet keeps the template method available for quick binding checks.

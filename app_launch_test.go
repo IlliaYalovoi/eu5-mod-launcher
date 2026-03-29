@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"eu5-mod-launcher/internal/loadorder"
+	"eu5-mod-launcher/internal/service"
 )
 
 func newReadyAppForLaunchTest(t *testing.T) *App {
@@ -62,31 +63,33 @@ func TestLaunchGame_InvalidExecutablePath(t *testing.T) {
 func TestBuildLaunchCommand(t *testing.T) {
 	exe := filepath.Join(t.TempDir(), "eu5.exe")
 	args := []string{"--foo", "bar"}
+	svc := service.NewLaunchService()
 
-	cmd := buildLaunchCommand(exe, args)
+	cmd := svc.BuildLaunchCommand(exe, args)
 	if cmd == nil {
-		t.Fatalf("buildLaunchCommand() returned nil command")
+		t.Fatalf("BuildLaunchCommand() returned nil command")
 	}
 	if cmd.Path != exe {
-		t.Fatalf("buildLaunchCommand().Path = %q, want %q", cmd.Path, exe)
+		t.Fatalf("BuildLaunchCommand().Path = %q, want %q", cmd.Path, exe)
 	}
 	if len(cmd.Args) != 3 {
-		t.Fatalf("buildLaunchCommand().Args len = %d, want 3", len(cmd.Args))
+		t.Fatalf("BuildLaunchCommand().Args len = %d, want 3", len(cmd.Args))
 	}
 	if cmd.Args[0] != exe || cmd.Args[1] != "--foo" || cmd.Args[2] != "bar" {
-		t.Fatalf("buildLaunchCommand().Args = %v", cmd.Args)
+		t.Fatalf("BuildLaunchCommand().Args = %v", cmd.Args)
 	}
 	if cmd.Dir != filepath.Dir(exe) {
-		t.Fatalf("buildLaunchCommand().Dir = %q, want %q", cmd.Dir, filepath.Dir(exe))
+		t.Fatalf("BuildLaunchCommand().Dir = %q, want %q", cmd.Dir, filepath.Dir(exe))
 	}
 	if cmd.SysProcAttr == nil {
-		t.Fatalf("buildLaunchCommand().SysProcAttr = nil, want detached attrs")
+		t.Fatalf("BuildLaunchCommand().SysProcAttr = nil, want detached attrs")
 	}
 }
 
 func TestShouldLaunchViaSteam(t *testing.T) {
 	steamPath := filepath.Join("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Europa Universalis V", "binaries", "eu5.exe")
-	got := shouldLaunchViaSteam(steamPath)
+	svc := service.NewSettingsService()
+	got := svc.ShouldLaunchViaSteam(goruntime.GOOS, steamPath)
 	if goruntime.GOOS == "windows" && !got {
 		t.Fatalf("shouldLaunchViaSteam(%q) = false, want true on windows", steamPath)
 	}
@@ -96,14 +99,15 @@ func TestShouldLaunchViaSteam(t *testing.T) {
 }
 
 func TestBuildSteamLaunchCommand(t *testing.T) {
-	cmd, err := buildSteamLaunchCommand(nil)
+	svc := service.NewLaunchService()
+	cmd, err := svc.BuildSteamLaunchCommand(goruntime.GOOS, eu5SteamAppID)
 	if err != nil {
-		t.Fatalf("buildSteamLaunchCommand() error = %v", err)
+		t.Fatalf("BuildSteamLaunchCommand() error = %v", err)
 	}
 	if cmd == nil {
-		t.Fatalf("buildSteamLaunchCommand() returned nil command")
+		t.Fatalf("BuildSteamLaunchCommand() returned nil command")
 	}
 	if cmd.SysProcAttr == nil {
-		t.Fatalf("buildSteamLaunchCommand().SysProcAttr = nil, want detached attrs")
+		t.Fatalf("BuildSteamLaunchCommand().SysProcAttr = nil, want detached attrs")
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"eu5-mod-launcher/internal/domain"
 )
 
 const categoryIDPrefix = "category:"
@@ -231,7 +233,7 @@ func generateCategoryID(name string) string {
 }
 
 func isCategoryID(id string) bool {
-	return strings.HasPrefix(id, categoryIDPrefix)
+	return domain.IsCategoryID(id)
 }
 
 func categoryNameMap(layout LauncherLayout) map[string]string {
