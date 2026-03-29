@@ -72,7 +72,19 @@ Tasks are designed to be **maximally independent**. Each one has a clear input, 
 | 10 | `10-fe-constraint-modal.md` | Frontend: modal for adding/viewing constraints on a mod |
 | 11 | `11-fe-autosort.md` | Frontend: autosort button, cycle error display |
 | 12 | `12-fe-settings.md` | Frontend: settings panel (mods path, game executable path) |
-| 13 | `13-integration-smoke-test.md` | Manual checklist: full flow works end to end |
+| 13 | `13-go-detached-game-launcher.md` | Go: launch game as detached process |
+| 14 | `14-fe-launch-controls.md` | Frontend: launch button and launch-state UX |
+| 15 | `15-go-refactor-domain-types.md` | Go refactor: domain types and strict contracts |
+| 16 | `16-go-refactor-service-layer.md` | Go refactor: extract service layer from app glue |
+| 17 | `17-go-refactor-repositories-and-boundaries.md` | Go refactor: repository interfaces and boundary tests |
+| 18 | `18-go-concurrent-mod-scan.md` | Go performance: concurrent scanner pipeline |
+| 19 | `19-go-concurrency-audit.md` | Go performance: profile-driven concurrency improvements |
+| 20 | `20-go-steam-workshop-metadata.md` | Go: Steam workshop metadata client |
+| 21 | `21-go-steam-metadata-cache.md` | Go: metadata + thumbnail cache layer |
+| 22 | `22-fe-steam-mod-details.md` | Frontend: Steam-enriched mod details panel |
+| 23 | `23-go-steam-unsubscribe.md` | Go: unsubscribe workshop item action |
+| 24 | `24-fe-unsubscribe-workflow.md` | Frontend: unsubscribe UX from context/details |
+| 25 | `25-integration-smoke-test-v2.md` | Manual checklist: post-MVP v2 end-to-end validation |
 
 ---
 
