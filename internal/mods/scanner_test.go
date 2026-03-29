@@ -114,6 +114,51 @@ func TestScanDirs_MultiRootAndDeduplicate(t *testing.T) {
 	}
 }
 
+func TestScanDirs_DeterministicWithConcurrency(t *testing.T) {
+	root := t.TempDir()
+	writeDescriptor(t, filepath.Join(root, "a_mod"), "name=\"A\"\nversion=\"1\"\n")
+	writeDescriptor(t, filepath.Join(root, "b_mod"), "name=\"B\"\nversion=\"1\"\n")
+	writeDescriptor(t, filepath.Join(root, "c_mod"), "name=\"C\"\nversion=\"1\"\n")
+
+	var baseline []string
+	for i := 0; i < 20; i++ {
+		mods, err := scanDirsWithWorkers([]string{root}, 4)
+		if err != nil {
+			t.Fatalf("scanDirsWithWorkers() error = %v", err)
+		}
+		ids := make([]string, 0, len(mods))
+		for _, mod := range mods {
+			ids = append(ids, mod.ID)
+		}
+		if i == 0 {
+			baseline = ids
+			continue
+		}
+		if !reflect.DeepEqual(ids, baseline) {
+			t.Fatalf("run %d IDs = %v, want %v", i, ids, baseline)
+		}
+	}
+}
+
+func TestScanDirs_SkipsBrokenDescriptor(t *testing.T) {
+	root := t.TempDir()
+	writeDescriptor(t, filepath.Join(root, "good"), "name=\"Good\"\nversion=\"1\"\n")
+	if err := os.MkdirAll(filepath.Join(root, "broken"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "broken", "descriptor.mod"), []byte("tags={\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	mods, err := scanDirsWithWorkers([]string{root}, 4)
+	if err != nil {
+		t.Fatalf("scanDirsWithWorkers() error = %v", err)
+	}
+	if len(mods) != 1 || mods[0].ID != "good" {
+		t.Fatalf("scanDirsWithWorkers() = %v, want only good mod", mods)
+	}
+}
+
 func writeDescriptor(t *testing.T, modDir string, descriptorContent string) {
 	t.Helper()
 
