@@ -10,6 +10,7 @@ import (
 	"eu5-mod-launcher/internal/mods"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/service"
+	"eu5-mod-launcher/internal/steam"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,6 +39,11 @@ var (
 	errAppStorageNotInitialized  = errors.New("app storage is not initialized")
 )
 
+// workshopMetadataFetcher is an interface for fetching workshop metadata.
+type workshopMetadataFetcher interface {
+	FetchWorkshopMetadata(ids []string) (map[string]steam.WorkshopItem, error)
+}
+
 // App wires Wails-exposed methods to internal business packages.
 type App struct {
 	ctx             context.Context
@@ -54,6 +60,7 @@ type App struct {
 	layoutSvc       *service.LayoutService[LauncherLayout]
 	launchSvc       *service.LaunchService
 	playsetSvc      *service.PlaysetService
+	steamClient     workshopMetadataFetcher
 	constraintsRepo repo.ConstraintsRepository
 	playsetRepo     repo.PlaysetRepository
 	settingsRepo    repo.SettingsRepository
@@ -111,6 +118,7 @@ func (a *App) initCoreServices() {
 	a.settingsSvc = service.NewSettingsService()
 	a.launchSvc = service.NewLaunchService()
 	a.playsetSvc = service.NewPlaysetService(a.playsetRepo)
+	a.steamClient = steam.NewClient()
 	a.layoutSvc = service.NewLayoutService(normalizeLauncherLayout, func(layout LauncherLayout) error {
 		if strings.TrimSpace(a.layoutPath) == "" {
 			return nil
@@ -825,19 +833,27 @@ func (a *App) ensureReady() error {
 	if a.playsetNames == nil {
 		a.playsetNames = []string{}
 	}
-	if a.settingsPath == "" && a.loStore != nil {
+	if a.settingsPath == "" {
 		a.settingsPath = filepath.Join(filepath.Dir(a.loStore.ConfigPath()), settingsFileName)
 	}
-	if a.layoutPath == "" && a.loStore != nil {
+	if a.layoutPath == "" {
 		a.layoutPath = filepath.Join(filepath.Dir(a.loStore.ConfigPath()), launcherLayoutFile)
 	}
-	if a.modsService == nil || a.loadorderSvc == nil || a.settingsSvc == nil || a.layoutSvc == nil {
+	if a.coreServicesMissing() {
 		a.initCoreServices()
 	}
 	if a.conService == nil {
 		a.initConstraintsService()
 	}
 	return nil
+}
+
+func (a *App) coreServicesMissing() bool {
+	return a.modsService == nil ||
+		a.loadorderSvc == nil ||
+		a.settingsSvc == nil ||
+		a.layoutSvc == nil ||
+		a.steamClient == nil
 }
 
 func (a *App) initConstraintsService() {
@@ -1107,6 +1123,74 @@ func collectRemainingCategoryCycle(blockIDs []string, indegree map[string]int) [
 	return remaining
 }
 
+func (a *App) workshopItemIDForMod(modID string) string {
+	modPath := strings.TrimSpace(a.modPathByID[modID])
+	if modPath == "" {
+		return ""
+	}
+	return workshopItemIDFromPath(modPath, a.gamePaths.WorkshopModDirs)
+}
+
+func workshopItemIDFromPath(modPath string, workshopRoots []string) string {
+	cleanModPath := filepath.Clean(strings.TrimSpace(modPath))
+	if cleanModPath == "" {
+		return ""
+	}
+
+	for _, root := range workshopRoots {
+		cleanRoot := filepath.Clean(strings.TrimSpace(root))
+		if cleanRoot == "" {
+			continue
+		}
+
+		rel, err := filepath.Rel(cleanRoot, cleanModPath)
+		if err != nil {
+			continue
+		}
+		rel = filepath.Clean(rel)
+		if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			continue
+		}
+
+		parts := strings.Split(rel, string(os.PathSeparator))
+		if len(parts) == 0 {
+			continue
+		}
+		candidate := strings.TrimSpace(parts[0])
+		if isWorkshopNumericID(candidate) {
+			return candidate
+		}
+	}
+
+	pathParts := strings.Split(filepath.ToSlash(cleanModPath), "/")
+	for i := 0; i+3 < len(pathParts); i++ {
+		isWorkshopContentPrefix := strings.EqualFold(pathParts[i], "workshop") &&
+			strings.EqualFold(pathParts[i+1], "content") &&
+			pathParts[i+2] == eu5SteamAppID
+		if !isWorkshopContentPrefix {
+			continue
+		}
+		candidate := strings.TrimSpace(pathParts[i+3])
+		if isWorkshopNumericID(candidate) {
+			return candidate
+		}
+	}
+
+	return ""
+}
+
+func isWorkshopNumericID(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, ch := range value {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func sortIDsByPosition(ids []string, position map[string]int, fallback int) []string {
 	out := append([]string(nil), ids...)
 	sort.Slice(out, func(i, j int) bool {
@@ -1247,4 +1331,70 @@ func dirExists(path string) bool {
 // Greet keeps the template method available for quick binding checks.
 func (*App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+// FetchWorkshopMetadataForMod returns Steam workshop metadata for a single mod.
+func (a *App) FetchWorkshopMetadataForMod(modID string) (steam.WorkshopItem, error) {
+	if err := a.ensureReady(); err != nil {
+		return steam.WorkshopItem{}, fmt.Errorf("fetch workshop metadata for mod %q: %w", modID, err)
+	}
+
+	itemID := a.workshopItemIDForMod(modID)
+	if itemID == "" {
+		return steam.WorkshopItem{}, nil
+	}
+
+	items, err := a.steamClient.FetchWorkshopMetadata([]string{itemID})
+	if err != nil {
+		return steam.WorkshopItem{}, fmt.Errorf("fetch workshop metadata for mod %q: %w", modID, err)
+	}
+	if item, ok := items[itemID]; ok {
+		return item, nil
+	}
+
+	return steam.WorkshopItem{ItemID: itemID}, nil
+}
+
+// FetchWorkshopMetadataBatch returns Steam workshop metadata for a list of mod IDs.
+// Result keys are mod IDs for direct UI mapping.
+func (a *App) FetchWorkshopMetadataBatch(modIDs []string) (map[string]steam.WorkshopItem, error) {
+	if err := a.ensureReady(); err != nil {
+		return nil, fmt.Errorf("fetch workshop metadata batch: %w", err)
+	}
+
+	byModID := make(map[string]steam.WorkshopItem)
+	workshopToModIDs := map[string][]string{}
+	for _, modID := range modIDs {
+		itemID := a.workshopItemIDForMod(modID)
+		if itemID == "" {
+			continue
+		}
+		workshopToModIDs[itemID] = append(workshopToModIDs[itemID], modID)
+	}
+	if len(workshopToModIDs) == 0 {
+		return byModID, nil
+	}
+
+	itemIDs := make([]string, 0, len(workshopToModIDs))
+	for itemID := range workshopToModIDs {
+		itemIDs = append(itemIDs, itemID)
+	}
+	sort.Strings(itemIDs)
+
+	items, err := a.steamClient.FetchWorkshopMetadata(itemIDs)
+	if err != nil {
+		return nil, fmt.Errorf("fetch workshop metadata batch: %w", err)
+	}
+
+	for itemID, ids := range workshopToModIDs {
+		item := items[itemID]
+		if item.ItemID == "" {
+			item.ItemID = itemID
+		}
+		for _, modID := range ids {
+			byModID[modID] = item
+		}
+	}
+
+	return byModID, nil
 }
