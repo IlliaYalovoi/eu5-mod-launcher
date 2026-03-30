@@ -18,25 +18,30 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const (
-	constraintsFileName = "constraints.json"
-	settingsFileName    = "settings.json"
-	launcherLayoutFile  = "launcher_layout.json"
-	eu5SteamAppID       = "3450310"
-	sortPriorityFirst   = 0
-	sortPriorityMiddle  = 1
-	sortPriorityLast    = 2
-	maxSortWorkers      = 8
-	minLayoutForWorkers = 8
+	constraintsFileName     = "constraints.json"
+	settingsFileName        = "settings.json"
+	launcherLayoutFile      = "launcher_layout.json"
+	eu5SteamAppID           = "3450310"
+	sortPriorityFirst       = 0
+	sortPriorityMiddle      = 1
+	sortPriorityLast        = 2
+	maxSortWorkers          = 8
+	minLayoutForWorkers     = 8
+	steamMetadataTTL        = 24 * time.Hour
+	steamMetadataMaxEntries = 5000
+	steamImageMaxEntries    = 1000
 )
 
 var (
 	errLauncherCategoryNameEmpty = errors.New("launcher category name must not be empty")
 	errAppStorageNotInitialized  = errors.New("app storage is not initialized")
+	errSteamCacheRootEmpty       = errors.New("steam cache root is empty")
 )
 
 // workshopMetadataFetcher is an interface for fetching workshop metadata.
@@ -61,6 +66,8 @@ type App struct {
 	launchSvc       *service.LaunchService
 	playsetSvc      *service.PlaysetService
 	steamClient     workshopMetadataFetcher
+	steamMetaCache  *steam.MetadataCache
+	steamImageCache *steam.ImageCache
 	constraintsRepo repo.ConstraintsRepository
 	playsetRepo     repo.PlaysetRepository
 	settingsRepo    repo.SettingsRepository
@@ -287,6 +294,16 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 		return nil, fmt.Errorf("get all mods: %w", err)
 	}
 	a.modPathByID = nextPaths
+
+	for i := range allMods {
+		itemID := a.workshopItemIDForMod(allMods[i].ID)
+		if itemID == "" || a.steamImageCache == nil {
+			continue
+		}
+		if cachedPath := a.steamImageCache.CachedPath(itemID); cachedPath != "" {
+			allMods[i].ThumbnailPath = cachedPath
+		}
+	}
 
 	return allMods, nil
 }
@@ -842,9 +859,39 @@ func (a *App) ensureReady() error {
 	if a.coreServicesMissing() {
 		a.initCoreServices()
 	}
+	if err := a.ensureSteamCaches(); err != nil {
+		return err
+	}
 	if a.conService == nil {
 		a.initConstraintsService()
 	}
+	return nil
+}
+
+func (a *App) ensureSteamCaches() error {
+	if a.steamMetaCache != nil && a.steamImageCache != nil {
+		return nil
+	}
+
+	cacheRoot := filepath.Dir(a.settingsPath)
+	if strings.TrimSpace(cacheRoot) == "" && a.loStore != nil {
+		cacheRoot = filepath.Dir(a.loStore.ConfigPath())
+	}
+	if strings.TrimSpace(cacheRoot) == "" {
+		return fmt.Errorf("initialize steam caches: %w", errSteamCacheRootEmpty)
+	}
+
+	metaCache, err := steam.NewMetadataCache(cacheRoot, steamMetadataTTL, steamMetadataMaxEntries)
+	if err != nil {
+		return fmt.Errorf("initialize metadata cache: %w", err)
+	}
+	imageCache, err := steam.NewImageCache(cacheRoot, steamImageMaxEntries, nil)
+	if err != nil {
+		return fmt.Errorf("initialize image cache: %w", err)
+	}
+
+	a.steamMetaCache = metaCache
+	a.steamImageCache = imageCache
 	return nil
 }
 
@@ -1344,9 +1391,43 @@ func (a *App) FetchWorkshopMetadataForMod(modID string) (steam.WorkshopItem, err
 		return steam.WorkshopItem{}, nil
 	}
 
-	items, err := a.steamClient.FetchWorkshopMetadata([]string{itemID})
+	lookup, cacheErr := a.steamMetaCache.Get(itemID)
+	if cacheErr != nil {
+		return steam.WorkshopItem{}, fmt.Errorf("fetch workshop metadata for mod %q: %w", modID, cacheErr)
+	}
+	if lookup.Hit {
+		a.ensurePreviewCached(lookup.Item)
+		if lookup.Stale {
+			go a.revalidateWorkshopMetadata([]string{itemID})
+		}
+		return lookup.Item, nil
+	}
+
+	items, err := a.fetchAndCacheWorkshopMetadata([]string{itemID})
 	if err != nil {
 		return steam.WorkshopItem{}, fmt.Errorf("fetch workshop metadata for mod %q: %w", modID, err)
+	}
+	if item, ok := items[itemID]; ok {
+		return item, nil
+	}
+
+	return steam.WorkshopItem{ItemID: itemID}, nil
+}
+
+// RefreshWorkshopMetadataForMod forces metadata refresh from Steam for one mod.
+func (a *App) RefreshWorkshopMetadataForMod(modID string) (steam.WorkshopItem, error) {
+	if err := a.ensureReady(); err != nil {
+		return steam.WorkshopItem{}, fmt.Errorf("refresh workshop metadata for mod %q: %w", modID, err)
+	}
+
+	itemID := a.workshopItemIDForMod(modID)
+	if itemID == "" {
+		return steam.WorkshopItem{}, nil
+	}
+
+	items, err := a.refreshAndCacheWorkshopMetadata([]string{itemID})
+	if err != nil {
+		return steam.WorkshopItem{}, fmt.Errorf("refresh workshop metadata for mod %q: %w", modID, err)
 	}
 	if item, ok := items[itemID]; ok {
 		return item, nil
@@ -1362,7 +1443,61 @@ func (a *App) FetchWorkshopMetadataBatch(modIDs []string) (map[string]steam.Work
 		return nil, fmt.Errorf("fetch workshop metadata batch: %w", err)
 	}
 
+	workshopToModIDs, itemIDs := a.workshopIDsByMod(modIDs)
+	if len(workshopToModIDs) == 0 {
+		return map[string]steam.WorkshopItem{}, nil
+	}
+
+	resolved, cacheErr := a.steamMetaCache.ResolveMany(itemIDs)
+	if cacheErr != nil {
+		return nil, fmt.Errorf("fetch workshop metadata batch: %w", cacheErr)
+	}
+
 	byModID := make(map[string]steam.WorkshopItem)
+	a.mapWorkshopItemsToMods(byModID, workshopToModIDs, resolved.Fresh)
+	a.mapWorkshopItemsToMods(byModID, workshopToModIDs, resolved.Stale)
+
+	if len(resolved.Stale) > 0 {
+		go a.revalidateWorkshopMetadata(sortedWorkshopItemIDs(resolved.Stale))
+	}
+	if len(resolved.Missing) == 0 {
+		return byModID, nil
+	}
+
+	fetched, fetchErr := a.fetchAndCacheWorkshopMetadata(resolved.Missing)
+	if fetchErr != nil {
+		if len(byModID) > 0 {
+			logging.Warnf("workshop metadata batch fetch fallback to cache after fetch error: %v", fetchErr)
+			return byModID, nil
+		}
+		return nil, fmt.Errorf("fetch workshop metadata batch: %w", fetchErr)
+	}
+	a.mapWorkshopItemsToMods(byModID, workshopToModIDs, fetched)
+	return byModID, nil
+}
+
+// RefreshWorkshopMetadataBatch forces metadata refresh for all resolvable workshop-backed mods.
+func (a *App) RefreshWorkshopMetadataBatch(modIDs []string) (map[string]steam.WorkshopItem, error) {
+	if err := a.ensureReady(); err != nil {
+		return nil, fmt.Errorf("refresh workshop metadata batch: %w", err)
+	}
+
+	workshopToModIDs, itemIDs := a.workshopIDsByMod(modIDs)
+	if len(workshopToModIDs) == 0 {
+		return map[string]steam.WorkshopItem{}, nil
+	}
+
+	fetched, err := a.refreshAndCacheWorkshopMetadata(itemIDs)
+	if err != nil {
+		return nil, fmt.Errorf("refresh workshop metadata batch: %w", err)
+	}
+
+	byModID := make(map[string]steam.WorkshopItem)
+	a.mapWorkshopItemsToMods(byModID, workshopToModIDs, fetched)
+	return byModID, nil
+}
+
+func (a *App) workshopIDsByMod(modIDs []string) (map[string][]string, []string) {
 	workshopToModIDs := map[string][]string{}
 	for _, modID := range modIDs {
 		itemID := a.workshopItemIDForMod(modID)
@@ -1371,30 +1506,85 @@ func (a *App) FetchWorkshopMetadataBatch(modIDs []string) (map[string]steam.Work
 		}
 		workshopToModIDs[itemID] = append(workshopToModIDs[itemID], modID)
 	}
-	if len(workshopToModIDs) == 0 {
-		return byModID, nil
-	}
-
 	itemIDs := make([]string, 0, len(workshopToModIDs))
 	for itemID := range workshopToModIDs {
 		itemIDs = append(itemIDs, itemID)
 	}
 	sort.Strings(itemIDs)
+	return workshopToModIDs, itemIDs
+}
 
-	items, err := a.steamClient.FetchWorkshopMetadata(itemIDs)
-	if err != nil {
-		return nil, fmt.Errorf("fetch workshop metadata batch: %w", err)
-	}
-
-	for itemID, ids := range workshopToModIDs {
+func (a *App) mapWorkshopItemsToMods(
+	byModID map[string]steam.WorkshopItem,
+	workshopToModIDs map[string][]string,
+	items map[string]steam.WorkshopItem,
+) {
+	for itemID := range items {
 		item := items[itemID]
-		if item.ItemID == "" {
-			item.ItemID = itemID
-		}
-		for _, modID := range ids {
+		a.ensurePreviewCached(item)
+		for _, modID := range workshopToModIDs[itemID] {
 			byModID[modID] = item
 		}
 	}
+}
 
-	return byModID, nil
+func sortedWorkshopItemIDs(items map[string]steam.WorkshopItem) []string {
+	ids := make([]string, 0, len(items))
+	for id := range items {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func (a *App) fetchAndCacheWorkshopMetadata(itemIDs []string) (map[string]steam.WorkshopItem, error) {
+	items, err := a.steamClient.FetchWorkshopMetadata(itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	if setErr := a.steamMetaCache.SetMany(items); setErr != nil {
+		logging.Warnf("steam metadata cache write failed: %v", setErr)
+	}
+	for itemID := range items {
+		a.ensurePreviewCached(items[itemID])
+	}
+	return items, nil
+}
+
+func (a *App) refreshAndCacheWorkshopMetadata(itemIDs []string) (map[string]steam.WorkshopItem, error) {
+	items, err := a.steamClient.FetchWorkshopMetadata(itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	if setErr := a.steamMetaCache.SetMany(items); setErr != nil {
+		logging.Warnf("steam metadata cache write failed: %v", setErr)
+	}
+	for itemID := range items {
+		a.refreshPreviewCached(items[itemID])
+	}
+	return items, nil
+}
+
+func (a *App) ensurePreviewCached(item steam.WorkshopItem) {
+	if a.steamImageCache == nil {
+		return
+	}
+	if _, err := a.steamImageCache.EnsureStored(item); err != nil {
+		logging.Debugf("steam preview cache for %q skipped: %v", item.ItemID, err)
+	}
+}
+
+func (a *App) refreshPreviewCached(item steam.WorkshopItem) {
+	if a.steamImageCache == nil {
+		return
+	}
+	if _, err := a.steamImageCache.RefreshStored(item); err != nil {
+		logging.Debugf("steam preview cache refresh for %q skipped: %v", item.ItemID, err)
+	}
+}
+
+func (a *App) revalidateWorkshopMetadata(itemIDs []string) {
+	if _, err := a.fetchAndCacheWorkshopMetadata(itemIDs); err != nil {
+		logging.Debugf("steam metadata background revalidate skipped: %v", err)
+	}
 }
