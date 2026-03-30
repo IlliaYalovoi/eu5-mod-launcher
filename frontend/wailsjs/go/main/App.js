@@ -34,6 +34,14 @@ export function EnableMod(arg1) {
   return window['go']['main']['App']['EnableMod'](arg1);
 }
 
+export function FetchWorkshopMetadataBatch(arg1) {
+  return window['go']['main']['App']['FetchWorkshopMetadataBatch'](arg1);
+}
+
+export function FetchWorkshopMetadataForMod(arg1) {
+  return window['go']['main']['App']['FetchWorkshopMetadataForMod'](arg1);
+}
+
 export function GetAllMods() {
   return window['go']['main']['App']['GetAllMods']();
 }
