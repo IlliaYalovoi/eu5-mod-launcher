@@ -16,6 +16,10 @@ export function CreateLauncherCategory(arg1:string):Promise<main.LauncherCategor
 
 export function DeleteLauncherCategory(arg1:string):Promise<void>;
 
+export function DisableMod(arg1:string):Promise<void>;
+
+export function EnableMod(arg1:string):Promise<void>;
+
 export function GetAllMods():Promise<Array<mods.Mod>>;
 
 export function GetAutoDetectedGameExe():Promise<string>;
@@ -71,7 +75,5 @@ export function SetLauncherActivePlaysetIndex(arg1:number):Promise<void>;
 export function SetLauncherLayout(arg1:main.LauncherLayout):Promise<void>;
 
 export function SetLoadOrder(arg1:Array<string>):Promise<void>;
-
-export function SetModEnabled(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetModsDir(arg1:string):Promise<void>;

@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useLoadOrderStore } from './loadorder'
 import type { Mod } from '../types'
-import { GetAllMods, SetModEnabled } from '../../wailsjs/go/main/App'
+import { DisableMod, EnableMod, GetAllMods } from '../../wailsjs/go/main/App'
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
@@ -32,7 +32,11 @@ export const useModsStore = defineStore('mods', () => {
     error.value = null
 
     try {
-      await SetModEnabled(id, enabled)
+      if (enabled) {
+        await EnableMod(id)
+      } else {
+        await DisableMod(id)
+      }
       const loadOrderStore = useLoadOrderStore()
       await Promise.all([fetchAll(), loadOrderStore.fetch()])
     } catch (err) {
@@ -46,4 +50,3 @@ export const useModsStore = defineStore('mods', () => {
 
   return { allMods, enabledMods, isLoading, error, fetchAll, setEnabled }
 })
-

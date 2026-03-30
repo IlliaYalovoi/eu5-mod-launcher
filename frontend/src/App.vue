@@ -57,7 +57,7 @@ const contextMenuItems = computed<MenuItem[]>(() => {
 
   const currentCategoryForTarget = (() => {
     for (const category of launcherLayout.value.categories) {
-      if (category.mod_ids.includes(contextMenu.targetID)) {
+      if (category.modIds.includes(contextMenu.targetID)) {
         return category.id
       }
     }
@@ -118,7 +118,7 @@ async function moveModToCategory(modID: string, categoryID: string): Promise<voi
     categories: launcherLayout.value.categories.map((category) => ({
       id: category.id,
       name: category.name,
-      mod_ids: [...category.mod_ids],
+      modIds: [...category.modIds],
     })),
     order: launcherLayout.value.order ? [...launcherLayout.value.order] : undefined,
     collapsed: launcherLayout.value.collapsed ? { ...launcherLayout.value.collapsed } : undefined,
@@ -126,7 +126,7 @@ async function moveModToCategory(modID: string, categoryID: string): Promise<voi
 
   next.ungrouped = next.ungrouped.filter((id) => id !== modID)
   for (const category of next.categories) {
-    category.mod_ids = category.mod_ids.filter((id) => id !== modID)
+    category.modIds = category.modIds.filter((id) => id !== modID)
   }
 
   if (categoryID === ungroupedCategoryID) {
@@ -136,7 +136,7 @@ async function moveModToCategory(modID: string, categoryID: string): Promise<voi
     if (!target) {
       return
     }
-    target.mod_ids.push(modID)
+    target.modIds.push(modID)
   }
 
   await loadOrderStore.persistLauncherLayout(next)

@@ -27,6 +27,7 @@ const menuRef = ref<HTMLElement | null>(null)
 const left = ref(0)
 const top = ref(0)
 const submenuStyles = ref<Record<string, Record<string, string>>>({})
+const submenuDirections = ref<Record<string, 'left' | 'right'>>({})
 
 function reposition(): void {
   const menu = menuRef.value
@@ -108,9 +109,11 @@ function onSubmenuEnter(itemID: string, event: MouseEvent): void {
 
   let x = nodeRect.width + gap
   let y = 0
+  let direction: 'left' | 'right' = 'right'
 
   if (nodeRect.right + gap + submenuRect.width + padding > window.innerWidth) {
     x = -submenuRect.width - gap
+    direction = 'left'
   }
 
   const overflowBottom = nodeRect.top + submenuRect.height + padding - window.innerHeight
@@ -123,10 +126,21 @@ function onSubmenuEnter(itemID: string, event: MouseEvent): void {
     y = minTopOffset
   }
 
+  submenuDirections.value[itemID] = direction
   submenuStyles.value[itemID] = {
     left: `${x}px`,
     top: `${y}px`,
   }
+}
+
+function onSafeZoneMousedown(event: MouseEvent): void {
+  // Keep hover-bridge behavior, but left click in the bridge closes the whole context menu.
+  if (event.button !== 0) {
+    return
+  }
+  event.preventDefault()
+  event.stopPropagation()
+  requestClose()
 }
 
 watch(
@@ -178,7 +192,10 @@ onBeforeUnmount(() => {
           v-for="item in items"
           :key="item.id"
           class="menu-node"
-          :class="{ 'menu-node--disabled': item.disabled }"
+          :class="{
+            'menu-node--disabled': item.disabled,
+            'menu-node--submenu-left': submenuDirections[item.id] === 'left',
+          }"
           @mouseenter="onSubmenuEnter(item.id, $event)"
         >
           <button
@@ -192,6 +209,18 @@ onBeforeUnmount(() => {
             <span>{{ item.label }}</span>
             <span v-if="item.children && item.children.length > 0" class="submenu-arrow" aria-hidden="true">▸</span>
           </button>
+
+          <div
+            v-if="item.children && item.children.length > 0 && submenuDirections[item.id] === 'left'"
+            class="submenu-safe-zone submenu-safe-zone--left"
+            @mousedown="onSafeZoneMousedown"
+          />
+
+          <div
+            v-if="item.children && item.children.length > 0 && submenuDirections[item.id] !== 'left'"
+            class="submenu-safe-zone submenu-safe-zone--right"
+            @mousedown="onSafeZoneMousedown"
+          />
 
           <div v-if="item.children && item.children.length > 0" class="submenu" role="menu" :style="submenuStyles[item.id]">
             <button
@@ -250,6 +279,23 @@ onBeforeUnmount(() => {
 
 .menu-node--disabled .submenu {
   display: none;
+}
+
+.submenu-safe-zone {
+  position: absolute;
+  top: 0;
+  width: 1.25rem;
+  height: 100%;
+  z-index: 1202;
+  background: transparent;
+}
+
+.submenu-safe-zone--left {
+  right: 100%;
+}
+
+.submenu-safe-zone--right {
+  left: 100%;
 }
 
 .submenu {

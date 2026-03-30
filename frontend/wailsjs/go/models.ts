@@ -4,7 +4,7 @@ export namespace graph {
 	    type?: string;
 	    from?: string;
 	    to?: string;
-	    mod_id?: string;
+	    modId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Constraint(source);
@@ -15,7 +15,7 @@ export namespace graph {
 	        this.type = source["type"];
 	        this.from = source["from"];
 	        this.to = source["to"];
-	        this.mod_id = source["mod_id"];
+	        this.modId = source["modId"];
 	    }
 	}
 
@@ -26,7 +26,7 @@ export namespace main {
 	export class LauncherCategory {
 	    id: string;
 	    name: string;
-	    mod_ids: string[];
+	    modIds: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new LauncherCategory(source);
@@ -36,7 +36,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
-	        this.mod_ids = source["mod_ids"];
+	        this.modIds = source["modIds"];
 	    }
 	}
 	export class LauncherLayout {

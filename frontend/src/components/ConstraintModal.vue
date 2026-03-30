@@ -69,23 +69,23 @@ const existingRows = computed(() => {
 
     if (type === 'first') {
       return {
-        key: `first:${constraint.mod_id}`,
+        key: `first:${constraint.modId}`,
         text: `${subjectLabel.value} is marked to load first`,
         type,
         from: '',
         to: '',
-        modID: constraint.mod_id || '',
+        modID: constraint.modId || '',
       }
     }
 
     if (type === 'last') {
       return {
-        key: `last:${constraint.mod_id}`,
+        key: `last:${constraint.modId}`,
         text: `${subjectLabel.value} is marked to load last`,
         type,
         from: '',
         to: '',
-        modID: constraint.mod_id || '',
+        modID: constraint.modId || '',
       }
     }
 

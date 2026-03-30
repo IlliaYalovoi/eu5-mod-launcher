@@ -54,16 +54,16 @@ export const useConstraintsStore = defineStore('constraints', () => {
       const loadOrderStore = useLoadOrderStore()
       const category = loadOrderStore.launcherLayout.categories.find((item) => item.id === id)
       if (!category) {
-        return constraints.value.filter((c) => c.mod_id === id || c.from === id || c.to === id)
+        return constraints.value.filter((c) => c.modId === id || c.from === id || c.to === id)
       }
-      const member = new Set(category.mod_ids)
+      const member = new Set(category.modIds)
       return constraints.value.filter((c) => {
         const type = c.type ?? 'after'
-        if (c.mod_id === id || c.from === id || c.to === id) {
+        if (c.modId === id || c.from === id || c.to === id) {
           return true
         }
         if (type === 'first' || type === 'last') {
-          return c.mod_id ? member.has(c.mod_id) : false
+          return c.modId ? member.has(c.modId) : false
         }
         return (c.from ? member.has(c.from) : false) || (c.to ? member.has(c.to) : false)
       })
@@ -72,7 +72,7 @@ export const useConstraintsStore = defineStore('constraints', () => {
     return constraints.value.filter((c) => {
       const type = c.type ?? 'after'
       if (type === 'first' || type === 'last') {
-        return c.mod_id === id
+        return c.modId === id
       }
       return c.from === id || c.to === id
     })

@@ -13,13 +13,13 @@ export interface Constraint {
   type?: 'after' | 'first' | 'last'
   from?: string
   to?: string
-  mod_id?: string
+  modId?: string
 }
 
 export interface LauncherCategory {
   id: string
   name: string
-  mod_ids: string[]
+  modIds: string[]
 }
 
 export interface LauncherLayout {

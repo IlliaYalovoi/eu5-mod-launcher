@@ -26,6 +26,14 @@ export function DeleteLauncherCategory(arg1) {
   return window['go']['main']['App']['DeleteLauncherCategory'](arg1);
 }
 
+export function DisableMod(arg1) {
+  return window['go']['main']['App']['DisableMod'](arg1);
+}
+
+export function EnableMod(arg1) {
+  return window['go']['main']['App']['EnableMod'](arg1);
+}
+
 export function GetAllMods() {
   return window['go']['main']['App']['GetAllMods']();
 }
@@ -136,10 +144,6 @@ export function SetLauncherLayout(arg1) {
 
 export function SetLoadOrder(arg1) {
   return window['go']['main']['App']['SetLoadOrder'](arg1);
-}
-
-export function SetModEnabled(arg1, arg2) {
-  return window['go']['main']['App']['SetModEnabled'](arg1, arg2);
 }
 
 export function SetModsDir(arg1) {

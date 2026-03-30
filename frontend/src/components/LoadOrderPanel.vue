@@ -13,7 +13,7 @@ import BaseButton from './ui/BaseButton.vue'
 type EditableBlock = {
   id: string
   name: string
-  mod_ids: string[]
+  modIds: string[]
   isUngrouped: boolean
   collapsed: boolean
 }
@@ -54,7 +54,7 @@ const compiledOrder = computed(() => {
   const out: string[] = []
   const seen: Record<string, boolean> = {}
   for (const block of blocks.value) {
-    for (const id of block.mod_ids) {
+    for (const id of block.modIds) {
       if (seen[id]) {
         continue
       }
@@ -79,8 +79,8 @@ const localNumberByModID = computed(() => {
     if (block.isUngrouped) {
       continue
     }
-    for (let i = 0; i < block.mod_ids.length; i += 1) {
-      out[block.mod_ids[i]] = i + 1
+    for (let i = 0; i < block.modIds.length; i += 1) {
+      out[block.modIds[i]] = i + 1
     }
   }
   return out
@@ -89,7 +89,7 @@ const localNumberByModID = computed(() => {
 const blockByModID = computed(() => {
   const out: Record<string, EditableBlock> = {}
   for (const block of blocks.value) {
-    for (const id of block.mod_ids) {
+    for (const id of block.modIds) {
       out[id] = block
     }
   }
@@ -102,12 +102,12 @@ watch(
   launcherLayout,
   (value) => {
     const collapsed = value.collapsed || {}
-    const categoryByID: Record<string, { id: string; name: string; mod_ids: string[] }> = {}
+    const categoryByID: Record<string, { id: string; name: string; modIds: string[] }> = {}
     for (const category of value.categories) {
       categoryByID[category.id] = {
         id: category.id,
         name: category.name,
-        mod_ids: [...category.mod_ids],
+        modIds: [...category.modIds],
       }
     }
 
@@ -125,7 +125,7 @@ watch(
         next.push({
           id: ungroupedID,
           name: 'Ungrouped',
-          mod_ids: [...value.ungrouped],
+          modIds: [...value.ungrouped],
           isUngrouped: true,
           collapsed: !!collapsed[ungroupedID],
         })
@@ -139,7 +139,7 @@ watch(
       next.push({
         id: category.id,
         name: category.name,
-        mod_ids: [...category.mod_ids],
+        modIds: [...category.modIds],
         isUngrouped: false,
         collapsed: !!collapsed[category.id],
       })
@@ -149,7 +149,7 @@ watch(
       next.unshift({
         id: ungroupedID,
         name: 'Ungrouped',
-        mod_ids: [...value.ungrouped],
+        modIds: [...value.ungrouped],
         isUngrouped: true,
         collapsed: !!collapsed[ungroupedID],
       })
@@ -162,7 +162,7 @@ watch(
       next.push({
         id: category.id,
         name: category.name,
-        mod_ids: [...category.mod_ids],
+        modIds: [...category.modIds],
         isUngrouped: false,
         collapsed: !!collapsed[category.id],
       })
@@ -195,7 +195,7 @@ function onItemContextMenu(event: MouseEvent, targetID: string): void {
 function toLayout(): LauncherLayout {
   const collapsed: Record<string, boolean> = {}
   const order: string[] = []
-  const categories: { id: string; name: string; mod_ids: string[] }[] = []
+  const categories: { id: string; name: string; modIds: string[] }[] = []
   let ungrouped: string[] = []
 
   for (const block of blocks.value) {
@@ -204,10 +204,10 @@ function toLayout(): LauncherLayout {
       collapsed[block.id] = true
     }
     if (block.isUngrouped) {
-      ungrouped = [...block.mod_ids]
+      ungrouped = [...block.modIds]
       continue
     }
-    categories.push({ id: block.id, name: block.name, mod_ids: [...block.mod_ids] })
+    categories.push({ id: block.id, name: block.name, modIds: [...block.modIds] })
   }
 
   return { ungrouped, categories, order, collapsed }
@@ -294,15 +294,15 @@ function moveModByGlobalIndex(modID: string, desiredOneBased: number): void {
   }
 
   for (const block of blocks.value) {
-    const idx = block.mod_ids.indexOf(modID)
+    const idx = block.modIds.indexOf(modID)
     if (idx >= 0) {
-      block.mod_ids.splice(idx, 1)
+      block.modIds.splice(idx, 1)
     }
   }
 
   const positions: Array<{ blockIndex: number; localIndex: number; modID: string }> = []
   for (let b = 0; b < blocks.value.length; b += 1) {
-    const mods = blocks.value[b].mod_ids
+    const mods = blocks.value[b].modIds
     for (let i = 0; i < mods.length; i += 1) {
       positions.push({ blockIndex: b, localIndex: i, modID: mods[i] })
     }
@@ -310,12 +310,12 @@ function moveModByGlobalIndex(modID: string, desiredOneBased: number): void {
 
   const target = Math.max(1, Math.min(desiredOneBased, positions.length + 1))
   if (target === positions.length + 1) {
-    blocks.value[blocks.value.length - 1].mod_ids.push(modID)
+    blocks.value[blocks.value.length - 1].modIds.push(modID)
     return
   }
 
   const anchor = positions[target - 1]
-  blocks.value[anchor.blockIndex].mod_ids.splice(anchor.localIndex, 0, modID)
+  blocks.value[anchor.blockIndex].modIds.splice(anchor.localIndex, 0, modID)
 }
 
 function confirmGlobalEdit(modID: string): void {
@@ -343,15 +343,15 @@ function confirmLocalEdit(modID: string): void {
     return
   }
 
-  const currentIndex = block.mod_ids.indexOf(modID)
+  const currentIndex = block.modIds.indexOf(modID)
   if (currentIndex < 0) {
     localEditModID.value = ''
     return
   }
 
-  block.mod_ids.splice(currentIndex, 1)
-  const target = Math.max(1, Math.min(parsed, block.mod_ids.length + 1))
-  block.mod_ids.splice(target - 1, 0, modID)
+  block.modIds.splice(currentIndex, 1)
+  const target = Math.max(1, Math.min(parsed, block.modIds.length + 1))
+  block.modIds.splice(target - 1, 0, modID)
 
   localEditModID.value = ''
   persistLayout()
@@ -406,7 +406,7 @@ function onSaveCompiled(): void {
 
             <draggable
               v-if="!block.collapsed"
-              v-model="block.mod_ids"
+              v-model="block.modIds"
               :item-key="modItemKey"
               :group="{ name: 'mods' }"
               handle=".mod-handle"
