@@ -7,17 +7,19 @@ import (
 	"testing"
 )
 
+type parseDescriptorCase struct {
+	name        string
+	fileName    string
+	content     string
+	wantName    string
+	wantVersion string
+	wantDesc    string
+	wantTags    []string
+	wantErr     bool
+}
+
 func TestParseDescriptor(t *testing.T) {
-	testCases := []struct {
-		name        string
-		fileName    string
-		content     string
-		wantName    string
-		wantVersion string
-		wantDesc    string
-		wantTags    []string
-		wantErr     bool
-	}{
+	testCases := []parseDescriptorCase{
 		{
 			name:        "parses descriptor.mod fields",
 			fileName:    "descriptor.mod",
@@ -73,30 +75,44 @@ func TestParseDescriptor(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
-			path := filepath.Join(dir, tc.fileName)
-			if err := os.WriteFile(path, []byte(tc.content), 0o644); err != nil {
-				t.Fatalf("WriteFile() error = %v", err)
-			}
-
-			gotName, gotVersion, gotDesc, gotTags, err := ParseDescriptor(path)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("ParseDescriptor() error = nil, want error")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("ParseDescriptor() unexpected error = %v", err)
-			}
-
-			if gotName != tc.wantName || gotVersion != tc.wantVersion || gotDesc != tc.wantDesc {
-				t.Fatalf("ParseDescriptor() values = (%q, %q, %q), want (%q, %q, %q)", gotName, gotVersion, gotDesc, tc.wantName, tc.wantVersion, tc.wantDesc)
-			}
-
-			if !reflect.DeepEqual(gotTags, tc.wantTags) {
-				t.Fatalf("ParseDescriptor() tags = %v, want %v", gotTags, tc.wantTags)
-			}
+			runParseDescriptorCase(t, tc)
 		})
+	}
+}
+
+func runParseDescriptorCase(t *testing.T, tc parseDescriptorCase) {
+	t.Helper()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, tc.fileName)
+	if err := os.WriteFile(path, []byte(tc.content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	parsed, err := ParseDescriptor(path)
+	if tc.wantErr {
+		if err == nil {
+			t.Fatalf("ParseDescriptor() error = nil, want error")
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("ParseDescriptor() unexpected error = %v", err)
+	}
+
+	if parsed.Name != tc.wantName || parsed.Version != tc.wantVersion || parsed.Description != tc.wantDesc {
+		t.Fatalf(
+			"ParseDescriptor() values = (%q, %q, %q), want (%q, %q, %q)",
+			parsed.Name,
+			parsed.Version,
+			parsed.Description,
+			tc.wantName,
+			tc.wantVersion,
+			tc.wantDesc,
+		)
+	}
+
+	if !reflect.DeepEqual(parsed.Tags, tc.wantTags) {
+		t.Fatalf("ParseDescriptor() tags = %v, want %v", parsed.Tags, tc.wantTags)
 	}
 }

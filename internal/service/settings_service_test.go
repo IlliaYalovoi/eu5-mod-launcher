@@ -21,7 +21,7 @@ func TestSettingsServiceNormalizeModsDir(t *testing.T) {
 func TestSettingsServiceNormalizeGameExe(t *testing.T) {
 	svc := NewSettingsService()
 	exe := filepath.Join(t.TempDir(), "eu5.exe")
-	if err := os.WriteFile(exe, []byte(""), 0o644); err != nil {
+	if err := os.WriteFile(exe, []byte(""), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	got, err := svc.NormalizeGameExe(exe)
@@ -35,7 +35,16 @@ func TestSettingsServiceNormalizeGameExe(t *testing.T) {
 
 func TestSettingsServiceShouldLaunchViaSteam(t *testing.T) {
 	svc := NewSettingsService()
-	path := filepath.Join("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Europa Universalis V", "binaries", "eu5.exe")
+	path := filepath.Join(
+		"C:",
+		"Program Files (x86)",
+		"Steam",
+		"steamapps",
+		"common",
+		"Europa Universalis V",
+		"binaries",
+		"eu5.exe",
+	)
 	if !svc.ShouldLaunchViaSteam("windows", path) {
 		t.Fatalf("ShouldLaunchViaSteam() = false, want true")
 	}

@@ -2,23 +2,24 @@ package main
 
 import (
 	"errors"
-	"reflect"
-	"strings"
-	"testing"
-
 	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/service"
+	"reflect"
+	"strings"
+	"testing"
 )
 
 type failingLayoutRepo struct{}
 
-func (r *failingLayoutRepo) Load(path string) (repo.LauncherLayoutData, error) {
+var errLayoutSaveFailed = errors.New("layout save failed")
+
+func (*failingLayoutRepo) Load(_ string) (repo.LauncherLayoutData, error) {
 	return repo.LauncherLayoutData{}, nil
 }
 
-func (r *failingLayoutRepo) Save(path string, layout repo.LauncherLayoutData) error {
-	return errors.New("layout save failed")
+func (*failingLayoutRepo) Save(_ string, _ repo.LauncherLayoutData) error {
+	return errLayoutSaveFailed
 }
 
 func TestAddConstraintRejectsInvalidTargets(t *testing.T) {

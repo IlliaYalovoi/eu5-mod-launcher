@@ -14,15 +14,17 @@ type Store struct {
 	configPath string
 }
 
+var errConfigPathEmpty = errors.New("config path must not be empty")
+
 // State is the persisted load order format.
 type State struct {
-	OrderedIDs []string `json:"ordered_ids"` // enabled mods in load order
+	OrderedIDs []string `json:"orderedIds"`
 }
 
 // New opens (or creates) the store at the given config file path.
 func New(configPath string) (*Store, error) {
 	if strings.TrimSpace(configPath) == "" {
-		return nil, errors.New("config path must not be empty")
+		return nil, errConfigPathEmpty
 	}
 
 	absPath, err := filepath.Abs(configPath)
@@ -30,7 +32,7 @@ func New(configPath string) (*Store, error) {
 		return nil, fmt.Errorf("resolve absolute config path %q: %w", configPath, err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o750); err != nil {
 		return nil, fmt.Errorf("create loadorder directory for %q: %w", absPath, err)
 	}
 
@@ -75,12 +77,20 @@ func (s *Store) Save(state State) error {
 	payload = append(payload, '\n')
 
 	tmpPath := s.configPath + ".tmp"
-	if err := os.WriteFile(tmpPath, payload, 0o644); err != nil {
+	if err := os.WriteFile(tmpPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write temporary loadorder file %q: %w", tmpPath, err)
 	}
 
 	if err := os.Rename(tmpPath, s.configPath); err != nil {
-		_ = os.Remove(tmpPath)
+		if removeErr := os.Remove(tmpPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return fmt.Errorf(
+				"replace loadorder file %q: %w; cleanup temp %q: %s",
+				s.configPath,
+				err,
+				tmpPath,
+				removeErr.Error(),
+			)
+		}
 		return fmt.Errorf("replace loadorder file %q: %w", s.configPath, err)
 	}
 

@@ -1,10 +1,9 @@
 package service
 
 import (
+	"eu5-mod-launcher/internal/domain"
 	"fmt"
 	"strings"
-
-	"eu5-mod-launcher/internal/domain"
 )
 
 type LoadOrderService struct{}
@@ -13,7 +12,7 @@ func NewLoadOrderService() *LoadOrderService {
 	return &LoadOrderService{}
 }
 
-func (s *LoadOrderService) ValidateAndNormalize(ids []string) ([]string, error) {
+func (*LoadOrderService) ValidateAndNormalize(ids []string) ([]string, error) {
 	for _, id := range ids {
 		if strings.TrimSpace(id) == "" {
 			continue
@@ -38,26 +37,32 @@ func (s *LoadOrderService) ValidateAndNormalize(ids []string) ([]string, error) 
 	return out, nil
 }
 
-func (s *LoadOrderService) ToggleEnabled(current []string, id string, enabled bool) ([]string, error) {
-	if _, err := domain.ParseModID(id); err != nil {
+func (*LoadOrderService) Enable(current []string, modID string) ([]string, error) {
+	if _, err := domain.ParseModID(modID); err != nil {
 		return nil, err
 	}
 
 	next := append([]string(nil), current...)
-	index := -1
-	for i, currentID := range next {
-		if currentID == id {
-			index = i
-			break
+	for _, currentID := range next {
+		if currentID == modID {
+			return next, nil
 		}
 	}
 
-	if enabled {
-		if index < 0 {
-			next = append(next, id)
+	return append(next, modID), nil
+}
+
+func (*LoadOrderService) Disable(current []string, modID string) ([]string, error) {
+	if _, err := domain.ParseModID(modID); err != nil {
+		return nil, err
+	}
+
+	next := append([]string(nil), current...)
+	for i, currentID := range next {
+		if currentID != modID {
+			continue
 		}
-	} else if index >= 0 {
-		next = append(next[:index], next[index+1:]...)
+		return append(next[:i], next[i+1:]...), nil
 	}
 
 	return next, nil

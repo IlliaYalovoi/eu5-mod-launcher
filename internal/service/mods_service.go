@@ -1,9 +1,8 @@
 package service
 
 import (
-	"fmt"
-
 	"eu5-mod-launcher/internal/mods"
+	"fmt"
 )
 
 type ModsService struct{}
@@ -12,7 +11,10 @@ func NewModsService() *ModsService {
 	return &ModsService{}
 }
 
-func (s *ModsService) Discover(scanRoots []string, enabledIDs []string, knownPaths map[string]string) ([]mods.Mod, map[string]string, error) {
+func (*ModsService) Discover(
+	scanRoots, enabledIDs []string,
+	knownPaths map[string]string,
+) ([]mods.Mod, map[string]string, error) {
 	allMods, err := mods.ScanDirs(scanRoots)
 	if err != nil {
 		return nil, nil, fmt.Errorf("scan mods roots %q: %w", scanRoots, err)

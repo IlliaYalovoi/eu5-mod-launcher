@@ -1,13 +1,31 @@
 package service
 
 import (
-	"fmt"
-	"strings"
-
+	"errors"
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/repo"
+	"fmt"
+	"strings"
 )
+
+var (
+	errNoModsResolved            = errors.New("no mods resolved from target")
+	errLoadFirstModIDEmpty       = errors.New("add load-first: mod id must not be empty")
+	errLoadLastModIDEmpty        = errors.New("add load-last: mod id must not be empty")
+	errConflictAlreadyLoadFirst  = errors.New("conflict: target is already marked load first")
+	errConflictAlreadyLoadLast   = errors.New("conflict: target is already marked load last")
+	errConflictHasOutgoingAfter  = errors.New("conflict: target has loads-after dependencies")
+	errConflictHasIncomingAfter  = errors.New("conflict: target has incoming constraints")
+	errConflictModLoadFirst      = errors.New("conflict: mod is already marked load first")
+	errConflictModLoadLast       = errors.New("conflict: mod is already marked load last")
+	errConflictModOutgoingAfter  = errors.New("conflict: mod has loads-after dependencies")
+	errConflictModIncomingAfter  = errors.New("conflict: mod has incoming constraints")
+	errSourceAndTargetMustDiffer = errors.New("source and target must differ")
+	errSaveConstraints           = errors.New("save constraints")
+)
+
+const errTypeMismatchMsg = "categories can only constrain categories, and mods can only constrain mods"
 
 type ConstraintsService struct {
 	graph      *graph.Graph
@@ -17,7 +35,13 @@ type ConstraintsService struct {
 	isCategory func(string) bool
 }
 
-func NewConstraintsService(g *graph.Graph, constraintsPath string, repository repo.ConstraintsRepository, expand func(string) []string, isCategory func(string) bool) *ConstraintsService {
+func NewConstraintsService(
+	constraintGraph *graph.Graph,
+	constraintsPath string,
+	repository repo.ConstraintsRepository,
+	expand func(string) []string,
+	isCategory func(string) bool,
+) *ConstraintsService {
 	if expand == nil {
 		expand = func(string) []string { return nil }
 	}
@@ -27,7 +51,13 @@ func NewConstraintsService(g *graph.Graph, constraintsPath string, repository re
 	if repository == nil {
 		repository = repo.NewFileConstraintsRepository()
 	}
-	return &ConstraintsService{graph: g, path: constraintsPath, repo: repository, expand: expand, isCategory: isCategory}
+	return &ConstraintsService{
+		graph:      constraintGraph,
+		path:       constraintsPath,
+		repo:       repository,
+		expand:     expand,
+		isCategory: isCategory,
+	}
 }
 
 func (s *ConstraintsService) All() []graph.Constraint {
@@ -37,70 +67,74 @@ func (s *ConstraintsService) All() []graph.Constraint {
 	return s.graph.All()
 }
 
-func (s *ConstraintsService) AddConstraint(from, to string) error {
-	if err := s.validateConstraintTargets(from, to); err != nil {
+func (s *ConstraintsService) AddConstraint(from, target string) error {
+	if err := s.validateConstraintTargets(from, target); err != nil {
 		return err
 	}
 
 	fromCategory := s.isCategory(from)
-	toCategory := s.isCategory(to)
+	toCategory := s.isCategory(target)
 	if fromCategory != toCategory {
-		return fmt.Errorf("%w: categories can only constrain categories, and mods can only constrain mods", domain.ErrTypeMismatch)
+		return fmt.Errorf("%w: %s", domain.ErrTypeMismatch, errTypeMismatchMsg)
 	}
 
 	if fromCategory {
 		if err := s.applyWithRollback(func() error {
-			return s.addAfterConstraintSingle(from, to)
-		}, "save constraints after add %q -> %q", from, to); err != nil {
-			return fmt.Errorf("add category constraint %q -> %q: %w", from, to, err)
+			return s.addAfterConstraintSingle(from, target)
+		}, "save constraints after add %q -> %q", from, target); err != nil {
+			return fmt.Errorf("add category constraint %q -> %q: %w", from, target, err)
 		}
 		return nil
 	}
 
 	fromIDs := s.expand(from)
-	toIDs := s.expand(to)
+	toIDs := s.expand(target)
 	if len(fromIDs) == 0 || len(toIDs) == 0 {
-		return fmt.Errorf("add constraint %q -> %q: no mods resolved from target", from, to)
+		return fmt.Errorf("add constraint %q -> %q: %w", from, target, errNoModsResolved)
 	}
 
-	if err := s.applyWithRollback(func() error {
+	return s.applyWithRollback(func() error {
 		for _, fromID := range fromIDs {
 			for _, toID := range toIDs {
 				if fromID == toID {
 					continue
 				}
 				if err := s.addAfterConstraintSingle(fromID, toID); err != nil {
-					return fmt.Errorf("add constraint %q -> %q expanded as %q -> %q: %w", from, to, fromID, toID, err)
+					return fmt.Errorf(
+						"add constraint %q -> %q expanded as %q -> %q: %w",
+						from,
+						target,
+						fromID,
+						toID,
+						err,
+					)
 				}
 			}
 		}
 		return nil
-	}, "save constraints after add %q -> %q", from, to); err != nil {
-		return err
-	}
-	return nil
+	}, "save constraints after add %q -> %q", from, target)
 }
 
-func (s *ConstraintsService) RemoveConstraint(from, to string) error {
-	if err := s.validateConstraintTargets(from, to); err != nil {
+func (s *ConstraintsService) RemoveConstraint(from, target string) error {
+	if err := s.validateConstraintTargets(from, target); err != nil {
 		return err
 	}
 
 	fromCategory := s.isCategory(from)
-	toCategory := s.isCategory(to)
+	toCategory := s.isCategory(target)
 	if fromCategory != toCategory {
-		return fmt.Errorf("%w: categories can only constrain categories, and mods can only constrain mods", domain.ErrTypeMismatch)
+		return fmt.Errorf("%w: %s", domain.ErrTypeMismatch, errTypeMismatchMsg)
 	}
 
 	if fromCategory {
 		return s.applyWithRollback(func() error {
-			s.graph.Remove(from, to)
+			s.graph.Remove(from, target)
 			return nil
-		}, "save constraints after remove %q -> %q", from, to)
+		}, "save constraints after remove %q -> %q", from, target)
 	}
 
 	fromIDs := s.expand(from)
-	toIDs := s.expand(to)
+	toIDs := s.expand(target)
 	return s.applyWithRollback(func() error {
 		for _, fromID := range fromIDs {
 			for _, toID := range toIDs {
@@ -108,22 +142,22 @@ func (s *ConstraintsService) RemoveConstraint(from, to string) error {
 			}
 		}
 		return nil
-	}, "save constraints after remove %q -> %q", from, to)
+	}, "save constraints after remove %q -> %q", from, target)
 }
 
 func (s *ConstraintsService) AddLoadFirst(target string) error {
 	if strings.TrimSpace(target) == "" {
-		return fmt.Errorf("add load-first: mod id must not be empty")
+		return errLoadFirstModIDEmpty
 	}
 	if s.isCategory(target) {
 		if _, err := domain.ParseCategoryID(target); err != nil {
 			return fmt.Errorf("add load-first %q: %w", target, err)
 		}
 		if s.graph.HasLast(target) {
-			return fmt.Errorf("add load-first %q: conflict: target is already marked load last", target)
+			return fmt.Errorf("add load-first %q: %w", target, errConflictAlreadyLoadLast)
 		}
 		if s.graph.HasOutgoingAfter(target) {
-			return fmt.Errorf("add load-first %q: conflict: target has 'loads after' dependencies", target)
+			return fmt.Errorf("add load-first %q: %w", target, errConflictHasOutgoingAfter)
 		}
 		return s.applyWithRollback(func() error {
 			s.graph.AddFirst(target)
@@ -136,15 +170,15 @@ func (s *ConstraintsService) AddLoadFirst(target string) error {
 	}
 	ids := s.expand(target)
 	if len(ids) == 0 {
-		return fmt.Errorf("add load-first %q: no mods resolved from target", target)
+		return fmt.Errorf("add load-first %q: %w", target, errNoModsResolved)
 	}
 	return s.applyWithRollback(func() error {
 		for _, id := range ids {
 			if s.graph.HasLast(id) {
-				return fmt.Errorf("add load-first %q: conflict: mod %q is already marked load last", target, id)
+				return fmt.Errorf("add load-first %q (mod %q): %w", target, id, errConflictModLoadLast)
 			}
 			if s.graph.HasOutgoingAfter(id) {
-				return fmt.Errorf("add load-first %q: conflict: mod %q has 'loads after' dependencies", target, id)
+				return fmt.Errorf("add load-first %q (mod %q): %w", target, id, errConflictModOutgoingAfter)
 			}
 			s.graph.AddFirst(id)
 		}
@@ -154,17 +188,17 @@ func (s *ConstraintsService) AddLoadFirst(target string) error {
 
 func (s *ConstraintsService) AddLoadLast(target string) error {
 	if strings.TrimSpace(target) == "" {
-		return fmt.Errorf("add load-last: mod id must not be empty")
+		return errLoadLastModIDEmpty
 	}
 	if s.isCategory(target) {
 		if _, err := domain.ParseCategoryID(target); err != nil {
 			return fmt.Errorf("add load-last %q: %w", target, err)
 		}
 		if s.graph.HasFirst(target) {
-			return fmt.Errorf("add load-last %q: conflict: target is already marked load first", target)
+			return fmt.Errorf("add load-last %q: %w", target, errConflictAlreadyLoadFirst)
 		}
 		if s.graph.HasIncomingAfter(target) {
-			return fmt.Errorf("add load-last %q: conflict: target has incoming constraints", target)
+			return fmt.Errorf("add load-last %q: %w", target, errConflictHasIncomingAfter)
 		}
 		return s.applyWithRollback(func() error {
 			s.graph.AddLast(target)
@@ -177,15 +211,15 @@ func (s *ConstraintsService) AddLoadLast(target string) error {
 	}
 	ids := s.expand(target)
 	if len(ids) == 0 {
-		return fmt.Errorf("add load-last %q: no mods resolved from target", target)
+		return fmt.Errorf("add load-last %q: %w", target, errNoModsResolved)
 	}
 	return s.applyWithRollback(func() error {
 		for _, id := range ids {
 			if s.graph.HasFirst(id) {
-				return fmt.Errorf("add load-last %q: conflict: mod %q is already marked load first", target, id)
+				return fmt.Errorf("add load-last %q (mod %q): %w", target, id, errConflictModLoadFirst)
 			}
 			if s.graph.HasIncomingAfter(id) {
-				return fmt.Errorf("add load-last %q: conflict: mod %q has incoming constraints", target, id)
+				return fmt.Errorf("add load-last %q (mod %q): %w", target, id, errConflictModIncomingAfter)
 			}
 			s.graph.AddLast(id)
 		}
@@ -237,7 +271,8 @@ func (s *ConstraintsService) RemoveLoadLast(target string) error {
 
 func (s *ConstraintsService) save(format string, args ...any) error {
 	if err := s.repo.Save(s.path, s.graph); err != nil {
-		return fmt.Errorf(format+": %w", append(args, err)...)
+		context := fmt.Sprintf(format, args...)
+		return fmt.Errorf("%w: %s: %w", errSaveConstraints, context, err)
 	}
 	return nil
 }
@@ -255,61 +290,76 @@ func (s *ConstraintsService) applyWithRollback(mutate func() error, saveFormat s
 }
 
 func (s *ConstraintsService) restoreFrom(snapshot []graph.Constraint) {
-	current := s.graph.All()
-	for _, c := range current {
-		typ := c.Type
-		if typ == "" || typ == graph.ConstraintTypeAfter {
-			s.graph.Remove(c.From, c.To)
-			continue
-		}
-		if typ == graph.ConstraintTypeFirst {
-			s.graph.RemoveFirst(c.ModID)
-			continue
-		}
-		if typ == graph.ConstraintTypeLast {
-			s.graph.RemoveLast(c.ModID)
-		}
-	}
+	clearConstraintGraph(s.graph)
+	applyConstraintSnapshot(s.graph, snapshot)
+}
 
-	for _, c := range snapshot {
-		typ := c.Type
-		if typ == "" || typ == graph.ConstraintTypeAfter {
-			if c.From != "" && c.To != "" {
-				s.graph.Add(c.From, c.To)
-			}
-			continue
+func clearConstraintGraph(constraintGraph *graph.Graph) {
+	current := constraintGraph.All()
+	for i := range current {
+		removeConstraint(constraintGraph, current[i])
+	}
+}
+
+func applyConstraintSnapshot(constraintGraph *graph.Graph, snapshot []graph.Constraint) {
+	for i := range snapshot {
+		addConstraint(constraintGraph, snapshot[i])
+	}
+}
+
+func removeConstraint(constraintGraph *graph.Graph, constraint graph.Constraint) {
+	switch normalizeConstraintType(constraint.Type) {
+	case graph.ConstraintTypeFirst:
+		constraintGraph.RemoveFirst(constraint.ModID)
+	case graph.ConstraintTypeLast:
+		constraintGraph.RemoveLast(constraint.ModID)
+	default:
+		constraintGraph.Remove(constraint.From, constraint.To)
+	}
+}
+
+func addConstraint(constraintGraph *graph.Graph, constraint graph.Constraint) {
+	switch normalizeConstraintType(constraint.Type) {
+	case graph.ConstraintTypeFirst:
+		if constraint.ModID != "" {
+			constraintGraph.AddFirst(constraint.ModID)
 		}
-		if typ == graph.ConstraintTypeFirst {
-			if c.ModID != "" {
-				s.graph.AddFirst(c.ModID)
-			}
-			continue
+	case graph.ConstraintTypeLast:
+		if constraint.ModID != "" {
+			constraintGraph.AddLast(constraint.ModID)
 		}
-		if typ == graph.ConstraintTypeLast {
-			if c.ModID != "" {
-				s.graph.AddLast(c.ModID)
-			}
+	default:
+		if constraint.From != "" && constraint.To != "" {
+			constraintGraph.Add(constraint.From, constraint.To)
 		}
 	}
 }
 
-func (s *ConstraintsService) addAfterConstraintSingle(from, to string) error {
-	if from == to {
-		return fmt.Errorf("source and target must differ")
+func normalizeConstraintType(constraintType string) string {
+	if constraintType == "" {
+		return graph.ConstraintTypeAfter
+	}
+
+	return constraintType
+}
+
+func (s *ConstraintsService) addAfterConstraintSingle(from, target string) error {
+	if from == target {
+		return errSourceAndTargetMustDiffer
 	}
 	if s.graph.HasFirst(from) {
-		return fmt.Errorf("conflict: %q is marked load first", from)
+		return fmt.Errorf("%w: %q", errConflictAlreadyLoadFirst, from)
 	}
-	if s.graph.HasLast(to) {
-		return fmt.Errorf("conflict: %q is marked load last", to)
+	if s.graph.HasLast(target) {
+		return fmt.Errorf("%w: %q", errConflictAlreadyLoadLast, target)
 	}
-	s.graph.Add(from, to)
+	s.graph.Add(from, target)
 	return nil
 }
 
-func (s *ConstraintsService) validateConstraintTargets(from, to string) error {
+func (s *ConstraintsService) validateConstraintTargets(from, target string) error {
 	fromCategory := s.isCategory(from)
-	toCategory := s.isCategory(to)
+	toCategory := s.isCategory(target)
 
 	if fromCategory {
 		if _, err := domain.ParseCategoryID(from); err != nil {
@@ -320,15 +370,15 @@ func (s *ConstraintsService) validateConstraintTargets(from, to string) error {
 	}
 
 	if toCategory {
-		if _, err := domain.ParseCategoryID(to); err != nil {
-			return fmt.Errorf("to target %q: %w", to, err)
+		if _, err := domain.ParseCategoryID(target); err != nil {
+			return fmt.Errorf("to target %q: %w", target, err)
 		}
-	} else if _, err := domain.ParseModID(to); err != nil {
-		return fmt.Errorf("to target %q: %w", to, err)
+	} else if _, err := domain.ParseModID(target); err != nil {
+		return fmt.Errorf("to target %q: %w", target, err)
 	}
 
 	if fromCategory != toCategory {
-		return fmt.Errorf("%w: categories can only constrain categories, and mods can only constrain mods", domain.ErrTypeMismatch)
+		return fmt.Errorf("%w: %s", domain.ErrTypeMismatch, errTypeMismatchMsg)
 	}
 
 	return nil

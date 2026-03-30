@@ -1,6 +1,8 @@
 package service
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestModsServiceDiscoverMissingRootsReturnsEmpty(t *testing.T) {
 	svc := NewModsService()

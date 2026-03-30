@@ -1,15 +1,17 @@
 package service
 
 import (
-	"fmt"
-
+	"errors"
 	"eu5-mod-launcher/internal/loadorder"
 	"eu5-mod-launcher/internal/repo"
+	"fmt"
 )
 
 type PlaysetService struct {
 	repo repo.PlaysetRepository
 }
+
+var errPlaysetIndexOutOfRange = errors.New("playset index is out of range")
 
 func NewPlaysetService(repository repo.PlaysetRepository) *PlaysetService {
 	if repository == nil {
@@ -18,7 +20,7 @@ func NewPlaysetService(repository repo.PlaysetRepository) *PlaysetService {
 	return &PlaysetService{repo: repository}
 }
 
-func (s *PlaysetService) ResolveLauncherIndex(total, gameActive int, preferred *int) int {
+func (*PlaysetService) ResolveLauncherIndex(total, gameActive int, preferred *int) int {
 	if total <= 0 {
 		return -1
 	}
@@ -31,9 +33,9 @@ func (s *PlaysetService) ResolveLauncherIndex(total, gameActive int, preferred *
 	return 0
 }
 
-func (s *PlaysetService) ValidateIndex(index, total int) error {
+func (*PlaysetService) ValidateIndex(index, total int) error {
 	if index < 0 || index >= total {
-		return fmt.Errorf("playset index %d is out of range", index)
+		return fmt.Errorf("%w: %d", errPlaysetIndexOutOfRange, index)
 	}
 	return nil
 }

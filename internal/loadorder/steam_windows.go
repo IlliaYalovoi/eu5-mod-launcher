@@ -3,13 +3,12 @@
 package loadorder
 
 import (
-	"golang.org/x/sys/windows/registry"
 	"path/filepath"
+
+	"golang.org/x/sys/windows/registry"
 )
 
-func init() {
-	steamInstallPathFinder = windowsSteamInstallPath
-}
+var steamInstallPathFinder = windowsSteamInstallPath
 
 func windowsSteamInstallPath() string {
 	registryLocations := []struct {
@@ -28,7 +27,9 @@ func windowsSteamInstallPath() string {
 		}
 
 		installPath, _, err := key.GetStringValue("InstallPath")
-		_ = key.Close()
+		if closeErr := key.Close(); closeErr != nil {
+			continue
+		}
 		if err != nil {
 			continue
 		}

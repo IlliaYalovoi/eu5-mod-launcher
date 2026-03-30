@@ -1,6 +1,8 @@
 package service
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type LayoutService[T any] struct {
 	normalize func(T, []string) T
@@ -11,19 +13,20 @@ func NewLayoutService[T any](normalize func(T, []string) T, save func(T) error) 
 	return &LayoutService[T]{normalize: normalize, save: save}
 }
 
-func (s *LayoutService[T]) Normalize(layout T, enabled []string) T {
-	if s == nil || s.normalize == nil {
-		return layout
+func (s *LayoutService[T]) Normalize(layout *T, enabled []string) {
+	if s == nil || s.normalize == nil || layout == nil {
+		return
 	}
-	return s.normalize(layout, enabled)
+	*layout = s.normalize(*layout, enabled)
 }
 
-func (s *LayoutService[T]) Persist(layout T, enabled []string) (T, error) {
-	normalized := s.Normalize(layout, enabled)
-	if s != nil && s.save != nil {
-		if err := s.save(normalized); err != nil {
-			return normalized, fmt.Errorf("save layout: %w", err)
-		}
+func (s *LayoutService[T]) Persist(layout *T, enabled []string) error {
+	s.Normalize(layout, enabled)
+	if s == nil || s.save == nil || layout == nil {
+		return nil
 	}
-	return normalized, nil
+	if err := s.save(*layout); err != nil {
+		return fmt.Errorf("save layout: %w", err)
+	}
+	return nil
 }

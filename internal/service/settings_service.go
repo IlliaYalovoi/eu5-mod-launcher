@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,18 +10,26 @@ import (
 
 type SettingsService struct{}
 
+const windowsOS = "windows"
+
+var (
+	errModsDirNotDirectory  = errors.New("mods dir is not a directory")
+	errGameExecutableNotEXE = errors.New("game executable must be an .exe file")
+	errGameExecutableIsDir  = errors.New("game executable is a directory")
+)
+
 func NewSettingsService() *SettingsService {
 	return &SettingsService{}
 }
 
-func (s *SettingsService) EffectivePath(custom, auto string) string {
+func (*SettingsService) EffectivePath(custom, auto string) string {
 	if strings.TrimSpace(custom) != "" {
 		return custom
 	}
 	return auto
 }
 
-func (s *SettingsService) NormalizeModsDir(path string) (string, error) {
+func (*SettingsService) NormalizeModsDir(path string) (string, error) {
 	clean := strings.TrimSpace(path)
 	if clean == "" {
 		return "", nil
@@ -34,12 +43,12 @@ func (s *SettingsService) NormalizeModsDir(path string) (string, error) {
 		return "", fmt.Errorf("mods dir %q does not exist: %w", abs, err)
 	}
 	if !info.IsDir() {
-		return "", fmt.Errorf("mods dir %q is not a directory", abs)
+		return "", fmt.Errorf("%w: %q", errModsDirNotDirectory, abs)
 	}
 	return abs, nil
 }
 
-func (s *SettingsService) NormalizeGameExe(path string) (string, error) {
+func (*SettingsService) NormalizeGameExe(path string) (string, error) {
 	clean := strings.TrimSpace(path)
 	if clean == "" {
 		return "", nil
@@ -49,20 +58,20 @@ func (s *SettingsService) NormalizeGameExe(path string) (string, error) {
 		return "", fmt.Errorf("resolve game executable %q: %w", clean, err)
 	}
 	if !strings.EqualFold(filepath.Ext(abs), ".exe") {
-		return "", fmt.Errorf("game executable %q must be an .exe file", abs)
+		return "", fmt.Errorf("%w: %q", errGameExecutableNotEXE, abs)
 	}
 	info, err := os.Stat(abs)
 	if err != nil {
 		return "", fmt.Errorf("game executable %q not accessible: %w", abs, err)
 	}
 	if info.IsDir() {
-		return "", fmt.Errorf("game executable %q is a directory", abs)
+		return "", fmt.Errorf("%w: %q", errGameExecutableIsDir, abs)
 	}
 	return abs, nil
 }
 
-func (s *SettingsService) ShouldLaunchViaSteam(goos, exePath string) bool {
-	if goos != "windows" {
+func (*SettingsService) ShouldLaunchViaSteam(goos, exePath string) bool {
+	if goos != windowsOS {
 		return false
 	}
 	normalized := strings.ToLower(filepath.ToSlash(exePath))

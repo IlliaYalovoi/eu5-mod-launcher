@@ -3,12 +3,13 @@
 package main
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 )
 
 func TestApplyDetachedProcessAttributes_WindowsFlags(t *testing.T) {
-	cmd := exec.Command("cmd.exe")
+	cmd := exec.CommandContext(context.Background(), "cmd.exe")
 	applyDetachedProcessAttributes(cmd)
 
 	if cmd.SysProcAttr == nil {

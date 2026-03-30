@@ -2,22 +2,26 @@ package service
 
 import (
 	"errors"
-	"path/filepath"
-	"testing"
-
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/repo"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type failingConstraintsRepo struct{}
 
-func (r *failingConstraintsRepo) Load(path string) (*graph.Graph, error) {
+var errWriteFailed = errors.New("write failed")
+
+func (*failingConstraintsRepo) Load(_ string) (*graph.Graph, error) {
 	return graph.New(), nil
 }
 
-func (r *failingConstraintsRepo) Save(path string, g *graph.Graph) error {
-	return errors.New("write failed")
+func (*failingConstraintsRepo) Save(_ string, _ *graph.Graph) error {
+	return errWriteFailed
 }
 
 func newConstraintsServiceForTest(t *testing.T) *ConstraintsService {
@@ -40,37 +44,24 @@ func newConstraintsServiceForTest(t *testing.T) *ConstraintsService {
 func TestConstraintsServiceAddConstraintRejectsMixedTypes(t *testing.T) {
 	svc := newConstraintsServiceForTest(t)
 	err := svc.AddConstraint("category:graphics", "modA")
-	if err == nil {
-		t.Fatalf("AddConstraint() error = nil, want error")
-	}
-	if !errors.Is(err, domain.ErrTypeMismatch) {
-		t.Fatalf("AddConstraint() error = %v, want ErrTypeMismatch", err)
-	}
+	require.Error(t, err)
+	assert.ErrorIs(t, err, domain.ErrTypeMismatch)
 }
 
 func TestConstraintsServiceAddLoadLastCategoryAllowsEmptyMembers(t *testing.T) {
 	svc := newConstraintsServiceForTest(t)
-	if err := svc.AddLoadLast("category:graphics"); err != nil {
-		t.Fatalf("AddLoadLast() error = %v", err)
-	}
+	require.NoError(t, svc.AddLoadLast("category:graphics"))
 	all := svc.All()
-	if len(all) != 1 {
-		t.Fatalf("All() len = %d, want 1", len(all))
-	}
-	if all[0].Type != graph.ConstraintTypeLast || all[0].ModID != "category:graphics" {
-		t.Fatalf("All()[0] = %#v, want last on category:graphics", all[0])
-	}
+	require.Len(t, all, 1)
+	assert.Equal(t, graph.ConstraintTypeLast, all[0].Type)
+	assert.Equal(t, "category:graphics", all[0].ModID)
 }
 
 func TestConstraintsServiceAddConstraintExpandsBundleTargets(t *testing.T) {
 	svc := newConstraintsServiceForTest(t)
-	if err := svc.AddConstraint("bundle:a", "bundle:b"); err != nil {
-		t.Fatalf("AddConstraint() error = %v", err)
-	}
+	require.NoError(t, svc.AddConstraint("bundle:a", "bundle:b"))
 	all := svc.All()
-	if len(all) != 2 {
-		t.Fatalf("All() len = %d, want 2", len(all))
-	}
+	assert.Len(t, all, 2)
 }
 
 func TestConstraintsServiceSaveFailureRollsBack(t *testing.T) {
@@ -82,12 +73,8 @@ func TestConstraintsServiceSaveFailureRollsBack(t *testing.T) {
 		return []string{target}
 	}, domain.IsCategoryID)
 
-	if err := svc.AddConstraint("bundle:a", "mod3"); err == nil {
-		t.Fatalf("AddConstraint() error = nil, want save failure")
-	}
-	if got := svc.All(); len(got) != 0 {
-		t.Fatalf("All() after failed save = %v, want empty (rolled back)", got)
-	}
+	assert.Error(t, svc.AddConstraint("bundle:a", "mod3"))
+	assert.Empty(t, svc.All())
 }
 
 var _ repo.ConstraintsRepository = (*failingConstraintsRepo)(nil)

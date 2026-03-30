@@ -56,7 +56,11 @@ func BenchmarkStartupArtifactLoad_SequentialVsConcurrent(b *testing.B) {
 
 func buildBenchmarkLayoutAndPosition(categories, modsPerCategory int) (LauncherLayout, map[string]int) {
 	position := make(map[string]int, categories*modsPerCategory+modsPerCategory)
-	layout := LauncherLayout{Ungrouped: []string{}, Categories: make([]LauncherCategory, 0, categories), Order: []string{defaultUngroupedCategoryID}}
+	layout := LauncherLayout{
+		Ungrouped:  []string{},
+		Categories: make([]LauncherCategory, 0, categories),
+		Order:      []string{defaultUngroupedCategoryID},
+	}
 	counter := 0
 	for i := 0; i < modsPerCategory; i++ {
 		id := fmt.Sprintf("u_%04d", i)
@@ -65,7 +69,11 @@ func buildBenchmarkLayoutAndPosition(categories, modsPerCategory int) (LauncherL
 		counter++
 	}
 	for c := 0; c < categories; c++ {
-		cat := LauncherCategory{ID: fmt.Sprintf("category:c_%03d", c), Name: fmt.Sprintf("C%03d", c), ModIDs: make([]string, 0, modsPerCategory)}
+		cat := LauncherCategory{
+			ID:     fmt.Sprintf("category:c_%03d", c),
+			Name:   fmt.Sprintf("C%03d", c),
+			ModIDs: make([]string, 0, modsPerCategory),
+		}
 		layout.Order = append(layout.Order, cat.ID)
 		for m := modsPerCategory - 1; m >= 0; m-- {
 			id := fmt.Sprintf("c%03d_m%03d", c, m)

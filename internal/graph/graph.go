@@ -1,6 +1,8 @@
 package graph
 
-import "sort"
+import (
+	"sort"
+)
 
 const (
 	ConstraintTypeAfter = "after"
@@ -11,12 +13,12 @@ const (
 // Constraint represents one ordering rule.
 // - type=after: from loads after to
 // - type=first: mod_id should be pushed to the front group
-// - type=last:  mod_id should be pushed to the back group
+// - type=last:  mod_id should be pushed to the back group.
 type Constraint struct {
 	Type  string `json:"type,omitempty"`
 	From  string `json:"from,omitempty"`
 	To    string `json:"to,omitempty"`
-	ModID string `json:"mod_id,omitempty"`
+	ModID string `json:"modId,omitempty"`
 }
 
 // Graph stores constraints for load ordering.
@@ -108,7 +110,8 @@ func (g *Graph) HasIncomingAfter(modID string) bool {
 func (g *Graph) ConstraintsFor(modID string) []Constraint {
 	all := g.All()
 	out := make([]Constraint, 0)
-	for _, c := range all {
+	for i := range all {
+		c := all[i]
 		switch c.Type {
 		case ConstraintTypeFirst, ConstraintTypeLast:
 			if c.ModID == modID {

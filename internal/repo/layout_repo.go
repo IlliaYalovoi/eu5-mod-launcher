@@ -12,7 +12,7 @@ import (
 type LauncherCategoryData struct {
 	ID     string   `json:"id"`
 	Name   string   `json:"name"`
-	ModIDs []string `json:"mod_ids"`
+	ModIDs []string `json:"modIds"`
 }
 
 type LauncherLayoutData struct {
@@ -33,7 +33,7 @@ func NewFileLayoutRepository() *FileLayoutRepository {
 	return &FileLayoutRepository{}
 }
 
-func (r *FileLayoutRepository) Load(path string) (LauncherLayoutData, error) {
+func (*FileLayoutRepository) Load(path string) (LauncherLayoutData, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -69,7 +69,7 @@ func (r *FileLayoutRepository) Load(path string) (LauncherLayoutData, error) {
 	return layout, nil
 }
 
-func (r *FileLayoutRepository) Save(path string, layout LauncherLayoutData) error {
+func (*FileLayoutRepository) Save(path string, layout LauncherLayoutData) error {
 	if layout.Ungrouped == nil {
 		layout.Ungrouped = []string{}
 	}
@@ -83,7 +83,7 @@ func (r *FileLayoutRepository) Save(path string, layout LauncherLayoutData) erro
 		layout.Collapsed = map[string]bool{}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create launcher layout dir for %q: %w", path, err)
 	}
 
@@ -94,11 +94,19 @@ func (r *FileLayoutRepository) Save(path string, layout LauncherLayoutData) erro
 	payload = append(payload, '\n')
 
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, payload, 0o644); err != nil {
+	if err := os.WriteFile(tmp, payload, 0o600); err != nil {
 		return fmt.Errorf("write launcher layout tmp %q: %w", tmp, err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+		if removeErr := os.Remove(tmp); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return fmt.Errorf(
+				"replace launcher layout %q: %w; cleanup temp %q: %s",
+				path,
+				err,
+				tmp,
+				removeErr.Error(),
+			)
+		}
 		return fmt.Errorf("replace launcher layout %q: %w", path, err)
 	}
 	return nil

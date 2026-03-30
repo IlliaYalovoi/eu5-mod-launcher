@@ -1,40 +1,41 @@
-package graph
+package graph_test
 
 import (
+	"eu5-mod-launcher/internal/graph"
 	"reflect"
 	"testing"
 )
 
 func TestGraphAddRemoveAndQueries(t *testing.T) {
-	g := New()
+	g := graph.New()
 	g.Add("A", "B")
 	g.Add("A", "B") // duplicate no-op
 	g.Add("C", "A")
 	g.AddFirst("F")
 	g.AddLast("L")
 
-	wantAll := []Constraint{
-		{Type: ConstraintTypeAfter, From: "A", To: "B"},
-		{Type: ConstraintTypeAfter, From: "C", To: "A"},
-		{Type: ConstraintTypeFirst, ModID: "F"},
-		{Type: ConstraintTypeLast, ModID: "L"},
+	wantAll := []graph.Constraint{
+		{Type: graph.ConstraintTypeAfter, From: "A", To: "B"},
+		{Type: graph.ConstraintTypeAfter, From: "C", To: "A"},
+		{Type: graph.ConstraintTypeFirst, ModID: "F"},
+		{Type: graph.ConstraintTypeLast, ModID: "L"},
 	}
 	if got := g.All(); !reflect.DeepEqual(got, wantAll) {
 		t.Fatalf("All() = %v, want %v", got, wantAll)
 	}
 
-	wantForA := []Constraint{{Type: ConstraintTypeAfter, From: "A", To: "B"}, {Type: ConstraintTypeAfter, From: "C", To: "A"}}
+	wantForA := []graph.Constraint{{Type: graph.ConstraintTypeAfter, From: "A", To: "B"}, {Type: graph.ConstraintTypeAfter, From: "C", To: "A"}}
 	if got := g.ConstraintsFor("A"); !reflect.DeepEqual(got, wantForA) {
 		t.Fatalf("ConstraintsFor(A) = %v, want %v", got, wantForA)
 	}
-	wantForF := []Constraint{{Type: ConstraintTypeFirst, ModID: "F"}}
+	wantForF := []graph.Constraint{{Type: graph.ConstraintTypeFirst, ModID: "F"}}
 	if got := g.ConstraintsFor("F"); !reflect.DeepEqual(got, wantForF) {
 		t.Fatalf("ConstraintsFor(F) = %v, want %v", got, wantForF)
 	}
 
 	g.Remove("A", "B")
 	g.RemoveFirst("F")
-	wantAfterRemove := []Constraint{{Type: ConstraintTypeAfter, From: "C", To: "A"}, {Type: ConstraintTypeLast, ModID: "L"}}
+	wantAfterRemove := []graph.Constraint{{Type: graph.ConstraintTypeAfter, From: "C", To: "A"}, {Type: graph.ConstraintTypeLast, ModID: "L"}}
 	if got := g.All(); !reflect.DeepEqual(got, wantAfterRemove) {
 		t.Fatalf("All() after remove = %v, want %v", got, wantAfterRemove)
 	}

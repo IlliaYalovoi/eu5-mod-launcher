@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,58 +12,120 @@ import (
 	"unicode/utf16"
 )
 
+var (
+	errUnterminatedTagsBlock = errors.New("unterminated tags block")
+	errInvalidTagsBlock      = errors.New("invalid tags block")
+)
+
+const (
+	jsonControlByteLimit = 0x20
+	decimalBase          = 10
+	utf16BOMByteLen      = 4
+)
+
+// WorkshopMetadata represents the metadata for a Steam Workshop mod.
+type WorkshopMetadata struct {
+	Title            string   `json:"title"`
+	ShortDescription string   `json:"shortDescription"`
+	Tags             []string `json:"tags"`
+	FileID           string   `json:"fileId"`
+}
+
+// Descriptor holds the metadata fields for a mod.
+type Descriptor struct {
+	Name        string
+	Version     string
+	Description string
+	Tags        []string
+}
+
 // ParseDescriptor reads a descriptor.mod file and fills mod metadata fields.
 // Unknown keys are silently ignored.
-func ParseDescriptor(path string) (name, version, description string, tags []string, err error) {
+func ParseDescriptor(path string) (Descriptor, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return "", "", "", nil, fmt.Errorf("read descriptor %q: %w", path, err)
+		return Descriptor{}, fmt.Errorf("read descriptor %q: %w", path, err)
 	}
 
 	normalized := normalizeDescriptorBytes(content)
 
 	if strings.EqualFold(filepath.Ext(path), ".json") {
-		name, version, description, tags, err = parseJSONDescriptor(normalized)
-		if err != nil {
-			return "", "", "", nil, fmt.Errorf("parse json descriptor %q: %w", path, err)
+		parsed, parseErr := parseJSONDescriptor(normalized)
+		if parseErr != nil {
+			return Descriptor{}, fmt.Errorf("parse json descriptor %q: %w", path, parseErr)
 		}
-		return name, version, description, tags, nil
+		return parsed, nil
 	}
 
-	name, version, description, tags, err = parseTextDescriptor(string(normalized))
-	if err != nil {
-		return "", "", "", nil, fmt.Errorf("parse text descriptor %q: %w", path, err)
+	parsed, parseErr := parseTextDescriptor(string(normalized))
+	if parseErr != nil {
+		return Descriptor{}, fmt.Errorf("parse text descriptor %q: %w", path, parseErr)
 	}
 
-	return name, version, description, tags, nil
+	return parsed, nil
 }
 
-func parseJSONDescriptor(content []byte) (name, version, description string, tags []string, err error) {
-	var payload struct {
-		Name             string   `json:"name"`
-		Version          string   `json:"version"`
-		ShortDescription string   `json:"short_description"`
-		Description      string   `json:"description"`
-		Tags             []string `json:"tags"`
-	}
-
+func parseJSONDescriptor(content []byte) (Descriptor, error) {
+	var payload map[string]json.RawMessage
 	if err := json.Unmarshal(content, &payload); err != nil {
 		sanitized := sanitizeBrokenJSONStringLiterals(content)
 		if bytes.Equal(sanitized, content) {
-			return "", "", "", nil, fmt.Errorf("unmarshal descriptor json: %w", err)
+			return Descriptor{}, fmt.Errorf("unmarshal descriptor json: %w", err)
 		}
 
 		if sanitizeErr := json.Unmarshal(sanitized, &payload); sanitizeErr != nil {
-			return "", "", "", nil, fmt.Errorf("unmarshal descriptor json: %w", err)
+			return Descriptor{}, fmt.Errorf("unmarshal descriptor json: %w", err)
 		}
 	}
 
-	description = payload.Description
+	name := extractJSONString(payload, "name")
+	version := extractJSONString(payload, "version")
+	description := extractJSONString(payload, "description")
 	if description == "" {
-		description = payload.ShortDescription
+		description = extractAnyJSONString(payload, "shortDescription", "short_description")
 	}
+	tags := extractJSONStringArray(payload, "tags")
 
-	return payload.Name, payload.Version, description, payload.Tags, nil
+	return Descriptor{
+		Name:        name,
+		Version:     version,
+		Description: description,
+		Tags:        tags,
+	}, nil
+}
+
+func extractAnyJSONString(payload map[string]json.RawMessage, keys ...string) string {
+	for _, key := range keys {
+		value := extractJSONString(payload, key)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func extractJSONString(payload map[string]json.RawMessage, key string) string {
+	raw, ok := payload[key]
+	if !ok {
+		return ""
+	}
+	var out string
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return ""
+	}
+	return out
+}
+
+func extractJSONStringArray(payload map[string]json.RawMessage, key string) []string {
+	raw, ok := payload[key]
+	if !ok {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 func sanitizeBrokenJSONStringLiterals(content []byte) []byte {
@@ -71,27 +134,27 @@ func sanitizeBrokenJSONStringLiterals(content []byte) []byte {
 	escaped := false
 	changed := false
 
-	for _, b := range content {
+	for _, currentByte := range content {
 		if !inString {
-			output = append(output, b)
-			if b == '"' {
+			output = append(output, currentByte)
+			if currentByte == '"' {
 				inString = true
 			}
 			continue
 		}
 
 		if escaped {
-			output = append(output, b)
+			output = append(output, currentByte)
 			escaped = false
 			continue
 		}
 
-		switch b {
+		switch currentByte {
 		case '\\':
-			output = append(output, b)
+			output = append(output, currentByte)
 			escaped = true
 		case '"':
-			output = append(output, b)
+			output = append(output, currentByte)
 			inString = false
 		case '\n':
 			output = append(output, '\\', 'n')
@@ -103,12 +166,12 @@ func sanitizeBrokenJSONStringLiterals(content []byte) []byte {
 			output = append(output, '\\', 't')
 			changed = true
 		default:
-			if b < 0x20 {
-				output = append(output, '\\', 'u', '0', '0', hexDigit(b>>4), hexDigit(b&0x0F))
+			if currentByte < jsonControlByteLimit {
+				output = append(output, '\\', 'u', '0', '0', hexDigit(currentByte>>4), hexDigit(currentByte&0x0F))
 				changed = true
 				continue
 			}
-			output = append(output, b)
+			output = append(output, currentByte)
 		}
 	}
 
@@ -120,14 +183,15 @@ func sanitizeBrokenJSONStringLiterals(content []byte) []byte {
 }
 
 func hexDigit(nibble byte) byte {
-	if nibble < 10 {
+	if nibble < decimalBase {
 		return '0' + nibble
 	}
-	return 'a' + (nibble - 10)
+	return 'a' + (nibble - decimalBase)
 }
 
-func parseTextDescriptor(content string) (name, version, description string, tags []string, err error) {
+func parseTextDescriptor(content string) (Descriptor, error) {
 	scanner := bufio.NewScanner(strings.NewReader(content))
+	parsed := Descriptor{}
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -137,9 +201,9 @@ func parseTextDescriptor(content string) (name, version, description string, tag
 		if strings.HasPrefix(line, "tags") {
 			parsedTags, parseErr := parseTagsBlock(line, scanner)
 			if parseErr != nil {
-				return "", "", "", nil, fmt.Errorf("parse tags block: %w", parseErr)
+				return Descriptor{}, fmt.Errorf("parse tags block: %w", parseErr)
 			}
-			tags = parsedTags
+			parsed.Tags = parsedTags
 			continue
 		}
 
@@ -154,19 +218,19 @@ func parseTextDescriptor(content string) (name, version, description string, tag
 
 		switch key {
 		case "name":
-			name = value
+			parsed.Name = value
 		case "version":
-			version = value
+			parsed.Version = value
 		case "description", "short_description":
-			description = value
+			parsed.Description = value
 		}
 	}
 
 	if scanErr := scanner.Err(); scanErr != nil {
-		return "", "", "", nil, fmt.Errorf("scan descriptor lines: %w", scanErr)
+		return Descriptor{}, fmt.Errorf("scan descriptor lines: %w", scanErr)
 	}
 
-	return name, version, description, tags, nil
+	return parsed, nil
 }
 
 func normalizeDescriptorBytes(content []byte) []byte {
@@ -174,7 +238,9 @@ func normalizeDescriptorBytes(content []byte) []byte {
 		return content[3:]
 	}
 
-	if len(content) >= 2 && (bytes.HasPrefix(content, []byte{0xFF, 0xFE}) || bytes.HasPrefix(content, []byte{0xFE, 0xFF})) {
+	hasUTF16BOM := bytes.HasPrefix(content, []byte{0xFF, 0xFE}) ||
+		bytes.HasPrefix(content, []byte{0xFE, 0xFF})
+	if len(content) >= 2 && hasUTF16BOM {
 		return decodeUTF16Descriptor(content)
 	}
 
@@ -182,7 +248,7 @@ func normalizeDescriptorBytes(content []byte) []byte {
 }
 
 func decodeUTF16Descriptor(content []byte) []byte {
-	if len(content) < 4 {
+	if len(content) < utf16BOMByteLen {
 		return content
 	}
 
@@ -214,7 +280,7 @@ func parseTagsBlock(firstLine string, scanner *bufio.Scanner) ([]string, error) 
 			if scanErr := scanner.Err(); scanErr != nil {
 				return nil, scanErr
 			}
-			return nil, fmt.Errorf("unterminated tags block")
+			return nil, errUnterminatedTagsBlock
 		}
 
 		builder.WriteString("\n")
@@ -225,7 +291,7 @@ func parseTagsBlock(firstLine string, scanner *bufio.Scanner) ([]string, error) 
 	openIdx := strings.Index(line, "{")
 	closeIdx := strings.LastIndex(line, "}")
 	if openIdx < 0 || closeIdx < 0 || closeIdx <= openIdx {
-		return nil, fmt.Errorf("invalid tags block")
+		return nil, errInvalidTagsBlock
 	}
 
 	raw := line[openIdx+1 : closeIdx]

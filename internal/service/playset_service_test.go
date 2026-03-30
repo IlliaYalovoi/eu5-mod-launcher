@@ -1,6 +1,8 @@
 package service
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestPlaysetServiceResolveLauncherIndex(t *testing.T) {
 	svc := NewPlaysetService(nil)

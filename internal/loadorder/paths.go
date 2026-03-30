@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -12,6 +13,8 @@ import (
 
 const steamWorkshopAppID = "3450310"
 
+var errAppDataNotSet = errors.New("APPDATA is not set")
+
 // GamePaths groups auto-discovered EU5 locations used by the launcher.
 type GamePaths struct {
 	PlaysetsPath    string
@@ -19,8 +22,6 @@ type GamePaths struct {
 	WorkshopModDirs []string
 	GameExePath     string
 }
-
-var steamInstallPathFinder = defaultSteamInstallPath
 
 // DefaultConfigPath returns the platform-appropriate path for the config file.
 // Windows: %APPDATA%\EU5ModLauncher\loadorder.json
@@ -36,7 +37,7 @@ func defaultConfigPathForOS(goos string, getenv func(string) string) (string, er
 	case "windows":
 		appData := getenv("APPDATA")
 		if appData == "" {
-			return "", errors.New("APPDATA is not set")
+			return "", errAppDataNotSet
 		}
 		return filepath.Join(appData, "EU5ModLauncher", "loadorder.json"), nil
 	case "linux":
@@ -47,8 +48,9 @@ func defaultConfigPathForOS(goos string, getenv func(string) string) (string, er
 				return "", fmt.Errorf("resolve user home for linux config path: %w", err)
 			}
 			base = filepath.Join(home, ".config")
+			return filepath.Join(base, "eu5-mod-launcher", "loadorder.json"), nil
 		}
-		return filepath.Join(base, "eu5-mod-launcher", "loadorder.json"), nil
+		return path.Join(base, "eu5-mod-launcher", "loadorder.json"), nil
 	default:
 		base, err := os.UserConfigDir()
 		if err != nil {
@@ -128,7 +130,8 @@ func discoverSteamLibraryRoots() []string {
 		return nil
 	}
 
-	libraryRoots := append([]string{steamRoot}, parseLibraryFoldersVDF(filepath.Join(steamRoot, "steamapps", "libraryfolders.vdf"))...)
+	libraryFoldersPath := filepath.Join(steamRoot, "steamapps", "libraryfolders.vdf")
+	libraryRoots := append([]string{steamRoot}, parseLibraryFoldersVDF(libraryFoldersPath)...)
 	seen := make(map[string]struct{}, len(libraryRoots))
 	out := make([]string, 0, len(libraryRoots))
 
@@ -172,16 +175,16 @@ func parseLibraryFoldersVDF(vdfPath string) []string {
 	return out
 }
 
-func dirExists(path string) bool {
-	info, err := os.Stat(path)
+func dirExists(dirPath string) bool {
+	info, err := os.Stat(dirPath)
 	if err != nil {
 		return false
 	}
 	return info.IsDir()
 }
 
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
+func fileExists(filePath string) bool {
+	info, err := os.Stat(filePath)
 	if err != nil {
 		return false
 	}

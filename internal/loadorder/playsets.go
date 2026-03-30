@@ -31,7 +31,10 @@ func ListPlaysets(path string) ([]string, int, error) {
 			continue
 		}
 
-		name, _ := playset["name"].(string)
+		name := ""
+		if rawName, ok := playset["name"].(string); ok {
+			name = rawName
+		}
 		if strings.TrimSpace(name) == "" {
 			name = fmt.Sprintf("Playset %d", i+1)
 		}
@@ -94,14 +97,54 @@ func LoadStateFromPlaysets(path string, playsetIndex int) (State, map[string]str
 
 // SaveStateToPlaysets writes ordered enabled mods into the selected playset.
 func SaveStateToPlaysets(path string, playsetIndex int, state State, idToPath map[string]string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create playsets dir for %q: %w", path, err)
 	}
 
+	root, err := loadPlaysetsRoot(path)
+	if err != nil {
+		return err
+	}
+
+	playsets := ensurePlaysets(root)
+	selectedPlayset := ensureSelectedPlayset(playsets, playsetIndex)
+	orderedEntries := buildOrderedEntries(state.OrderedIDs, idToPath)
+
+	selectedPlayset["orderedListMods"] = orderedEntries
+	root["playsets"] = playsets
+
+	payload, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode playsets payload for %q: %w", path, err)
+	}
+	payload = append(payload, '\n')
+
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, payload, 0o600); err != nil {
+		return fmt.Errorf("write temporary playsets file %q: %w", tmpPath, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		if removeErr := os.Remove(tmpPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return fmt.Errorf(
+				"replace playsets file %q: %w; cleanup temp %q: %s",
+				path,
+				err,
+				tmpPath,
+				removeErr.Error(),
+			)
+		}
+		return fmt.Errorf("replace playsets file %q: %w", path, err)
+	}
+
+	return nil
+}
+
+func loadPlaysetsRoot(path string) (map[string]any, error) {
 	root := map[string]any{}
-	if content, err := os.ReadFile(path); err == nil && strings.TrimSpace(string(content)) != "" {
-		if err := json.Unmarshal(content, &root); err != nil {
-			return fmt.Errorf("decode existing playsets file %q: %w", path, err)
+	content, err := os.ReadFile(path)
+	if err == nil && strings.TrimSpace(string(content)) != "" {
+		if decodeErr := json.Unmarshal(content, &root); decodeErr != nil {
+			return nil, fmt.Errorf("decode existing playsets file %q: %w", path, decodeErr)
 		}
 	}
 
@@ -109,17 +152,26 @@ func SaveStateToPlaysets(path string, playsetIndex int, state State, idToPath ma
 		root["file_version"] = "1.0.0"
 	}
 
-	playsets := ensurePlaysets(root)
-	resolvedIndex := resolvePlaysetIndex(playsets, playsetIndex, gameActiveIndex(playsets))
-	selectedPlayset, _ := playsets[resolvedIndex].(map[string]any)
-	if selectedPlayset == nil {
-		selectedPlayset = map[string]any{}
-		playsets[resolvedIndex] = selectedPlayset
+	return root, nil
+}
+
+func ensureSelectedPlayset(playsets []any, preferredIndex int) map[string]any {
+	resolvedIndex := resolvePlaysetIndex(playsets, preferredIndex, gameActiveIndex(playsets))
+	selectedPlayset, ok := playsets[resolvedIndex].(map[string]any)
+	if ok && selectedPlayset != nil {
+		return selectedPlayset
 	}
 
-	orderedEntries := make([]any, 0, len(state.OrderedIDs))
-	seen := make(map[string]struct{}, len(state.OrderedIDs))
-	for _, id := range state.OrderedIDs {
+	selectedPlayset = map[string]any{}
+	playsets[resolvedIndex] = selectedPlayset
+
+	return selectedPlayset
+}
+
+func buildOrderedEntries(orderedIDs []string, idToPath map[string]string) []any {
+	orderedEntries := make([]any, 0, len(orderedIDs))
+	seen := make(map[string]struct{}, len(orderedIDs))
+	for _, id := range orderedIDs {
 		if id == "" {
 			continue
 		}
@@ -139,25 +191,7 @@ func SaveStateToPlaysets(path string, playsetIndex int, state State, idToPath ma
 		})
 	}
 
-	selectedPlayset["orderedListMods"] = orderedEntries
-	root["playsets"] = playsets
-
-	payload, err := json.MarshalIndent(root, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode playsets payload for %q: %w", path, err)
-	}
-	payload = append(payload, '\n')
-
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, payload, 0o644); err != nil {
-		return fmt.Errorf("write temporary playsets file %q: %w", tmpPath, err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("replace playsets file %q: %w", path, err)
-	}
-
-	return nil
+	return orderedEntries
 }
 
 type playsetEntry struct {
@@ -183,7 +217,10 @@ func playsetEntries(playsetRaw any) []playsetEntry {
 			continue
 		}
 
-		pathValue, _ := modEntry["path"].(string)
+		pathValue := ""
+		if rawPath, ok := modEntry["path"].(string); ok {
+			pathValue = rawPath
+		}
 		enabled := true
 		if rawEnabled, ok := modEntry["isEnabled"].(bool); ok {
 			enabled = rawEnabled
@@ -233,7 +270,7 @@ func gameActiveIndex(playsets []any) int {
 	return 0
 }
 
-func resolvePlaysetIndex(playsets []any, requested int, gameActive int) int {
+func resolvePlaysetIndex(playsets []any, requested, gameActive int) int {
 	if requested >= 0 && requested < len(playsets) {
 		return requested
 	}

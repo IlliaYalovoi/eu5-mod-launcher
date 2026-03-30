@@ -20,21 +20,45 @@ func (g *Graph) Sort(modIDs []string) ([]string, error) {
 		return []string{}, nil
 	}
 
+	present, position := buildNodeMetadata(nodes)
+	adj, indegree := buildAdjacency(nodes, g.All(), present)
+	sortAdjacency(nodes, adj, position)
+
+	result, err := topologicalOrder(nodes, adj, indegree)
+	if err != nil {
+		return nil, err
+	}
+
+	return g.partitionByMarkers(result)
+}
+
+func buildNodeMetadata(nodes []string) (map[string]struct{}, map[string]int) {
 	present := make(map[string]struct{}, len(nodes))
 	position := make(map[string]int, len(nodes))
-	for i, id := range nodes {
+	for i := range nodes {
+		id := nodes[i]
 		present[id] = struct{}{}
 		position[id] = i
 	}
 
+	return present, position
+}
+
+func buildAdjacency(
+	nodes []string,
+	constraints []Constraint,
+	present map[string]struct{},
+) (map[string][]string, map[string]int) {
 	adj := make(map[string][]string, len(nodes))
 	indegree := make(map[string]int, len(nodes))
-	for _, id := range nodes {
+	for i := range nodes {
+		id := nodes[i]
 		adj[id] = []string{}
 		indegree[id] = 0
 	}
 
-	for _, c := range g.All() {
+	for i := range constraints {
+		c := constraints[i]
 		if c.Type != ConstraintTypeAfter {
 			continue
 		}
@@ -45,19 +69,26 @@ func (g *Graph) Sort(modIDs []string) ([]string, error) {
 			continue
 		}
 
-		// Constraint "from loads after to" is a topological edge: to -> from.
 		adj[c.To] = append(adj[c.To], c.From)
 		indegree[c.From]++
 	}
 
-	for _, from := range nodes {
+	return adj, indegree
+}
+
+func sortAdjacency(nodes []string, adj map[string][]string, position map[string]int) {
+	for i := range nodes {
+		from := nodes[i]
 		sort.Slice(adj[from], func(i, j int) bool {
 			return position[adj[from][i]] < position[adj[from][j]]
 		})
 	}
+}
 
+func topologicalOrder(nodes []string, adj map[string][]string, indegree map[string]int) ([]string, error) {
 	queue := make([]string, 0, len(nodes))
-	for _, id := range nodes {
+	for i := range nodes {
+		id := nodes[i]
 		if indegree[id] == 0 {
 			queue = append(queue, id)
 		}
@@ -77,22 +108,28 @@ func (g *Graph) Sort(modIDs []string) ([]string, error) {
 		}
 	}
 
-	if len(result) != len(nodes) {
-		remaining := make([]string, 0)
-		for _, id := range nodes {
-			if indegree[id] > 0 {
-				remaining = append(remaining, id)
-			}
-		}
-
-		return nil, fmt.Errorf("%w: %s", ErrCycle, strings.Join(remaining, " -> "))
+	if len(result) == len(nodes) {
+		return result, nil
 	}
 
+	remaining := make([]string, 0, len(nodes)-len(result))
+	for i := range nodes {
+		id := nodes[i]
+		if indegree[id] > 0 {
+			remaining = append(remaining, id)
+		}
+	}
+
+	return nil, fmt.Errorf("%w: %s", ErrCycle, strings.Join(remaining, " -> "))
+}
+
+func (g *Graph) partitionByMarkers(result []string) ([]string, error) {
 	firstGroup := make([]string, 0)
-	middleGroup := make([]string, 0)
+	middleGroup := make([]string, 0, len(result))
 	lastGroup := make([]string, 0)
 
-	for _, id := range result {
+	for i := range result {
+		id := result[i]
 		if g.HasFirst(id) && g.HasLast(id) {
 			return nil, fmt.Errorf("%w: conflicting first/last markers on %s", ErrCycle, id)
 		}
@@ -110,7 +147,7 @@ func (g *Graph) Sort(modIDs []string) ([]string, error) {
 	sort.Strings(firstGroup)
 	sort.Strings(lastGroup)
 
-	out := make([]string, 0, len(nodes))
+	out := make([]string, 0, len(result))
 	out = append(out, firstGroup...)
 	out = append(out, middleGroup...)
 	out = append(out, lastGroup...)

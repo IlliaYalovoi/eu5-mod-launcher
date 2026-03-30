@@ -7,14 +7,16 @@ import (
 	"testing"
 )
 
+type scanDirCase struct {
+	name         string
+	setup        func(t *testing.T, root string)
+	wantIDs      []string
+	wantNames    []string
+	wantVersions []string
+}
+
 func TestScanDir(t *testing.T) {
-	testCases := []struct {
-		name         string
-		setup        func(t *testing.T, root string)
-		wantIDs      []string
-		wantNames    []string
-		wantVersions []string
-	}{
+	testCases := []scanDirCase{
 		{
 			name: "scans valid mods and skips missing descriptor",
 			setup: func(t *testing.T, root string) {
@@ -22,7 +24,7 @@ func TestScanDir(t *testing.T) {
 				writeDescriptor(t, filepath.Join(root, "modB"), "name=\"Beta\"\nversion=\"2.0\"\n")
 				writeDescriptor(t, filepath.Join(root, "modC"), "name=\"Gamma\"\nversion=\"3.0\"\n")
 
-				if err := os.Mkdir(filepath.Join(root, "empty"), 0o755); err != nil {
+				if err := os.Mkdir(filepath.Join(root, "empty"), 0o750); err != nil {
 					t.Fatalf("Mkdir() error = %v", err)
 				}
 			},
@@ -34,11 +36,11 @@ func TestScanDir(t *testing.T) {
 			name: "supports .metadata metadata.json fallback",
 			setup: func(t *testing.T, root string) {
 				jsonDir := filepath.Join(root, "jsonOnly", ".metadata")
-				if err := os.MkdirAll(jsonDir, 0o755); err != nil {
+				if err := os.MkdirAll(jsonDir, 0o750); err != nil {
 					t.Fatalf("MkdirAll() error = %v", err)
 				}
 				content := "{\"name\":\"From JSON\",\"version\":\"9.9\",\"short_description\":\"desc\",\"tags\":[\"UI\"]}"
-				if err := os.WriteFile(filepath.Join(jsonDir, "metadata.json"), []byte(content), 0o644); err != nil {
+				if err := os.WriteFile(filepath.Join(jsonDir, "metadata.json"), []byte(content), 0o600); err != nil {
 					t.Fatalf("WriteFile() error = %v", err)
 				}
 			},
@@ -50,33 +52,40 @@ func TestScanDir(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			root := t.TempDir()
-			tc.setup(t, root)
-
-			mods, err := ScanDir(root)
-			if err != nil {
-				t.Fatalf("ScanDir() error = %v", err)
-			}
-
-			gotIDs := make([]string, 0, len(mods))
-			gotNames := make([]string, 0, len(mods))
-			gotVersions := make([]string, 0, len(mods))
-			for _, mod := range mods {
-				gotIDs = append(gotIDs, mod.ID)
-				gotNames = append(gotNames, mod.Name)
-				gotVersions = append(gotVersions, mod.Version)
-			}
-
-			if !reflect.DeepEqual(gotIDs, tc.wantIDs) {
-				t.Fatalf("ScanDir() IDs = %v, want %v", gotIDs, tc.wantIDs)
-			}
-			if !reflect.DeepEqual(gotNames, tc.wantNames) {
-				t.Fatalf("ScanDir() names = %v, want %v", gotNames, tc.wantNames)
-			}
-			if !reflect.DeepEqual(gotVersions, tc.wantVersions) {
-				t.Fatalf("ScanDir() versions = %v, want %v", gotVersions, tc.wantVersions)
-			}
+			runScanDirCase(t, tc)
 		})
+	}
+}
+
+func runScanDirCase(t *testing.T, tc scanDirCase) {
+	t.Helper()
+
+	root := t.TempDir()
+	tc.setup(t, root)
+
+	mods, err := ScanDir(root)
+	if err != nil {
+		t.Fatalf("ScanDir() error = %v", err)
+	}
+
+	gotIDs := make([]string, 0, len(mods))
+	gotNames := make([]string, 0, len(mods))
+	gotVersions := make([]string, 0, len(mods))
+	for i := range mods {
+		mod := mods[i]
+		gotIDs = append(gotIDs, mod.ID)
+		gotNames = append(gotNames, mod.Name)
+		gotVersions = append(gotVersions, mod.Version)
+	}
+
+	if !reflect.DeepEqual(gotIDs, tc.wantIDs) {
+		t.Fatalf("ScanDir() IDs = %v, want %v", gotIDs, tc.wantIDs)
+	}
+	if !reflect.DeepEqual(gotNames, tc.wantNames) {
+		t.Fatalf("ScanDir() names = %v, want %v", gotNames, tc.wantNames)
+	}
+	if !reflect.DeepEqual(gotVersions, tc.wantVersions) {
+		t.Fatalf("ScanDir() versions = %v, want %v", gotVersions, tc.wantVersions)
 	}
 }
 
@@ -99,7 +108,8 @@ func TestScanDirs_MultiRootAndDeduplicate(t *testing.T) {
 	}
 
 	byID := make(map[string]Mod, len(mods))
-	for _, mod := range mods {
+	for i := range mods {
+		mod := mods[i]
 		byID[mod.ID] = mod
 	}
 
@@ -127,7 +137,8 @@ func TestScanDirs_DeterministicWithConcurrency(t *testing.T) {
 			t.Fatalf("scanDirsWithWorkers() error = %v", err)
 		}
 		ids := make([]string, 0, len(mods))
-		for _, mod := range mods {
+		for j := range mods {
+			mod := mods[j]
 			ids = append(ids, mod.ID)
 		}
 		if i == 0 {
@@ -143,10 +154,10 @@ func TestScanDirs_DeterministicWithConcurrency(t *testing.T) {
 func TestScanDirs_SkipsBrokenDescriptor(t *testing.T) {
 	root := t.TempDir()
 	writeDescriptor(t, filepath.Join(root, "good"), "name=\"Good\"\nversion=\"1\"\n")
-	if err := os.MkdirAll(filepath.Join(root, "broken"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "broken"), 0o750); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "broken", "descriptor.mod"), []byte("tags={\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "broken", "descriptor.mod"), []byte("tags={\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
@@ -159,13 +170,13 @@ func TestScanDirs_SkipsBrokenDescriptor(t *testing.T) {
 	}
 }
 
-func writeDescriptor(t *testing.T, modDir string, descriptorContent string) {
+func writeDescriptor(t *testing.T, modDir, descriptorContent string) {
 	t.Helper()
 
-	if err := os.MkdirAll(modDir, 0o755); err != nil {
+	if err := os.MkdirAll(modDir, 0o750); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "descriptor.mod"), []byte(descriptorContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(modDir, "descriptor.mod"), []byte(descriptorContent), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 }

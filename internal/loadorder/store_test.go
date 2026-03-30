@@ -17,8 +17,8 @@ func TestStoreSaveLoadRoundTrip(t *testing.T) {
 	}
 
 	state := State{OrderedIDs: []string{"mod.a", "mod.b", "mod.c"}}
-	if err := store.Save(state); err != nil {
-		t.Fatalf("Save() error = %v", err)
+	if saveErr := store.Save(state); saveErr != nil {
+		t.Fatalf("Save() error = %v", saveErr)
 	}
 
 	loaded, err := store.Load()
@@ -58,15 +58,15 @@ func TestSaveAtomicWriteNoTmpLeftBehind(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	if err := store.Save(State{OrderedIDs: []string{"old.mod"}}); err != nil {
-		t.Fatalf("first Save() error = %v", err)
+	if firstSaveErr := store.Save(State{OrderedIDs: []string{"old.mod"}}); firstSaveErr != nil {
+		t.Fatalf("first Save() error = %v", firstSaveErr)
 	}
-	if err := store.Save(State{OrderedIDs: []string{"new.mod", "next.mod"}}); err != nil {
-		t.Fatalf("second Save() error = %v", err)
+	if secondSaveErr := store.Save(State{OrderedIDs: []string{"new.mod", "next.mod"}}); secondSaveErr != nil {
+		t.Fatalf("second Save() error = %v", secondSaveErr)
 	}
 
-	if _, err := os.Stat(configPath + ".tmp"); !os.IsNotExist(err) {
-		t.Fatalf("temporary file should not remain after Save(), stat err = %v", err)
+	if _, statErr := os.Stat(configPath + ".tmp"); !os.IsNotExist(statErr) {
+		t.Fatalf("temporary file should not remain after Save(), stat err = %v", statErr)
 	}
 
 	loaded, err := store.Load()

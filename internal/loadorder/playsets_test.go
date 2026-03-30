@@ -30,7 +30,7 @@ func TestLoadStateFromPlaysets(t *testing.T) {
     }
   ]
 }`
-	if err := os.WriteFile(playsetsPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(playsetsPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
@@ -58,7 +58,7 @@ func TestListPlaysetsDetectsGameActive(t *testing.T) {
     {"name": "B", "isActive": true, "orderedListMods": []}
   ]
 }`
-	if err := os.WriteFile(playsetsPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(playsetsPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
@@ -91,7 +91,7 @@ func TestSaveStateToPlaysetsUpdatesSelectedPlaysetOnly(t *testing.T) {
     }
   ]
 }`
-	if err := os.WriteFile(playsetsPath, []byte(original), 0o644); err != nil {
+	if err := os.WriteFile(playsetsPath, []byte(original), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 

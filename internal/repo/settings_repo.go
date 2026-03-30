@@ -10,10 +10,10 @@ import (
 )
 
 type AppSettingsData struct {
-	ModsDir                    string   `json:"mods_dir,omitempty"`
-	GameExe                    string   `json:"game_exe,omitempty"`
-	GameArgs                   []string `json:"game_args,omitempty"`
-	LauncherActivePlaysetIndex *int     `json:"launcher_active_playset_index,omitempty"`
+	ModsDir                    string   `json:"modsDir,omitempty"`
+	GameExe                    string   `json:"gameExe,omitempty"`
+	GameArgs                   []string `json:"gameArgs,omitempty"`
+	LauncherActivePlaysetIndex *int     `json:"launcherActivePlaysetIndex,omitempty"`
 }
 
 type SettingsRepository interface {
@@ -27,7 +27,7 @@ func NewFileSettingsRepository() *FileSettingsRepository {
 	return &FileSettingsRepository{}
 }
 
-func (r *FileSettingsRepository) Load(path string) (AppSettingsData, error) {
+func (*FileSettingsRepository) Load(path string) (AppSettingsData, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -45,8 +45,8 @@ func (r *FileSettingsRepository) Load(path string) (AppSettingsData, error) {
 	return settings, nil
 }
 
-func (r *FileSettingsRepository) Save(path string, settings AppSettingsData) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+func (*FileSettingsRepository) Save(path string, settings AppSettingsData) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create settings dir for %q: %w", path, err)
 	}
 
@@ -57,12 +57,20 @@ func (r *FileSettingsRepository) Save(path string, settings AppSettingsData) err
 	payload = append(payload, '\n')
 
 	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, payload, 0o644); err != nil {
+	if err := os.WriteFile(tmpPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write temporary settings file %q: %w", tmpPath, err)
 	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
+		if removeErr := os.Remove(tmpPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return fmt.Errorf(
+				"replace settings file %q: %w; cleanup temp %q: %s",
+				path,
+				err,
+				tmpPath,
+				removeErr.Error(),
+			)
+		}
 		return fmt.Errorf("replace settings file %q: %w", path, err)
 	}
 	return nil

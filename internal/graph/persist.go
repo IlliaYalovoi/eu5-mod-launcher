@@ -10,7 +10,7 @@ import (
 
 // SaveConstraints stores constraints as a JSON array of Constraint structs.
 func SaveConstraints(path string, g *Graph) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create constraints directory for %q: %w", path, err)
 	}
 
@@ -20,7 +20,7 @@ func SaveConstraints(path string, g *Graph) error {
 	}
 	payload = append(payload, '\n')
 
-	if err := os.WriteFile(path, payload, 0o644); err != nil {
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
 		return fmt.Errorf("write constraints file %q: %w", path, err)
 	}
 
@@ -41,6 +41,18 @@ func LoadConstraints(path string) (*Graph, error) {
 		return New(), nil
 	}
 
+	constraints, err := decodeConstraints(content, path)
+	if err != nil {
+		return nil, err
+	}
+
+	constraintGraph := New()
+	applyConstraints(constraintGraph, constraints)
+
+	return constraintGraph, nil
+}
+
+func decodeConstraints(content []byte, path string) ([]Constraint, error) {
 	var constraints []Constraint
 	if err := json.Unmarshal(content, &constraints); err != nil {
 		var legacy []struct {
@@ -52,32 +64,35 @@ func LoadConstraints(path string) (*Graph, error) {
 		}
 
 		constraints = make([]Constraint, 0, len(legacy))
-		for _, item := range legacy {
+		for i := range legacy {
+			item := legacy[i]
 			constraints = append(constraints, Constraint{Type: ConstraintTypeAfter, From: item.From, To: item.To})
 		}
 	}
 
-	g := New()
-	for _, c := range constraints {
-		typ := c.Type
+	return constraints, nil
+}
+
+func applyConstraints(constraintGraph *Graph, constraints []Constraint) {
+	for i := range constraints {
+		constraint := constraints[i]
+		typ := constraint.Type
 		if typ == "" {
 			typ = ConstraintTypeAfter
 		}
 		switch typ {
 		case ConstraintTypeFirst:
-			if c.ModID != "" {
-				g.AddFirst(c.ModID)
+			if constraint.ModID != "" {
+				constraintGraph.AddFirst(constraint.ModID)
 			}
 		case ConstraintTypeLast:
-			if c.ModID != "" {
-				g.AddLast(c.ModID)
+			if constraint.ModID != "" {
+				constraintGraph.AddLast(constraint.ModID)
 			}
 		default:
-			if c.From != "" && c.To != "" {
-				g.Add(c.From, c.To)
+			if constraint.From != "" && constraint.To != "" {
+				constraintGraph.Add(constraint.From, constraint.To)
 			}
 		}
 	}
-
-	return g, nil
 }

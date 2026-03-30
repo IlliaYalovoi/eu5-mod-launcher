@@ -1,46 +1,33 @@
 package service
 
 import (
-	"errors"
+	"eu5-mod-launcher/internal/domain"
 	"testing"
 
-	"eu5-mod-launcher/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadOrderServiceValidateAndNormalize(t *testing.T) {
 	svc := NewLoadOrderService()
 	got, err := svc.ValidateAndNormalize([]string{"mod1", "", "mod1", "mod2"})
-	if err != nil {
-		t.Fatalf("ValidateAndNormalize() error = %v", err)
-	}
-	if len(got) != 2 || got[0] != "mod1" || got[1] != "mod2" {
-		t.Fatalf("ValidateAndNormalize() = %v, want [mod1 mod2]", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, []string{"mod1", "mod2"}, got)
 }
 
 func TestLoadOrderServiceValidateAndNormalizeRejectsCategoryID(t *testing.T) {
 	svc := NewLoadOrderService()
 	_, err := svc.ValidateAndNormalize([]string{"category:graphics"})
-	if !errors.Is(err, domain.ErrTypeMismatch) {
-		t.Fatalf("ValidateAndNormalize() error = %v, want ErrTypeMismatch", err)
-	}
+	assert.ErrorIs(t, err, domain.ErrTypeMismatch)
 }
 
-func TestLoadOrderServiceToggleEnabled(t *testing.T) {
+func TestLoadOrderServiceEnableDisable(t *testing.T) {
 	svc := NewLoadOrderService()
-	state, err := svc.ToggleEnabled([]string{"mod1"}, "mod2", true)
-	if err != nil {
-		t.Fatalf("ToggleEnabled(enable) error = %v", err)
-	}
-	if len(state) != 2 || state[1] != "mod2" {
-		t.Fatalf("ToggleEnabled(enable) = %v", state)
-	}
+	state, err := svc.Enable([]string{"mod1"}, "mod2")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"mod1", "mod2"}, state)
 
-	state, err = svc.ToggleEnabled(state, "mod1", false)
-	if err != nil {
-		t.Fatalf("ToggleEnabled(disable) error = %v", err)
-	}
-	if len(state) != 1 || state[0] != "mod2" {
-		t.Fatalf("ToggleEnabled(disable) = %v", state)
-	}
+	state, err = svc.Disable(state, "mod1")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"mod2"}, state)
 }

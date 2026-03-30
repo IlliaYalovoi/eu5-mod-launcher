@@ -1,6 +1,7 @@
 package mods
 
 import (
+	"eu5-mod-launcher/internal/logging"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,11 +9,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
-
-	"eu5-mod-launcher/internal/logging"
 )
 
 const maxScanWorkers = 8
+
+const maxErrorSamples = 3
 
 type scanCandidate struct {
 	index          int
@@ -62,45 +63,70 @@ func collectScanCandidates(dirPaths []string) ([]scanCandidate, error) {
 			continue
 		}
 
-		absRoot, err := filepath.Abs(root)
+		fromRoot, nextIndex, err := collectCandidatesFromRoot(root, index)
 		if err != nil {
-			return nil, fmt.Errorf("resolve absolute mod root %q: %w", root, err)
+			return nil, err
 		}
 
-		entries, err := os.ReadDir(absRoot)
-		if err != nil {
-			if os.IsNotExist(err) {
-				logging.Debugf("mods: skipping missing root %q", absRoot)
-				continue
-			}
-			return nil, fmt.Errorf("read mod root %q: %w", absRoot, err)
-		}
-
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-
-			modDir := filepath.Join(absRoot, entry.Name())
-			descriptorPath := filepath.Join(modDir, "descriptor.mod")
-			if _, err := os.Stat(descriptorPath); err != nil {
-				jsonFallback := filepath.Join(modDir, ".metadata", "metadata.json")
-				if _, fallbackErr := os.Stat(jsonFallback); fallbackErr != nil {
-					continue
-				}
-				descriptorPath = jsonFallback
-			}
-
-			candidates = append(candidates, scanCandidate{
-				index:          index,
-				id:             entry.Name(),
-				modDir:         modDir,
-				descriptorPath: descriptorPath,
-			})
-			index++
-		}
+		candidates = append(candidates, fromRoot...)
+		index = nextIndex
 	}
 	return candidates, nil
+}
+
+func collectCandidatesFromRoot(root string, startIndex int) ([]scanCandidate, int, error) {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, startIndex, fmt.Errorf("resolve absolute mod root %q: %w", root, err)
+	}
+
+	entries, err := os.ReadDir(absRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			logging.Debugf("mods: skipping missing root %q", absRoot)
+			return nil, startIndex, nil
+		}
+
+		return nil, startIndex, fmt.Errorf("read mod root %q: %w", absRoot, err)
+	}
+
+	out := make([]scanCandidate, 0, len(entries))
+	index := startIndex
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		modDir := filepath.Join(absRoot, entry.Name())
+		descriptorPath, ok := resolveDescriptorPath(modDir)
+		if !ok {
+			continue
+		}
+
+		out = append(out, scanCandidate{
+			index:          index,
+			id:             entry.Name(),
+			modDir:         modDir,
+			descriptorPath: descriptorPath,
+		})
+		index++
+	}
+
+	return out, index, nil
+}
+
+func resolveDescriptorPath(modDir string) (string, bool) {
+	descriptorPath := filepath.Join(modDir, "descriptor.mod")
+	if _, err := os.Stat(descriptorPath); err == nil {
+		return descriptorPath, true
+	}
+
+	jsonFallback := filepath.Join(modDir, ".metadata", "metadata.json")
+	if _, fallbackErr := os.Stat(jsonFallback); fallbackErr != nil {
+		return "", false
+	}
+
+	return jsonFallback, true
 }
 
 func scanCandidatesSequential(candidates []scanCandidate) []Mod {
@@ -108,24 +134,25 @@ func scanCandidatesSequential(candidates []scanCandidate) []Mod {
 	errorCount := 0
 	errorSamples := make([]string, 0, 3)
 
-	for _, candidate := range candidates {
+	for i := range candidates {
+		candidate := candidates[i]
 		if _, exists := modsByID[candidate.id]; exists {
 			continue
 		}
-		name, version, description, tags, err := ParseDescriptor(candidate.descriptorPath)
+		descriptor, err := ParseDescriptor(candidate.descriptorPath)
 		if err != nil {
 			errorCount++
-			if len(errorSamples) < 3 {
+			if len(errorSamples) < maxErrorSamples {
 				errorSamples = append(errorSamples, fmt.Sprintf("%q (%v)", candidate.modDir, err))
 			}
 			continue
 		}
 		modsByID[candidate.id] = Mod{
 			ID:          candidate.id,
-			Name:        name,
-			Version:     version,
-			Tags:        tags,
-			Description: description,
+			Name:        descriptor.Name,
+			Version:     descriptor.Version,
+			Tags:        descriptor.Tags,
+			Description: descriptor.Description,
 			DirPath:     candidate.modDir,
 		}
 	}
@@ -143,65 +170,95 @@ func scanCandidatesConcurrent(candidates []scanCandidate, workers int) []Mod {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for candidate := range jobs {
-				name, version, description, tags, err := ParseDescriptor(candidate.descriptorPath)
-				if err != nil {
-					results <- scanResult{index: candidate.index, err: fmt.Errorf("%q (%v)", candidate.modDir, err)}
-					continue
-				}
-				results <- scanResult{index: candidate.index, mod: Mod{
-					ID:          candidate.id,
-					Name:        name,
-					Version:     version,
-					Tags:        tags,
-					Description: description,
-					DirPath:     candidate.modDir,
-				}}
-			}
+			runScanWorker(jobs, results)
 		}()
 	}
 
 	go func() {
-		for _, candidate := range candidates {
-			jobs <- candidate
-		}
+		enqueueCandidates(candidates, jobs)
 		close(jobs)
 		wg.Wait()
 		close(results)
 	}()
 
-	byIndex := make(map[int]scanResult, len(candidates))
-	errorCount := 0
-	errorSamples := make([]string, 0, 3)
-	for result := range results {
-		byIndex[result.index] = result
-		if result.err != nil {
-			errorCount++
-			if len(errorSamples) < 3 {
-				errorSamples = append(errorSamples, result.err.Error())
-			}
-		}
-	}
-
-	modsByID := make(map[string]Mod)
-	for _, candidate := range candidates {
-		if _, exists := modsByID[candidate.id]; exists {
-			continue
-		}
-		result, ok := byIndex[candidate.index]
-		if !ok || result.err != nil {
-			continue
-		}
-		modsByID[candidate.id] = result.mod
-	}
+	byIndex, errorCount, errorSamples := collectScanResults(results, len(candidates))
+	modsByID := collectModsByID(candidates, byIndex)
 
 	logParseErrorSummary(errorCount, errorSamples)
 	return modsFromMapSorted(modsByID)
 }
 
+func runScanWorker(jobs <-chan scanCandidate, results chan<- scanResult) {
+	for candidate := range jobs {
+		descriptor, err := ParseDescriptor(candidate.descriptorPath)
+		if err != nil {
+			results <- scanResult{
+				index: candidate.index,
+				err:   fmt.Errorf("%q: %w", candidate.modDir, err),
+			}
+			continue
+		}
+
+		results <- scanResult{index: candidate.index, mod: Mod{
+			ID:          candidate.id,
+			Name:        descriptor.Name,
+			Version:     descriptor.Version,
+			Tags:        descriptor.Tags,
+			Description: descriptor.Description,
+			DirPath:     candidate.modDir,
+		}}
+	}
+}
+
+func enqueueCandidates(candidates []scanCandidate, jobs chan<- scanCandidate) {
+	for i := range candidates {
+		candidate := candidates[i]
+		jobs <- candidate
+	}
+}
+
+func collectScanResults(results <-chan scanResult, size int) (map[int]scanResult, int, []string) {
+	byIndex := make(map[int]scanResult, size)
+	errorCount := 0
+	errorSamples := make([]string, 0, maxErrorSamples)
+	for result := range results {
+		byIndex[result.index] = result
+		if result.err == nil {
+			continue
+		}
+
+		errorCount++
+		if len(errorSamples) < maxErrorSamples {
+			errorSamples = append(errorSamples, result.err.Error())
+		}
+	}
+
+	return byIndex, errorCount, errorSamples
+}
+
+func collectModsByID(candidates []scanCandidate, byIndex map[int]scanResult) map[string]Mod {
+	modsByID := make(map[string]Mod)
+	for i := range candidates {
+		candidate := candidates[i]
+		if _, exists := modsByID[candidate.id]; exists {
+			continue
+		}
+
+		result, ok := byIndex[candidate.index]
+		if !ok || result.err != nil {
+			continue
+		}
+
+		modsByID[candidate.id] = result.mod
+	}
+
+	return modsByID
+}
+
 func modsFromMapSorted(modsByID map[string]Mod) []Mod {
 	mods := make([]Mod, 0, len(modsByID))
-	for _, mod := range modsByID {
+	for id := range modsByID {
+		mod := modsByID[id]
 		mods = append(mods, mod)
 	}
 	sort.Slice(mods, func(i, j int) bool {
@@ -229,5 +286,9 @@ func logParseErrorSummary(total int, samples []string) {
 		logging.Warnf("mods: skipped %d entries due to descriptor errors", total)
 		return
 	}
-	logging.Warnf("mods: skipped %d entries due to descriptor errors (examples: %s)", total, strings.Join(samples, "; "))
+	logging.Warnf(
+		"mods: skipped %d entries due to descriptor errors (examples: %s)",
+		total,
+		strings.Join(samples, "; "),
+	)
 }

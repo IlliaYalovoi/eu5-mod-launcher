@@ -21,7 +21,7 @@ func TestDefaultConfigPathForOS(t *testing.T) {
 			env: map[string]string{
 				"APPDATA": `C:\Users\Alice\AppData\Roaming`,
 			},
-			want: filepath.Join(`C:\Users\Alice\AppData\Roaming`, "EU5ModLauncher", "loadorder.json"),
+			want: `C:\Users\Alice\AppData\Roaming\EU5ModLauncher\loadorder.json`,
 		},
 		{
 			name:    "windows requires APPDATA",
@@ -35,7 +35,7 @@ func TestDefaultConfigPathForOS(t *testing.T) {
 			env: map[string]string{
 				"XDG_CONFIG_HOME": "/home/alice/.cfg",
 			},
-			want: filepath.Join("/home/alice/.cfg", "eu5-mod-launcher", "loadorder.json"),
+			want: "/home/alice/.cfg/eu5-mod-launcher/loadorder.json",
 		},
 	}
 
@@ -95,7 +95,7 @@ func TestParseLibraryFoldersVDF(t *testing.T) {
 	}
 }`
 
-	if err := os.WriteFile(vdfPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(vdfPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
@@ -115,22 +115,22 @@ func TestParseLibraryFoldersVDF(t *testing.T) {
 func TestDiscoverGameExePathFromSteamLibraries(t *testing.T) {
 	steamRoot := t.TempDir()
 	libraryB := filepath.Join(t.TempDir(), "LibraryB")
-	if err := os.MkdirAll(filepath.Join(steamRoot, "steamapps"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(steamRoot, "steamapps"), 0o750); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
 	vdf := `"libraryfolders"
 {
 	"0" { "path" "` + strings.ReplaceAll(filepath.ToSlash(libraryB), "/", "\\") + `" }
 }`
-	if err := os.WriteFile(filepath.Join(steamRoot, "steamapps", "libraryfolders.vdf"), []byte(vdf), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(steamRoot, "steamapps", "libraryfolders.vdf"), []byte(vdf), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
 	gameExe := filepath.Join(libraryB, "steamapps", "common", "Europa Universalis V", "binaries", "eu5.exe")
-	if err := os.MkdirAll(filepath.Dir(gameExe), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(gameExe), 0o750); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
-	if err := os.WriteFile(gameExe, []byte(""), 0o644); err != nil {
+	if err := os.WriteFile(gameExe, []byte(""), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 

@@ -1,24 +1,22 @@
 package main
 
 import (
-	"encoding/json"
+	"eu5-mod-launcher/internal/domain"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
-
-	"eu5-mod-launcher/internal/domain"
 )
 
-const categoryIDPrefix = "category:"
-const defaultUngroupedCategoryID = "category:ungrouped"
+const (
+	categoryIDPrefix           = "category:"
+	defaultUngroupedCategoryID = "category:ungrouped"
+)
 
 type LauncherCategory struct {
 	ID     string   `json:"id"`
 	Name   string   `json:"name"`
-	ModIDs []string `json:"mod_ids"`
+	ModIDs []string `json:"modIds"`
 }
 
 type LauncherLayout struct {
@@ -37,88 +35,41 @@ func defaultLauncherLayout(enabled []string) LauncherLayout {
 	}
 }
 
-func loadLauncherLayout(path string) (LauncherLayout, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return LauncherLayout{}, nil
-		}
-		return LauncherLayout{}, fmt.Errorf("read launcher layout %q: %w", path, err)
-	}
-	if strings.TrimSpace(string(content)) == "" {
-		return LauncherLayout{}, nil
-	}
-
-	var layout LauncherLayout
-	if err := json.Unmarshal(content, &layout); err != nil {
-		return LauncherLayout{}, fmt.Errorf("decode launcher layout %q: %w", path, err)
-	}
-	if layout.Ungrouped == nil {
-		layout.Ungrouped = []string{}
-	}
-	if layout.Categories == nil {
-		layout.Categories = []LauncherCategory{}
-	}
-	if layout.Order == nil {
-		layout.Order = []string{}
-	}
-	if layout.Collapsed == nil {
-		layout.Collapsed = map[string]bool{}
-	}
-	for i := range layout.Categories {
-		if layout.Categories[i].ModIDs == nil {
-			layout.Categories[i].ModIDs = []string{}
-		}
-	}
-
-	return layout, nil
-}
-
-func saveLauncherLayout(path string, layout LauncherLayout) error {
-	if layout.Ungrouped == nil {
-		layout.Ungrouped = []string{}
-	}
-	if layout.Categories == nil {
-		layout.Categories = []LauncherCategory{}
-	}
-	if layout.Order == nil {
-		layout.Order = []string{}
-	}
-	if layout.Collapsed == nil {
-		layout.Collapsed = map[string]bool{}
-	}
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create launcher layout dir for %q: %w", path, err)
-	}
-
-	payload, err := json.MarshalIndent(layout, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode launcher layout %q: %w", path, err)
-	}
-	payload = append(payload, '\n')
-
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, payload, 0o644); err != nil {
-		return fmt.Errorf("write launcher layout tmp %q: %w", tmp, err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("replace launcher layout %q: %w", path, err)
-	}
-	return nil
-}
-
 func normalizeLauncherLayout(layout LauncherLayout, enabled []string) LauncherLayout {
+	enabledSet := buildEnabledSet(enabled)
+	seen := make(map[string]struct{}, len(enabled))
+
+	normalized := LauncherLayout{
+		Ungrouped:  []string{},
+		Categories: normalizeCategories(layout.Categories, enabledSet, seen),
+		Order:      []string{},
+		Collapsed:  map[string]bool{},
+	}
+
+	availableOrderIDs := buildAvailableOrderIDs(normalized.Categories)
+	normalized.Order = normalizeOrder(layout.Order, normalized.Categories, availableOrderIDs)
+	normalized.Ungrouped = normalizeUngrouped(layout.Ungrouped, enabled, enabledSet, seen)
+	normalized.Collapsed = normalizeCollapsed(layout.Collapsed, availableOrderIDs)
+
+	return normalized
+}
+
+func buildEnabledSet(enabled []string) map[string]struct{} {
 	enabledSet := make(map[string]struct{}, len(enabled))
 	for _, id := range enabled {
 		enabledSet[id] = struct{}{}
 	}
+	return enabledSet
+}
 
-	seen := make(map[string]struct{}, len(enabled))
-	normalized := LauncherLayout{Ungrouped: []string{}, Categories: []LauncherCategory{}, Order: []string{}, Collapsed: map[string]bool{}}
-
-	for _, cat := range layout.Categories {
+func normalizeCategories(
+	categories []LauncherCategory,
+	enabledSet map[string]struct{},
+	seen map[string]struct{},
+) []LauncherCategory {
+	normalized := make([]LauncherCategory, 0, len(categories))
+	for i := range categories {
+		cat := categories[i]
 		if strings.TrimSpace(cat.ID) == "" {
 			continue
 		}
@@ -137,15 +88,28 @@ func normalizeLauncherLayout(layout LauncherLayout, enabled []string) LauncherLa
 			seen[modID] = struct{}{}
 			next.ModIDs = append(next.ModIDs, modID)
 		}
-		normalized.Categories = append(normalized.Categories, next)
+		normalized = append(normalized, next)
 	}
 
-	availableOrderIDs := map[string]struct{}{defaultUngroupedCategoryID: {}}
-	for _, cat := range normalized.Categories {
-		availableOrderIDs[cat.ID] = struct{}{}
+	return normalized
+}
+
+func buildAvailableOrderIDs(categories []LauncherCategory) map[string]struct{} {
+	available := map[string]struct{}{defaultUngroupedCategoryID: {}}
+	for i := range categories {
+		available[categories[i].ID] = struct{}{}
 	}
+	return available
+}
+
+func normalizeOrder(
+	order []string,
+	categories []LauncherCategory,
+	availableOrderIDs map[string]struct{},
+) []string {
+	out := make([]string, 0, len(order)+len(categories)+1)
 	seenOrder := map[string]struct{}{}
-	for _, id := range layout.Order {
+	for _, id := range order {
 		if _, ok := availableOrderIDs[id]; !ok {
 			continue
 		}
@@ -153,21 +117,31 @@ func normalizeLauncherLayout(layout LauncherLayout, enabled []string) LauncherLa
 			continue
 		}
 		seenOrder[id] = struct{}{}
-		normalized.Order = append(normalized.Order, id)
+		out = append(out, id)
 	}
 	if _, exists := seenOrder[defaultUngroupedCategoryID]; !exists {
-		normalized.Order = append(normalized.Order, defaultUngroupedCategoryID)
+		out = append(out, defaultUngroupedCategoryID)
 		seenOrder[defaultUngroupedCategoryID] = struct{}{}
 	}
-	for _, cat := range normalized.Categories {
-		if _, exists := seenOrder[cat.ID]; exists {
+	for i := range categories {
+		catID := categories[i].ID
+		if _, exists := seenOrder[catID]; exists {
 			continue
 		}
-		normalized.Order = append(normalized.Order, cat.ID)
-		seenOrder[cat.ID] = struct{}{}
+		out = append(out, catID)
+		seenOrder[catID] = struct{}{}
 	}
+	return out
+}
 
-	for _, modID := range layout.Ungrouped {
+func normalizeUngrouped(
+	ungrouped []string,
+	enabled []string,
+	enabledSet map[string]struct{},
+	seen map[string]struct{},
+) []string {
+	out := make([]string, 0, len(enabled))
+	for _, modID := range ungrouped {
 		if _, ok := enabledSet[modID]; !ok {
 			continue
 		}
@@ -175,7 +149,7 @@ func normalizeLauncherLayout(layout LauncherLayout, enabled []string) LauncherLa
 			continue
 		}
 		seen[modID] = struct{}{}
-		normalized.Ungrouped = append(normalized.Ungrouped, modID)
+		out = append(out, modID)
 	}
 
 	for _, modID := range enabled {
@@ -183,23 +157,28 @@ func normalizeLauncherLayout(layout LauncherLayout, enabled []string) LauncherLa
 			continue
 		}
 		seen[modID] = struct{}{}
-		normalized.Ungrouped = append(normalized.Ungrouped, modID)
+		out = append(out, modID)
 	}
 
-	for id, collapsed := range layout.Collapsed {
+	return out
+}
+
+func normalizeCollapsed(collapsed map[string]bool, availableOrderIDs map[string]struct{}) map[string]bool {
+	out := map[string]bool{}
+	for id, isCollapsed := range collapsed {
 		if _, ok := availableOrderIDs[id]; ok {
-			normalized.Collapsed[id] = collapsed
+			out[id] = isCollapsed
 		}
 	}
-
-	return normalized
+	return out
 }
 
 func compileLauncherLayout(layout LauncherLayout) []string {
 	out := make([]string, 0, len(layout.Ungrouped))
 	seen := make(map[string]struct{})
-	categoryByID := map[string]LauncherCategory{}
-	for _, cat := range layout.Categories {
+	categoryByID := make(map[string]LauncherCategory, len(layout.Categories))
+	for i := range layout.Categories {
+		cat := layout.Categories[i]
 		categoryByID[cat.ID] = cat
 	}
 
@@ -234,14 +213,6 @@ func generateCategoryID(name string) string {
 
 func isCategoryID(id string) bool {
 	return domain.IsCategoryID(id)
-}
-
-func categoryNameMap(layout LauncherLayout) map[string]string {
-	out := make(map[string]string, len(layout.Categories))
-	for _, cat := range layout.Categories {
-		out[cat.ID] = cat.Name
-	}
-	return out
 }
 
 func sortedKeys(m map[string]struct{}) []string {

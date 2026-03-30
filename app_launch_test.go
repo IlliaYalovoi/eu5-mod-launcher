@@ -1,13 +1,12 @@
 package main
 
 import (
+	"eu5-mod-launcher/internal/loadorder"
+	"eu5-mod-launcher/internal/service"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
 	"testing"
-
-	"eu5-mod-launcher/internal/loadorder"
-	"eu5-mod-launcher/internal/service"
 )
 
 func newReadyAppForLaunchTest(t *testing.T) *App {
@@ -87,7 +86,16 @@ func TestBuildLaunchCommand(t *testing.T) {
 }
 
 func TestShouldLaunchViaSteam(t *testing.T) {
-	steamPath := filepath.Join("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Europa Universalis V", "binaries", "eu5.exe")
+	steamPath := filepath.Join(
+		"C:",
+		"Program Files (x86)",
+		"Steam",
+		"steamapps",
+		"common",
+		"Europa Universalis V",
+		"binaries",
+		"eu5.exe",
+	)
 	svc := service.NewSettingsService()
 	got := svc.ShouldLaunchViaSteam(goruntime.GOOS, steamPath)
 	if goruntime.GOOS == "windows" && !got {

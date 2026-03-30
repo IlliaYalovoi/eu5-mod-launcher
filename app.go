@@ -3,6 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"eu5-mod-launcher/internal/domain"
+	"eu5-mod-launcher/internal/graph"
+	"eu5-mod-launcher/internal/loadorder"
+	"eu5-mod-launcher/internal/logging"
+	"eu5-mod-launcher/internal/mods"
+	"eu5-mod-launcher/internal/repo"
+	"eu5-mod-launcher/internal/service"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,13 +18,6 @@ import (
 	"strings"
 	"sync"
 
-	"eu5-mod-launcher/internal/domain"
-	"eu5-mod-launcher/internal/graph"
-	"eu5-mod-launcher/internal/loadorder"
-	"eu5-mod-launcher/internal/logging"
-	"eu5-mod-launcher/internal/mods"
-	"eu5-mod-launcher/internal/repo"
-	"eu5-mod-launcher/internal/service"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -26,6 +26,16 @@ const (
 	settingsFileName    = "settings.json"
 	launcherLayoutFile  = "launcher_layout.json"
 	eu5SteamAppID       = "3450310"
+	sortPriorityFirst   = 0
+	sortPriorityMiddle  = 1
+	sortPriorityLast    = 2
+	maxSortWorkers      = 8
+	minLayoutForWorkers = 8
+)
+
+var (
+	errLauncherCategoryNameEmpty = errors.New("launcher category name must not be empty")
+	errAppStorageNotInitialized  = errors.New("app storage is not initialized")
 )
 
 // App wires Wails-exposed methods to internal business packages.
@@ -66,7 +76,16 @@ type ModsDirStatus struct {
 	EffectiveExists    bool   `json:"effectiveExists"`
 }
 
-// NewApp creates a new App application struct
+type startupLoads struct {
+	settings       repo.AppSettingsData
+	settingsErr    error
+	constraints    *graph.Graph
+	constraintsErr error
+	layout         repo.LauncherLayoutData
+	layoutErr      error
+}
+
+// NewApp creates a new App application struct.
 func NewApp() *App {
 	app := &App{
 		loState:         loadorder.State{OrderedIDs: []string{}},
@@ -101,7 +120,7 @@ func (a *App) initCoreServices() {
 }
 
 // startup is called when the app starts. The context is saved
-// so we can call the runtime methods
+// so we can call the runtime methods.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
@@ -136,81 +155,15 @@ func (a *App) startup(ctx context.Context) {
 	a.settingsPath = filepath.Join(configDir, settingsFileName)
 	a.layoutPath = filepath.Join(configDir, launcherLayoutFile)
 
-	var (
-		repoSettings   repo.AppSettingsData
-		settingsErr    error
-		loadedGraph    *graph.Graph
-		constraintsErr error
-		repoLayout     repo.LauncherLayoutData
-		layoutLoadErr  error
-	)
-
-	var wg sync.WaitGroup
-	wg.Add(3)
-	go func() {
-		defer wg.Done()
-		repoSettings, settingsErr = a.settingsRepo.Load(a.settingsPath)
-	}()
-	go func() {
-		defer wg.Done()
-		loadedGraph, constraintsErr = a.constraintsRepo.Load(a.constraintsPath)
-	}()
-	go func() {
-		defer wg.Done()
-		repoLayout, layoutLoadErr = a.layoutRepo.Load(a.layoutPath)
-	}()
-	wg.Wait()
-
-	if settingsErr != nil {
-		logging.Warnf("startup: load settings, using defaults: %v", settingsErr)
-	}
-	a.settings = fromRepoSettings(repoSettings)
-
-	if a.gamePaths.PlaysetsPath != "" {
-		playsetNames, gameActiveIndex, err := a.playsetSvc.List(a.gamePaths.PlaysetsPath)
-		if err != nil {
-			logging.Warnf("startup: read playset list: %v", err)
-		} else {
-			a.playsetNames = playsetNames
-			a.gameActiveIndex = gameActiveIndex
-			a.launcherIndex = a.playsetSvc.ResolveLauncherIndex(len(playsetNames), gameActiveIndex, a.settings.LauncherActivePlaysetIndex)
-
-			playsetState, pathByID, loadErr := a.playsetSvc.Load(a.gamePaths.PlaysetsPath, a.launcherIndex)
-			if loadErr != nil {
-				logging.Warnf("startup: load selected playset state, using fallback state: %v", loadErr)
-			} else {
-				a.loState = playsetState
-				for id, path := range pathByID {
-					a.modPathByID[id] = path
-				}
-			}
-		}
-	}
-
-	if constraintsErr != nil {
-		logging.Warnf("startup: load constraints, using empty graph: %v", constraintsErr)
-		a.conGraph = graph.New()
-	} else {
-		if loadedGraph == nil {
-			loadedGraph = graph.New()
-		}
-		a.conGraph = loadedGraph
-	}
-	a.initConstraintsService()
-
-	if layoutLoadErr != nil {
-		logging.Warnf("startup: load launcher layout, using defaults: %v", layoutLoadErr)
-		repoLayout = toRepoLayout(defaultLauncherLayout(a.loState.OrderedIDs))
-	}
-
-	nextLayout, layoutErr := a.layoutSvc.Persist(fromRepoLayout(repoLayout), a.loState.OrderedIDs)
-	a.launcherLayout = nextLayout
-	if layoutErr != nil {
-		logging.Warnf("startup: persist normalized launcher layout: %v", layoutErr)
-	}
+	loads := a.loadStartupState()
+	a.applyStartupSettings(loads.settings, loads.settingsErr)
+	a.loadStartupPlaysetState()
+	a.applyStartupConstraints(loads.constraints, loads.constraintsErr)
+	a.applyStartupLayout(loads.layout, loads.layoutErr)
 
 	logging.Infof(
-		"app startup completed (playsets=%q, localMods=%q, workshopRoots=%d, gameExeAuto=%q, gameExeEffective=%q, gameActive=%d, launcherActive=%d)",
+		"app startup completed (playsets=%q, localMods=%q, workshopRoots=%d, gameExeAuto=%q, "+
+			"gameExeEffective=%q, gameActive=%d, launcherActive=%d)",
 		a.gamePaths.PlaysetsPath,
 		a.effectiveModsDir(),
 		len(a.gamePaths.WorkshopModDirs),
@@ -219,6 +172,95 @@ func (a *App) startup(ctx context.Context) {
 		a.gameActiveIndex,
 		a.launcherIndex,
 	)
+}
+
+func (a *App) loadStartupState() startupLoads {
+	out := startupLoads{}
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		out.settings, out.settingsErr = a.settingsRepo.Load(a.settingsPath)
+	}()
+	go func() {
+		defer wg.Done()
+		out.constraints, out.constraintsErr = a.constraintsRepo.Load(a.constraintsPath)
+	}()
+	go func() {
+		defer wg.Done()
+		out.layout, out.layoutErr = a.layoutRepo.Load(a.layoutPath)
+	}()
+	wg.Wait()
+
+	return out
+}
+
+func (a *App) applyStartupSettings(settings repo.AppSettingsData, settingsErr error) {
+	if settingsErr != nil {
+		logging.Warnf("startup: load settings, using defaults: %v", settingsErr)
+	}
+	a.settings = fromRepoSettings(settings)
+}
+
+func (a *App) loadStartupPlaysetState() {
+	if a.gamePaths.PlaysetsPath == "" {
+		return
+	}
+
+	playsetNames, gameActiveIndex, err := a.playsetSvc.List(a.gamePaths.PlaysetsPath)
+	if err != nil {
+		logging.Warnf("startup: read playset list: %v", err)
+		return
+	}
+
+	a.playsetNames = playsetNames
+	a.gameActiveIndex = gameActiveIndex
+	a.launcherIndex = a.playsetSvc.ResolveLauncherIndex(
+		len(playsetNames),
+		gameActiveIndex,
+		a.settings.LauncherActivePlaysetIndex,
+	)
+
+	playsetState, pathByID, loadErr := a.playsetSvc.Load(a.gamePaths.PlaysetsPath, a.launcherIndex)
+	if loadErr != nil {
+		logging.Warnf("startup: load selected playset state, using fallback state: %v", loadErr)
+		return
+	}
+
+	a.loState = playsetState
+	for id, path := range pathByID {
+		a.modPathByID[id] = path
+	}
+}
+
+func (a *App) applyStartupConstraints(loadedGraph *graph.Graph, constraintsErr error) {
+	if constraintsErr != nil {
+		logging.Warnf("startup: load constraints, using empty graph: %v", constraintsErr)
+		a.conGraph = graph.New()
+		a.initConstraintsService()
+		return
+	}
+
+	if loadedGraph == nil {
+		loadedGraph = graph.New()
+	}
+	a.conGraph = loadedGraph
+	a.initConstraintsService()
+}
+
+func (a *App) applyStartupLayout(repoLayout repo.LauncherLayoutData, layoutLoadErr error) {
+	if layoutLoadErr != nil {
+		logging.Warnf("startup: load launcher layout, using defaults: %v", layoutLoadErr)
+		repoLayout = toRepoLayout(defaultLauncherLayout(a.loState.OrderedIDs))
+	}
+
+	nextLayout := fromRepoLayout(repoLayout)
+	layoutErr := a.layoutSvc.Persist(&nextLayout, a.loState.OrderedIDs)
+	a.launcherLayout = nextLayout
+	if layoutErr != nil {
+		logging.Warnf("startup: persist normalized launcher layout: %v", layoutErr)
+	}
 }
 
 // GetAllMods returns all discovered mods and marks Enabled from load order state.
@@ -262,18 +304,25 @@ func (a *App) SetLoadOrder(ids []string) error {
 		return fmt.Errorf("set load order: %w", err)
 	}
 	newState := loadorder.State{OrderedIDs: next}
-	if err := a.loStore.Save(newState); err != nil {
-		return fmt.Errorf("save fallback load order: %w", err)
+	if saveErr := a.loStore.Save(newState); saveErr != nil {
+		return fmt.Errorf("save fallback load order: %w", saveErr)
 	}
 
 	if a.gamePaths.PlaysetsPath != "" {
-		if err := a.playsetSvc.Save(a.gamePaths.PlaysetsPath, a.launcherIndex, newState, a.modPathByID); err != nil {
-			return fmt.Errorf("save load order to playsets %q: %w", a.gamePaths.PlaysetsPath, err)
+		saveErr := a.playsetSvc.Save(
+			a.gamePaths.PlaysetsPath,
+			a.launcherIndex,
+			newState,
+			a.modPathByID,
+		)
+		if saveErr != nil {
+			return fmt.Errorf("save load order to playsets %q: %w", a.gamePaths.PlaysetsPath, saveErr)
 		}
 	}
 
 	a.loState = newState
-	nextLayout, err := a.layoutSvc.Persist(a.launcherLayout, a.loState.OrderedIDs)
+	nextLayout := a.launcherLayout
+	err = a.layoutSvc.Persist(&nextLayout, a.loState.OrderedIDs)
 	if err != nil {
 		logging.Warnf("set load order: failed to save launcher layout: %v", err)
 	} else {
@@ -282,15 +331,29 @@ func (a *App) SetLoadOrder(ids []string) error {
 	return nil
 }
 
-// SetModEnabled enables or disables a single mod ID.
-func (a *App) SetModEnabled(id string, enabled bool) error {
+// EnableMod enables a single mod ID.
+func (a *App) EnableMod(id string) error {
 	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set mod enabled for %q: %w", id, err)
+		return fmt.Errorf("enable mod %q: %w", id, err)
 	}
 
-	next, err := a.loadorderSvc.ToggleEnabled(a.loState.OrderedIDs, id, enabled)
+	next, err := a.loadorderSvc.Enable(a.loState.OrderedIDs, id)
 	if err != nil {
-		return fmt.Errorf("set mod enabled for %q: %w", id, err)
+		return fmt.Errorf("enable mod %q: %w", id, err)
+	}
+
+	return a.SetLoadOrder(next)
+}
+
+// DisableMod disables a single mod ID.
+func (a *App) DisableMod(id string) error {
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("disable mod %q: %w", id, err)
+	}
+
+	next, err := a.loadorderSvc.Disable(a.loState.OrderedIDs, id)
+	if err != nil {
+		return fmt.Errorf("disable mod %q: %w", id, err)
 	}
 
 	return a.SetLoadOrder(next)
@@ -306,12 +369,12 @@ func (a *App) GetConstraints() []graph.Constraint {
 }
 
 // AddConstraint adds and persists a loads-after relationship.
-func (a *App) AddConstraint(from, to string) error {
+func (a *App) AddConstraint(from, target string) error {
 	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("add constraint %q -> %q: %w", from, to, err)
+		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
 	}
-	if err := a.conService.AddConstraint(from, to); err != nil {
-		return fmt.Errorf("add constraint %q -> %q: %w", from, to, err)
+	if err := a.conService.AddConstraint(from, target); err != nil {
+		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
 	}
 	return nil
 }
@@ -339,12 +402,12 @@ func (a *App) AddLoadLast(modID string) error {
 }
 
 // RemoveConstraint removes and persists a loads-after relationship.
-func (a *App) RemoveConstraint(from, to string) error {
+func (a *App) RemoveConstraint(from, target string) error {
 	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("remove constraint %q -> %q: %w", from, to, err)
+		return fmt.Errorf("remove constraint %q -> %q: %w", from, target, err)
 	}
-	if err := a.conService.RemoveConstraint(from, to); err != nil {
-		return fmt.Errorf("remove constraint %q -> %q: %w", from, to, err)
+	if err := a.conService.RemoveConstraint(from, target); err != nil {
+		return fmt.Errorf("remove constraint %q -> %q: %w", from, target, err)
 	}
 	return nil
 }
@@ -385,8 +448,8 @@ func (a *App) Autosort() ([]string, error) {
 		return nil, fmt.Errorf("sort constraints: %w", err)
 	}
 
-	if err := a.SetLoadOrder(sorted); err != nil {
-		return nil, fmt.Errorf("persist autosorted load order: %w", err)
+	if saveErr := a.SetLoadOrder(sorted); saveErr != nil {
+		return nil, fmt.Errorf("persist autosorted load order: %w", saveErr)
 	}
 
 	nextLayout, err := a.reorderLauncherLayoutAfterAutosort(sorted)
@@ -411,7 +474,9 @@ func (a *App) Autosort() ([]string, error) {
 
 // GetLauncherLayout returns the launcher-only categorized ordering model.
 func (a *App) GetLauncherLayout() LauncherLayout {
-	a.launcherLayout = a.layoutSvc.Normalize(a.launcherLayout, a.loState.OrderedIDs)
+	next := a.launcherLayout
+	a.layoutSvc.Normalize(&next, a.loState.OrderedIDs)
+	a.launcherLayout = next
 	return a.launcherLayout
 }
 
@@ -421,8 +486,8 @@ func (a *App) SetLauncherLayout(layout LauncherLayout) error {
 		return fmt.Errorf("set launcher layout: %w", err)
 	}
 
-	next, err := a.layoutSvc.Persist(layout, a.loState.OrderedIDs)
-	if err != nil {
+	next := layout
+	if err := a.layoutSvc.Persist(&next, a.loState.OrderedIDs); err != nil {
 		return fmt.Errorf("save launcher layout: %w", err)
 	}
 	a.launcherLayout = next
@@ -438,13 +503,13 @@ func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
 
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		return LauncherCategory{}, fmt.Errorf("create launcher category: name must not be empty")
+		return LauncherCategory{}, fmt.Errorf("create launcher category: %w", errLauncherCategoryNameEmpty)
 	}
 
 	created := LauncherCategory{ID: generateCategoryID(trimmed), Name: trimmed, ModIDs: []string{}}
 	a.launcherLayout.Categories = append(a.launcherLayout.Categories, created)
-	next, err := a.layoutSvc.Persist(a.launcherLayout, a.loState.OrderedIDs)
-	if err != nil {
+	next := a.launcherLayout
+	if err := a.layoutSvc.Persist(&next, a.loState.OrderedIDs); err != nil {
 		return LauncherCategory{}, fmt.Errorf("save launcher layout after category create: %w", err)
 	}
 	a.launcherLayout = next
@@ -461,9 +526,13 @@ func (a *App) DeleteLauncherCategory(categoryID string) error {
 		return fmt.Errorf("delete launcher category %q: %w", categoryID, err)
 	}
 
-	next := LauncherLayout{Ungrouped: append([]string(nil), a.launcherLayout.Ungrouped...), Categories: []LauncherCategory{}}
+	next := LauncherLayout{
+		Ungrouped:  append([]string(nil), a.launcherLayout.Ungrouped...),
+		Categories: []LauncherCategory{},
+	}
 
-	for _, cat := range a.launcherLayout.Categories {
+	for i := range a.launcherLayout.Categories {
+		cat := a.launcherLayout.Categories[i]
 		if cat.ID == categoryID {
 			next.Ungrouped = append(next.Ungrouped, cat.ModIDs...)
 			continue
@@ -471,8 +540,8 @@ func (a *App) DeleteLauncherCategory(categoryID string) error {
 		next.Categories = append(next.Categories, cat)
 	}
 
-	normalized, err := a.layoutSvc.Persist(next, a.loState.OrderedIDs)
-	if err != nil {
+	normalized := next
+	if err := a.layoutSvc.Persist(&normalized, a.loState.OrderedIDs); err != nil {
 		return fmt.Errorf("save launcher layout after category delete %q: %w", categoryID, err)
 	}
 	a.launcherLayout = normalized
@@ -486,7 +555,9 @@ func (a *App) SaveCompiledLoadOrder() ([]string, error) {
 		return nil, fmt.Errorf("save compiled load order: %w", err)
 	}
 
-	a.launcherLayout = a.layoutSvc.Normalize(a.launcherLayout, a.loState.OrderedIDs)
+	next := a.launcherLayout
+	a.layoutSvc.Normalize(&next, a.loState.OrderedIDs)
+	a.launcherLayout = next
 	compiled := compileLauncherLayout(a.launcherLayout)
 	if err := a.SetLoadOrder(compiled); err != nil {
 		return nil, fmt.Errorf("persist compiled load order: %w", err)
@@ -536,18 +607,8 @@ func (a *App) LaunchGame() error {
 	}
 
 	if a.settingsSvc.ShouldLaunchViaSteam(goruntime.GOOS, absExe) {
-		steamCmd, err := a.launchSvc.BuildSteamLaunchCommand(goruntime.GOOS, eu5SteamAppID)
-		if err != nil {
-			logging.Warnf("launch game: steam launch unavailable, falling back to direct executable: %v", err)
-		} else if err := steamCmd.Start(); err == nil {
-			steamPID := 0
-			if steamCmd.Process != nil {
-				steamPID = steamCmd.Process.Pid
-			}
-			logging.Infof("launch game: started via steam appid=%s pid=%d", eu5SteamAppID, steamPID)
+		if launched := a.tryLaunchViaSteam(); launched {
 			return nil
-		} else {
-			logging.Warnf("launch game: steam launch failed, falling back to direct executable: %v", err)
 		}
 	}
 
@@ -563,6 +624,27 @@ func (a *App) LaunchGame() error {
 	logging.Infof("launch game: started detached process %q pid=%d", absExe, pid)
 
 	return nil
+}
+
+func (a *App) tryLaunchViaSteam() bool {
+	steamCmd, err := a.launchSvc.BuildSteamLaunchCommand(goruntime.GOOS, eu5SteamAppID)
+	if err != nil {
+		logging.Warnf("launch game: steam launch unavailable, falling back to direct executable: %v", err)
+		return false
+	}
+
+	if err := steamCmd.Start(); err != nil {
+		logging.Warnf("launch game: steam launch failed, falling back to direct executable: %v", err)
+		return false
+	}
+
+	steamPID := 0
+	if steamCmd.Process != nil {
+		steamPID = steamCmd.Process.Pid
+	}
+	logging.Infof("launch game: started via steam appid=%s pid=%d", eu5SteamAppID, steamPID)
+
+	return true
 }
 
 // GetAutoDetectedGameExe returns autodetected EU5 executable path.
@@ -729,7 +811,7 @@ func (a *App) ResetModsDirToAuto() (string, error) {
 
 func (a *App) ensureReady() error {
 	if a.loStore == nil {
-		return errors.New("app storage is not initialized")
+		return errAppStorageNotInitialized
 	}
 	if a.conGraph == nil {
 		a.conGraph = graph.New()
@@ -762,7 +844,13 @@ func (a *App) initConstraintsService() {
 	if a.conGraph == nil {
 		a.conGraph = graph.New()
 	}
-	a.conService = service.NewConstraintsService(a.conGraph, a.constraintsPath, a.constraintsRepo, a.expandConstraintTarget, isCategoryID)
+	a.conService = service.NewConstraintsService(
+		a.conGraph,
+		a.constraintsPath,
+		a.constraintsRepo,
+		a.expandConstraintTarget,
+		isCategoryID,
+	)
 }
 
 func (a *App) effectiveModsDir() string {
@@ -782,7 +870,8 @@ func (a *App) expandConstraintTarget(target string) []string {
 	}
 
 	ids := make(map[string]struct{})
-	for _, category := range a.launcherLayout.Categories {
+	for i := range a.launcherLayout.Categories {
+		category := a.launcherLayout.Categories[i]
 		if category.ID != target {
 			continue
 		}
@@ -800,22 +889,45 @@ func (a *App) expandConstraintTarget(target string) []string {
 func (a *App) reorderLauncherLayoutAfterAutosort(sorted []string) (LauncherLayout, error) {
 	layout := normalizeLauncherLayout(a.launcherLayout, sorted)
 
+	position := buildIDPositionMap(sorted)
+	sortLayoutModIDs(&layout, position, len(sorted))
+
+	categoryByID := indexCategoriesByID(layout.Categories)
+	blockIDs := completeCategoryBlockOrder(layout)
+	sortGraph := buildCategorySortGraph(blockIDs, a.conGraph.All())
+
+	order, err := sortCategoryBlocks(blockIDs, sortGraph, categoryByID)
+	if err != nil {
+		return layout, err
+	}
+
+	layout.Order = order
+	return layout, nil
+}
+
+func buildIDPositionMap(sorted []string) map[string]int {
 	position := make(map[string]int, len(sorted))
 	for i, id := range sorted {
 		position[id] = i
 	}
-	sortLayoutModIDs(&layout, position, len(sorted))
+	return position
+}
 
-	categoryByID := map[string]LauncherCategory{}
-	for _, cat := range layout.Categories {
-		categoryByID[cat.ID] = cat
+func indexCategoriesByID(categories []LauncherCategory) map[string]LauncherCategory {
+	out := make(map[string]LauncherCategory, len(categories))
+	for i := range categories {
+		cat := categories[i]
+		out[cat.ID] = cat
 	}
+	return out
+}
 
+func completeCategoryBlockOrder(layout LauncherLayout) []string {
 	blockIDs := append([]string(nil), layout.Order...)
 	if len(blockIDs) == 0 {
 		blockIDs = append(blockIDs, defaultUngroupedCategoryID)
-		for _, cat := range layout.Categories {
-			blockIDs = append(blockIDs, cat.ID)
+		for i := range layout.Categories {
+			blockIDs = append(blockIDs, layout.Categories[i].ID)
 		}
 	}
 
@@ -827,48 +939,50 @@ func (a *App) reorderLauncherLayoutAfterAutosort(sorted []string) (LauncherLayou
 		blockIDs = append(blockIDs, defaultUngroupedCategoryID)
 		present[defaultUngroupedCategoryID] = struct{}{}
 	}
-	for _, cat := range layout.Categories {
-		if _, ok := present[cat.ID]; !ok {
-			blockIDs = append(blockIDs, cat.ID)
-			present[cat.ID] = struct{}{}
+	for i := range layout.Categories {
+		catID := layout.Categories[i].ID
+		if _, ok := present[catID]; ok {
+			continue
 		}
+		blockIDs = append(blockIDs, catID)
+		present[catID] = struct{}{}
 	}
+	return blockIDs
+}
 
-	orderIndex := map[string]int{}
-	for i, id := range blockIDs {
-		orderIndex[id] = i
-	}
+type categorySortGraph struct {
+	adj      map[string][]string
+	indegree map[string]int
+	order    map[string]int
+	firstSet map[string]struct{}
+	lastSet  map[string]struct{}
+}
 
+func buildCategorySortGraph(blockIDs []string, constraints []graph.Constraint) categorySortGraph {
 	adj := make(map[string][]string, len(blockIDs))
 	indegree := make(map[string]int, len(blockIDs))
-	for _, id := range blockIDs {
+	order := make(map[string]int, len(blockIDs))
+	for i, id := range blockIDs {
 		adj[id] = []string{}
 		indegree[id] = 0
+		order[id] = i
 	}
 
 	firstSet := map[string]struct{}{}
 	lastSet := map[string]struct{}{}
-	for _, constraint := range a.conGraph.All() {
+	for i := range constraints {
+		constraint := constraints[i]
 		switch constraint.Type {
 		case graph.ConstraintTypeFirst:
-			if isCategoryID(constraint.ModID) {
-				if _, ok := indegree[constraint.ModID]; ok {
-					firstSet[constraint.ModID] = struct{}{}
-				}
+			if isCategoryConstraintNode(constraint.ModID, indegree) {
+				firstSet[constraint.ModID] = struct{}{}
 			}
 		case graph.ConstraintTypeLast:
-			if isCategoryID(constraint.ModID) {
-				if _, ok := indegree[constraint.ModID]; ok {
-					lastSet[constraint.ModID] = struct{}{}
-				}
+			if isCategoryConstraintNode(constraint.ModID, indegree) {
+				lastSet[constraint.ModID] = struct{}{}
 			}
 		default:
-			if !isCategoryID(constraint.From) || !isCategoryID(constraint.To) {
-				continue
-			}
-			_, fromOk := indegree[constraint.From]
-			_, toOk := indegree[constraint.To]
-			if !fromOk || !toOk {
+			if !isValidCategoryEdge(constraint.From, constraint.To, indegree) {
 				continue
 			}
 			adj[constraint.To] = append(adj[constraint.To], constraint.From)
@@ -876,77 +990,121 @@ func (a *App) reorderLauncherLayoutAfterAutosort(sorted []string) (LauncherLayou
 		}
 	}
 
-	priorityRank := func(id string) int {
-		_, isFirst := firstSet[id]
-		_, isLast := lastSet[id]
-		if isFirst {
-			return 0
-		}
-		if isLast {
-			return 2
-		}
-		return 1
+	return categorySortGraph{
+		adj:      adj,
+		indegree: indegree,
+		order:    order,
+		firstSet: firstSet,
+		lastSet:  lastSet,
 	}
+}
 
-	blockName := func(id string) string {
-		if id == defaultUngroupedCategoryID {
-			return "Ungrouped"
-		}
-		if cat, ok := categoryByID[id]; ok {
-			return cat.Name
-		}
-		return id
+func isCategoryConstraintNode(id string, indegree map[string]int) bool {
+	if !isCategoryID(id) {
+		return false
 	}
+	_, ok := indegree[id]
+	return ok
+}
 
+func isValidCategoryEdge(from, to string, indegree map[string]int) bool {
+	if !isCategoryID(from) || !isCategoryID(to) {
+		return false
+	}
+	_, fromOk := indegree[from]
+	_, toOk := indegree[to]
+	return fromOk && toOk
+}
+
+func sortCategoryBlocks(
+	blockIDs []string,
+	sortGraph categorySortGraph,
+	categoryByID map[string]LauncherCategory,
+) ([]string, error) {
 	queue := make([]string, 0, len(blockIDs))
 	for _, id := range blockIDs {
-		if indegree[id] == 0 {
+		if sortGraph.indegree[id] == 0 {
 			queue = append(queue, id)
 		}
 	}
 
 	result := make([]string, 0, len(blockIDs))
 	for len(queue) > 0 {
-		sort.Slice(queue, func(i, j int) bool {
-			ri := priorityRank(queue[i])
-			rj := priorityRank(queue[j])
-			if ri != rj {
-				return ri < rj
-			}
-			if ri == 1 {
-				oi := orderIndex[queue[i]]
-				oj := orderIndex[queue[j]]
-				if oi != oj {
-					return oi < oj
-				}
-			}
-			return strings.ToLower(blockName(queue[i])) < strings.ToLower(blockName(queue[j]))
-		})
+		sortQueueByPriority(queue, sortGraph, categoryByID)
 
 		current := queue[0]
 		queue = queue[1:]
 		result = append(result, current)
 
-		for _, next := range adj[current] {
-			indegree[next]--
-			if indegree[next] == 0 {
+		for _, next := range sortGraph.adj[current] {
+			sortGraph.indegree[next]--
+			if sortGraph.indegree[next] == 0 {
 				queue = append(queue, next)
 			}
 		}
 	}
 
 	if len(result) != len(blockIDs) {
-		remaining := make([]string, 0)
-		for _, id := range blockIDs {
-			if indegree[id] > 0 {
-				remaining = append(remaining, id)
-			}
-		}
-		return layout, fmt.Errorf("%w: category cycle %s", graph.ErrCycle, strings.Join(remaining, " -> "))
+		remaining := collectRemainingCategoryCycle(blockIDs, sortGraph.indegree)
+		return nil, fmt.Errorf("%w: category cycle %s", graph.ErrCycle, strings.Join(remaining, " -> "))
 	}
 
-	layout.Order = result
-	return layout, nil
+	return result, nil
+}
+
+func sortQueueByPriority(
+	queue []string,
+	sortGraph categorySortGraph,
+	categoryByID map[string]LauncherCategory,
+) {
+	sort.Slice(queue, func(i, j int) bool {
+		leftRank := categoryPriorityRank(queue[i], sortGraph.firstSet, sortGraph.lastSet)
+		rightRank := categoryPriorityRank(queue[j], sortGraph.firstSet, sortGraph.lastSet)
+		if leftRank != rightRank {
+			return leftRank < rightRank
+		}
+		if leftRank == sortPriorityMiddle {
+			leftOrder := sortGraph.order[queue[i]]
+			rightOrder := sortGraph.order[queue[j]]
+			if leftOrder != rightOrder {
+				return leftOrder < rightOrder
+			}
+		}
+
+		leftName := strings.ToLower(categoryDisplayName(queue[i], categoryByID))
+		rightName := strings.ToLower(categoryDisplayName(queue[j], categoryByID))
+		return leftName < rightName
+	})
+}
+
+func categoryPriorityRank(id string, firstSet, lastSet map[string]struct{}) int {
+	if _, isFirst := firstSet[id]; isFirst {
+		return sortPriorityFirst
+	}
+	if _, isLast := lastSet[id]; isLast {
+		return sortPriorityLast
+	}
+	return sortPriorityMiddle
+}
+
+func categoryDisplayName(id string, categoryByID map[string]LauncherCategory) string {
+	if id == defaultUngroupedCategoryID {
+		return "Ungrouped"
+	}
+	if cat, ok := categoryByID[id]; ok {
+		return cat.Name
+	}
+	return id
+}
+
+func collectRemainingCategoryCycle(blockIDs []string, indegree map[string]int) []string {
+	remaining := make([]string, 0)
+	for _, id := range blockIDs {
+		if indegree[id] > 0 {
+			remaining = append(remaining, id)
+		}
+	}
+	return remaining
 }
 
 func sortIDsByPosition(ids []string, position map[string]int, fallback int) []string {
@@ -973,10 +1131,10 @@ func sortLayoutModIDs(layout *LauncherLayout, position map[string]int, sortedCou
 	if workers < 1 {
 		workers = 1
 	}
-	if workers > 8 {
-		workers = 8
+	if workers > maxSortWorkers {
+		workers = maxSortWorkers
 	}
-	if len(layout.Categories) < 8 || workers == 1 {
+	if len(layout.Categories) < minLayoutForWorkers || workers == 1 {
 		sortLayoutModIDsSequential(layout, position, sortedCount)
 		return
 	}
@@ -1033,8 +1191,13 @@ func fromRepoSettings(settings repo.AppSettingsData) appSettings {
 
 func toRepoLayout(layout LauncherLayout) repo.LauncherLayoutData {
 	categories := make([]repo.LauncherCategoryData, 0, len(layout.Categories))
-	for _, category := range layout.Categories {
-		categories = append(categories, repo.LauncherCategoryData{ID: category.ID, Name: category.Name, ModIDs: append([]string(nil), category.ModIDs...)})
+	for i := range layout.Categories {
+		category := layout.Categories[i]
+		categories = append(categories, repo.LauncherCategoryData{
+			ID:     category.ID,
+			Name:   category.Name,
+			ModIDs: append([]string(nil), category.ModIDs...),
+		})
 	}
 	collapsed := map[string]bool{}
 	for id, value := range layout.Collapsed {
@@ -1050,8 +1213,13 @@ func toRepoLayout(layout LauncherLayout) repo.LauncherLayoutData {
 
 func fromRepoLayout(layout repo.LauncherLayoutData) LauncherLayout {
 	categories := make([]LauncherCategory, 0, len(layout.Categories))
-	for _, category := range layout.Categories {
-		categories = append(categories, LauncherCategory{ID: category.ID, Name: category.Name, ModIDs: append([]string(nil), category.ModIDs...)})
+	for i := range layout.Categories {
+		category := layout.Categories[i]
+		categories = append(categories, LauncherCategory{
+			ID:     category.ID,
+			Name:   category.Name,
+			ModIDs: append([]string(nil), category.ModIDs...),
+		})
 	}
 	collapsed := map[string]bool{}
 	for id, value := range layout.Collapsed {
@@ -1077,6 +1245,6 @@ func dirExists(path string) bool {
 }
 
 // Greet keeps the template method available for quick binding checks.
-func (a *App) Greet(name string) string {
+func (*App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
