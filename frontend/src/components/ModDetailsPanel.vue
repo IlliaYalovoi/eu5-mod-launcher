@@ -262,7 +262,7 @@ async function onSteamContentClick(event: MouseEvent): Promise<void> {
 :deep(.steam-html blockquote) {
   margin: var(--space-2) 0;
   padding: var(--space-2);
-  border-left: 3px solid var(--color-border-strong);
+  border-left: var(--border-width-strong) solid var(--color-border-strong);
   background: var(--color-bg-panel);
 }
 

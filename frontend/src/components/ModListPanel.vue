@@ -207,8 +207,8 @@ function onLauncherPlaysetChange(event: Event): void {
   height: 1rem;
   border: var(--border-width) solid var(--color-text-secondary);
   border-top-color: transparent;
-  border-radius: 999px;
-  animation: spin 700ms linear infinite;
+  border-radius: var(--radius-pill);
+  animation: spin var(--duration-spinner) linear infinite;
 }
 
 @keyframes spin {

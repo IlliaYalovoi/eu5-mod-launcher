@@ -30,7 +30,7 @@ const props = withDefaults(
 .dot {
   width: 0.55rem;
   height: 0.55rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-disabled);
 }
 

@@ -14,7 +14,7 @@ defineProps<{
   align-items: center;
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--color-accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-accent);
   font-size: 0.75rem;
   font-weight: 700;

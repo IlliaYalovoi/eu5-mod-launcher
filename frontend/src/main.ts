@@ -6,9 +6,12 @@ import { useModsStore } from './stores/mods'
 import { useLoadOrderStore } from './stores/loadorder'
 import { useConstraintsStore } from './stores/constraints'
 import { useSettingsStore } from './stores/settings'
+import { initializeTheme } from './utils/theme'
 
 const app = createApp(App)
 const pinia = createPinia()
+
+initializeTheme()
 
 app.use(pinia)
 app.mount('#app')

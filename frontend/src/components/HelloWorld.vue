@@ -19,45 +19,45 @@ const data = reactive({
 
 <style scoped>
 .result {
-  height: 20px;
-  line-height: 20px;
+  height: var(--size-legacy-result-height);
+  line-height: var(--size-legacy-result-height);
   margin: 1.5rem auto;
 }
 
 .input-box .btn {
-  width: 60px;
-  height: 30px;
-  line-height: 30px;
-  border-radius: 3px;
+  width: var(--size-legacy-btn-width);
+  height: var(--size-legacy-control-height);
+  line-height: var(--size-legacy-control-height);
+  border-radius: var(--radius-legacy-sm);
   border: none;
-  margin: 0 0 0 20px;
-  padding: 0 8px;
+  margin: 0 0 0 var(--space-5);
+  padding: 0 var(--space-2);
   cursor: pointer;
 }
 
 .input-box .btn:hover {
-  background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-  color: #333333;
+  background-image: var(--gradient-legacy-btn-hover);
+  color: var(--color-legacy-text-dark);
 }
 
 .input-box .input {
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-legacy-sm);
   outline: none;
-  height: 30px;
-  line-height: 30px;
-  padding: 0 10px;
-  background-color: rgba(240, 240, 240, 1);
+  height: var(--size-legacy-control-height);
+  line-height: var(--size-legacy-control-height);
+  padding: 0 var(--space-legacy-input-x);
+  background-color: var(--color-legacy-input-bg);
   -webkit-font-smoothing: antialiased;
 }
 
 .input-box .input:hover {
   border: none;
-  background-color: rgba(255, 255, 255, 1);
+  background-color: var(--color-legacy-input-bg-hover);
 }
 
 .input-box .input:focus {
   border: none;
-  background-color: rgba(255, 255, 255, 1);
+  background-color: var(--color-legacy-input-bg-hover);
 }
 </style>

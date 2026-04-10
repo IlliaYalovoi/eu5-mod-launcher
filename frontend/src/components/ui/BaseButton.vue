@@ -89,8 +89,8 @@ const classes = computed(() => ['base-button', `base-button--${props.variant}`])
   height: 0.9rem;
   border: var(--border-width) solid var(--color-bg-base);
   border-top-color: transparent;
-  border-radius: 999px;
-  animation: spin 700ms linear infinite;
+  border-radius: var(--radius-pill);
+  animation: spin var(--duration-spinner) linear infinite;
 }
 
 .base-button--ghost .spinner,

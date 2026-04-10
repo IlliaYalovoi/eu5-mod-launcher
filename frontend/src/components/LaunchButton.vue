@@ -108,8 +108,8 @@ function onDismissError(event: MouseEvent): void {
   height: 0.9rem;
   border: var(--border-width) solid currentColor;
   border-top-color: transparent;
-  border-radius: 999px;
-  animation: spin 700ms linear infinite;
+  border-radius: var(--radius-pill);
+  animation: spin var(--duration-spinner) linear infinite;
 }
 
 .dismiss {
