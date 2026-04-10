@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import type { Mod } from '../types'
+import { toDisplayImageSrc } from '../utils/steamDescription'
 import BaseBadge from './ui/BaseBadge.vue'
 import BaseTag from './ui/BaseTag.vue'
 
 const props = defineProps<{
   mod: Mod
+  selected?: boolean
 }>()
 
 const emit = defineEmits<{
   (event: 'toggle'): void
+  (event: 'select'): void
 }>()
 
 const fallbackThumbnail =
@@ -22,13 +25,17 @@ function onImageError(event: Event): void {
 function onToggle(): void {
   emit('toggle')
 }
+
+function onSelect(): void {
+  emit('select')
+}
 </script>
 
 <template>
-  <article class="mod-card">
+  <article class="mod-card" :class="{ selected: props.selected }" @click="onSelect">
     <img
       class="thumbnail"
-      :src="props.mod.ThumbnailPath || fallbackThumbnail"
+      :src="toDisplayImageSrc(props.mod.ThumbnailPath) || fallbackThumbnail"
       :alt="`${props.mod.Name} thumbnail`"
       loading="lazy"
       @error="onImageError"
@@ -43,7 +50,7 @@ function onToggle(): void {
       </div>
     </div>
 
-    <button class="toggle" type="button" :aria-label="`Toggle ${props.mod.Name}`" @click="onToggle">
+    <button class="toggle" type="button" :aria-label="`Toggle ${props.mod.Name}`" @click.stop="onToggle">
       <BaseBadge :enabled="props.mod.Enabled" />
     </button>
   </article>
@@ -59,6 +66,12 @@ function onToggle(): void {
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-elevated);
+  cursor: pointer;
+}
+
+.mod-card.selected {
+  border-color: var(--color-border-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-border-strong) 50%, transparent);
 }
 
 .thumbnail {

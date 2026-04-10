@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"eu5-mod-launcher/internal/steam"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,8 @@ type fakeSteamClient struct {
 	itemsByID map[string]steam.WorkshopItem
 	calls     [][]string
 }
+
+var errSteamUnavailable = errors.New("steam unavailable")
 
 func (f *fakeSteamClient) FetchWorkshopMetadata(ids []string) (map[string]steam.WorkshopItem, error) {
 	copied := append([]string(nil), ids...)
@@ -67,4 +70,82 @@ func TestWorkshopItemIDFromPath(t *testing.T) {
 
 	nonWorkshop := workshopItemIDFromPath(filepath.FromSlash("C:/mods/localmod"), []string{workshopRoot})
 	require.Equal(t, "", nonWorkshop)
+}
+
+func TestOpenWorkshopItem_FallbackOrder(t *testing.T) {
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	attempts := make([]string, 0, 3)
+	app.openURL = func(_, rawURL string) error {
+		attempts = append(attempts, rawURL)
+		if len(attempts) == 1 {
+			return errSteamUnavailable
+		}
+		return nil
+	}
+	app.openInAppURL = func(rawURL string) error {
+		attempts = append(attempts, rawURL)
+		return nil
+	}
+
+	err := app.OpenWorkshopItem("12345")
+	require.NoError(t, err)
+	require.Len(t, attempts, 2)
+	assert.Equal(t, "steam://url/CommunityFilePage/12345", attempts[0])
+	assert.Equal(t, "https://steamcommunity.com/sharedfiles/filedetails/?id=12345", attempts[1])
+}
+
+func TestOpenWorkshopItem_InvalidID(t *testing.T) {
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	err := app.OpenWorkshopItem("abc")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workshop item id is invalid")
+}
+
+func TestOpenExternalLink_NonSteamURLBrowserThenInApp(t *testing.T) {
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	attempts := make([]string, 0, 2)
+	app.openURL = func(_, rawURL string) error {
+		attempts = append(attempts, "browser:"+rawURL)
+		return errSteamUnavailable
+	}
+	app.openInAppURL = func(rawURL string) error {
+		attempts = append(attempts, "inapp:"+rawURL)
+		return nil
+	}
+
+	err := app.OpenExternalLink("https://example.com/docs")
+	require.NoError(t, err)
+	require.Len(t, attempts, 2)
+	assert.Equal(t, "browser:https://example.com/docs", attempts[0])
+	assert.Equal(t, "inapp:https://example.com/docs", attempts[1])
+}
+
+func TestOpenExternalLink_SteamCommunityURLSteamThenBrowser(t *testing.T) {
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	attempts := make([]string, 0, 3)
+	app.openURL = func(_, rawURL string) error {
+		attempts = append(attempts, rawURL)
+		if len(attempts) == 1 {
+			return errSteamUnavailable
+		}
+		return nil
+	}
+	app.openInAppURL = func(rawURL string) error {
+		attempts = append(attempts, rawURL)
+		return nil
+	}
+
+	err := app.OpenExternalLink("https://steamcommunity.com/sharedfiles/filedetails/?id=123456")
+	require.NoError(t, err)
+	require.Len(t, attempts, 2)
+	assert.Equal(t, "steam://url/CommunityFilePage/123456", attempts[0])
+	assert.Equal(t, "https://steamcommunity.com/sharedfiles/filedetails/?id=123456", attempts[1])
 }

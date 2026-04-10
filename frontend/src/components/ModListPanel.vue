@@ -9,7 +9,7 @@ import { useLoadOrderStore } from '../stores/loadorder'
 
 const modsStore = useModsStore()
 const loadOrderStore = useLoadOrderStore()
-const { allMods, isLoading, error } = storeToRefs(modsStore)
+const { allMods, isLoading, error, selectedModID } = storeToRefs(modsStore)
 const { playsetNames, gameActivePlaysetIndex, launcherActivePlaysetIndex } = storeToRefs(loadOrderStore)
 const searchText = ref('')
 const isSwitchingPlayset = ref(false)
@@ -49,8 +49,13 @@ onMounted(() => {
   }
 })
 
+
 function toggleMod(mod: Mod): void {
   void modsStore.setEnabled(mod.ID, !mod.Enabled)
+}
+
+function selectMod(mod: Mod): void {
+  modsStore.selectMod(mod.ID)
 }
 
 function onLauncherPlaysetChange(event: Event): void {
@@ -106,7 +111,14 @@ function onLauncherPlaysetChange(event: Event): void {
       <p v-else-if="filteredMods.length === 0" class="state empty">{{ emptyMessage }}</p>
 
       <div v-else class="cards">
-        <ModCard v-for="mod in filteredMods" :key="mod.ID" :mod="mod" @toggle="toggleMod(mod)" />
+        <ModCard
+          v-for="mod in filteredMods"
+          :key="mod.ID"
+          :mod="mod"
+          :selected="mod.ID === selectedModID"
+          @toggle="toggleMod(mod)"
+          @select="selectMod(mod)"
+        />
       </div>
     </div>
   </section>

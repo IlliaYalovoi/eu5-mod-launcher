@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,11 +13,19 @@ import (
 
 type LaunchService struct{}
 
+const (
+	darwinOS = "darwin"
+	linuxOS  = "linux"
+)
+
 var (
 	errExecutablePathNotConfigured = errors.New("executable path is not configured")
 	errExecutablePathIsDirectory   = errors.New("executable path is a directory")
 	errUnsupportedSteamLaunchOS    = errors.New("unsupported os for steam launch")
+	errUnsupportedOpenURLOS        = errors.New("unsupported os for open url")
 	errInvalidSteamAppID           = errors.New("invalid steam app id")
+	errInvalidOpenURL              = errors.New("invalid open url")
+	errUnsupportedURLScheme        = errors.New("unsupported url scheme")
 )
 
 func NewLaunchService() *LaunchService {
@@ -59,15 +68,15 @@ func (*LaunchService) BuildSteamLaunchCommand(goos, appID string) (*exec.Cmd, er
 	steamURL := "steam://rungameid/" + normalizedAppID
 
 	switch goos {
-	case "windows":
+	case windowsOS:
 		cmd := exec.CommandContext(context.Background(), "rundll32", "url.dll,FileProtocolHandler", steamURL)
 		applyDetachedProcessAttributes(cmd)
 		return cmd, nil
-	case "darwin":
+	case darwinOS:
 		cmd := exec.CommandContext(context.Background(), "open", steamURL)
 		applyDetachedProcessAttributes(cmd)
 		return cmd, nil
-	case "linux":
+	case linuxOS:
 		cmd := exec.CommandContext(context.Background(), "xdg-open", steamURL)
 		applyDetachedProcessAttributes(cmd)
 		return cmd, nil
@@ -88,12 +97,64 @@ func normalizeSteamAppID(appID string) (string, error) {
 func (*LaunchService) OpenDirectory(goos, path string) error {
 	var cmd *exec.Cmd
 	switch goos {
-	case "windows":
+	case windowsOS:
 		cmd = exec.CommandContext(context.Background(), "explorer", path)
-	case "darwin":
+	case darwinOS:
 		cmd = exec.CommandContext(context.Background(), "open", path)
 	default:
 		cmd = exec.CommandContext(context.Background(), "xdg-open", path)
 	}
 	return cmd.Start()
+}
+
+func (s *LaunchService) OpenURL(goos, rawURL string) error {
+	cmd, err := s.BuildOpenURLCommand(goos, rawURL)
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start open url command for %q: %w", rawURL, err)
+	}
+	return nil
+}
+
+func (*LaunchService) BuildOpenURLCommand(goos, rawURL string) (*exec.Cmd, error) {
+	normalizedURL, err := normalizeOpenURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	switch goos {
+	case windowsOS:
+		cmd := exec.CommandContext(context.Background(), "rundll32", "url.dll,FileProtocolHandler", normalizedURL)
+		applyDetachedProcessAttributes(cmd)
+		return cmd, nil
+	case darwinOS:
+		cmd := exec.CommandContext(context.Background(), "open", normalizedURL)
+		applyDetachedProcessAttributes(cmd)
+		return cmd, nil
+	case linuxOS:
+		cmd := exec.CommandContext(context.Background(), "xdg-open", normalizedURL)
+		applyDetachedProcessAttributes(cmd)
+		return cmd, nil
+	default:
+		return nil, fmt.Errorf("%w: %q", errUnsupportedOpenURLOS, goos)
+	}
+}
+
+func normalizeOpenURL(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("%w: %q", errInvalidOpenURL, rawURL)
+	}
+
+	scheme := parsed.Scheme
+	if scheme != "http" && scheme != "https" && scheme != "steam" {
+		return "", fmt.Errorf("%w: %q", errUnsupportedURLScheme, scheme)
+	}
+	if parsed.Host == "" && scheme != "steam" {
+		return "", fmt.Errorf("%w: %q", errInvalidOpenURL, rawURL)
+	}
+
+	return parsed.String(), nil
 }

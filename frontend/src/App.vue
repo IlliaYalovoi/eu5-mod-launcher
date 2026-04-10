@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import ModListPanel from './components/ModListPanel.vue'
 import LoadOrderPanel from './components/LoadOrderPanel.vue'
+import ModDetailsPanel from './components/ModDetailsPanel.vue'
 import ConstraintModal from './components/ConstraintModal.vue'
 import ContextMenu from './components/ui/ContextMenu.vue'
 import BaseModal from './components/ui/BaseModal.vue'
@@ -230,6 +231,9 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
     <main class="content" aria-label="Main content area">
       <LoadOrderPanel @contextmenu="openContextMenu" @open-constraints="openConstraintModal" />
     </main>
+    <aside class="details">
+      <ModDetailsPanel />
+    </aside>
     <ContextMenu
       :open="contextMenu.open"
       :x="contextMenu.x"
@@ -249,11 +253,11 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 <style scoped>
 .shell {
   display: grid;
-  grid-template-columns: 17.5rem 1fr;
+  grid-template-columns: 17.5rem 1fr 21rem;
   grid-template-rows: 3rem 1fr;
   grid-template-areas:
-    'titlebar titlebar'
-    'sidebar content';
+    'titlebar titlebar titlebar'
+    'sidebar content details';
   height: 100%;
   background: var(--color-bg-base);
   color: var(--color-text-primary);
@@ -288,7 +292,8 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 }
 
 .sidebar,
-.content {
+.content,
+.details {
   overflow: hidden;
   padding: var(--space-5);
   min-height: 0;
@@ -305,5 +310,11 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   grid-area: content;
   display: flex;
   background: var(--color-bg-base);
+}
+
+.details {
+  grid-area: details;
+  border-left: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-panel);
 }
 </style>

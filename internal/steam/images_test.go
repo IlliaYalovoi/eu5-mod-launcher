@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -66,6 +67,37 @@ func TestImageCacheDecodeGuardAndInvalidURL(t *testing.T) {
 	_, err = cache.RefreshStored(steam.WorkshopItem{ItemID: "333", PreviewURL: "file:///tmp/xx.png"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "preview url scheme is unsupported")
+}
+
+func TestImageCacheRepairsLegacyIMGExtension(t *testing.T) {
+	t.Parallel()
+
+	pngPayload := buildTinyPNG(t)
+	var hitCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hitCount++
+		w.Header().Set("Content-Type", "image/png")
+		_, writeErr := w.Write(pngPayload)
+		require.NoError(t, writeErr)
+	}))
+	t.Cleanup(server.Close)
+
+	cacheRoot := filepath.Join(t.TempDir(), "cache")
+	cache, err := steam.NewImageCache(cacheRoot, 20, &http.Client{Timeout: 5 * time.Second})
+	require.NoError(t, err)
+
+	legacyPath := filepath.Join(cacheRoot, "steam", "images", "999.img")
+	err = os.WriteFile(legacyPath, pngPayload, 0o600)
+	require.NoError(t, err)
+
+	item := steam.WorkshopItem{ItemID: "999", PreviewURL: server.URL + "/no-ext"}
+	resolved, err := cache.EnsureStored(item)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(cacheRoot, "steam", "images", "999.png"), resolved)
+	assert.Equal(t, 0, hitCount)
+
+	_, statErr := os.Stat(resolved)
+	require.NoError(t, statErr)
 }
 
 func buildTinyPNG(t *testing.T) []byte {

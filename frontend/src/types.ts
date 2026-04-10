@@ -9,6 +9,13 @@ export interface Mod {
   Enabled: boolean
 }
 
+export interface WorkshopItem {
+  itemId: string
+  title: string
+  description: string
+  previewUrl: string
+}
+
 export interface Constraint {
   type?: 'after' | 'first' | 'last'
   from?: string

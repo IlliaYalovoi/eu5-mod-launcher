@@ -12,10 +12,12 @@ import (
 	"eu5-mod-launcher/internal/service"
 	"eu5-mod-launcher/internal/steam"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,12 +38,16 @@ const (
 	steamMetadataTTL        = 24 * time.Hour
 	steamMetadataMaxEntries = 5000
 	steamImageMaxEntries    = 1000
+	steamDescImageMaxEntry  = 3000
 )
 
 var (
 	errLauncherCategoryNameEmpty = errors.New("launcher category name must not be empty")
 	errAppStorageNotInitialized  = errors.New("app storage is not initialized")
 	errSteamCacheRootEmpty       = errors.New("steam cache root is empty")
+	errWorkshopItemIDInvalid     = errors.New("workshop item id is invalid")
+	errWorkshopOpenInAppFallback = errors.New("in-app workshop fallback unavailable")
+	errExternalLinkInvalid       = errors.New("external link is invalid")
 )
 
 // workshopMetadataFetcher is an interface for fetching workshop metadata.
@@ -68,6 +74,11 @@ type App struct {
 	steamClient     workshopMetadataFetcher
 	steamMetaCache  *steam.MetadataCache
 	steamImageCache *steam.ImageCache
+	steamDescCache  *steam.DescriptionImageCache
+	imageDataURLMu  sync.RWMutex
+	imageDataURLs   map[string]string
+	openURL         func(goos, rawURL string) error
+	openInAppURL    func(url string) error
 	constraintsRepo repo.ConstraintsRepository
 	playsetRepo     repo.PlaysetRepository
 	settingsRepo    repo.SettingsRepository
@@ -106,6 +117,7 @@ func NewApp() *App {
 		conGraph:        graph.New(),
 		modPathByID:     map[string]string{},
 		launcherLayout:  LauncherLayout{Ungrouped: []string{}, Categories: []LauncherCategory{}},
+		imageDataURLs:   map[string]string{},
 		playsetNames:    []string{},
 		gameActiveIndex: -1,
 		launcherIndex:   -1,
@@ -126,6 +138,8 @@ func (a *App) initCoreServices() {
 	a.launchSvc = service.NewLaunchService()
 	a.playsetSvc = service.NewPlaysetService(a.playsetRepo)
 	a.steamClient = steam.NewClient()
+	a.openURL = a.launchSvc.OpenURL
+	a.openInAppURL = a.openURLInApp
 	a.layoutSvc = service.NewLayoutService(normalizeLauncherLayout, func(layout LauncherLayout) error {
 		if strings.TrimSpace(a.layoutPath) == "" {
 			return nil
@@ -301,7 +315,11 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 			continue
 		}
 		if cachedPath := a.steamImageCache.CachedPath(itemID); cachedPath != "" {
-			allMods[i].ThumbnailPath = cachedPath
+			if src := a.resolveImageSource(cachedPath); src != "" {
+				allMods[i].ThumbnailPath = src
+			} else {
+				allMods[i].ThumbnailPath = cachedPath
+			}
 		}
 	}
 
@@ -850,6 +868,9 @@ func (a *App) ensureReady() error {
 	if a.playsetNames == nil {
 		a.playsetNames = []string{}
 	}
+	if a.imageDataURLs == nil {
+		a.imageDataURLs = map[string]string{}
+	}
 	if a.settingsPath == "" {
 		a.settingsPath = filepath.Join(filepath.Dir(a.loStore.ConfigPath()), settingsFileName)
 	}
@@ -869,7 +890,7 @@ func (a *App) ensureReady() error {
 }
 
 func (a *App) ensureSteamCaches() error {
-	if a.steamMetaCache != nil && a.steamImageCache != nil {
+	if a.steamMetaCache != nil && a.steamImageCache != nil && a.steamDescCache != nil {
 		return nil
 	}
 
@@ -889,9 +910,14 @@ func (a *App) ensureSteamCaches() error {
 	if err != nil {
 		return fmt.Errorf("initialize image cache: %w", err)
 	}
+	descCache, err := steam.NewDescriptionImageCache(cacheRoot, steamDescImageMaxEntry, nil)
+	if err != nil {
+		return fmt.Errorf("initialize description image cache: %w", err)
+	}
 
 	a.steamMetaCache = metaCache
 	a.steamImageCache = imageCache
+	a.steamDescCache = descCache
 	return nil
 }
 
@@ -1380,6 +1406,172 @@ func (*App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
 
+// OpenWorkshopItem opens workshop page using unified external-link priority rules.
+func (a *App) OpenWorkshopItem(itemID string) error {
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("open workshop item %q: %w", itemID, err)
+	}
+
+	normalizedID, err := normalizeWorkshopItemID(itemID)
+	if err != nil {
+		return fmt.Errorf("open workshop item %q: %w", itemID, err)
+	}
+
+	httpsURL := "https://steamcommunity.com/sharedfiles/filedetails/?id=" + normalizedID
+	if err := a.OpenExternalLink(httpsURL); err != nil {
+		return fmt.Errorf("open workshop item %q: %w", normalizedID, err)
+	}
+
+	return nil
+}
+
+// OpenExternalLink opens any external URL with priority rules:
+// steam links: steam client -> default browser -> in-app window
+// non-steam links: default browser -> in-app window
+func (a *App) OpenExternalLink(rawURL string) error {
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("open external link %q: %w", rawURL, err)
+	}
+
+	normalizedURL, linkErr := normalizeExternalLink(rawURL)
+	if linkErr != nil {
+		return fmt.Errorf("open external link %q: %w", rawURL, linkErr)
+	}
+
+	parsedURL, parseErr := url.Parse(normalizedURL)
+	if parseErr != nil {
+		return fmt.Errorf("open external link %q: parse normalized url: %w", normalizedURL, parseErr)
+	}
+
+	attempts := make([]error, 0, 3)
+	if isSteamLikeLink(parsedURL) {
+		steamURL := toSteamClientURL(parsedURL)
+		if err := a.openURL(goruntime.GOOS, steamURL); err == nil {
+			return nil
+		} else {
+			attempts = append(attempts, fmt.Errorf("open in steam client: %w", err))
+		}
+	}
+
+	if err := a.openURL(goruntime.GOOS, normalizedURL); err == nil {
+		return nil
+	} else {
+		attempts = append(attempts, fmt.Errorf("open in default browser: %w", err))
+	}
+
+	if err := a.openInAppURL(normalizedURL); err == nil {
+		return nil
+	} else {
+		attempts = append(attempts, fmt.Errorf("open in wails window fallback: %w", err))
+	}
+
+	return fmt.Errorf("open external link %q: %w", normalizedURL, errors.Join(attempts...))
+}
+
+func normalizeExternalLink(rawURL string) (string, error) {
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed == "" {
+		return "", errExternalLinkInvalid
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("%w: parse %q: %s", errExternalLinkInvalid, rawURL, err.Error())
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" && scheme != "steam" {
+		return "", fmt.Errorf("%w: unsupported scheme %q", errExternalLinkInvalid, scheme)
+	}
+	if scheme != "steam" && strings.TrimSpace(parsed.Host) == "" {
+		return "", fmt.Errorf("%w: missing host", errExternalLinkInvalid)
+	}
+
+	return parsed.String(), nil
+}
+
+func isSteamLikeLink(parsedURL *url.URL) bool {
+	if parsedURL == nil {
+		return false
+	}
+	if strings.EqualFold(parsedURL.Scheme, "steam") {
+		return true
+	}
+	host := strings.ToLower(parsedURL.Hostname())
+	if host == "steamcommunity.com" || strings.HasSuffix(host, ".steamcommunity.com") {
+		return true
+	}
+	if host == "store.steampowered.com" || strings.HasSuffix(host, ".steampowered.com") {
+		return true
+	}
+	return false
+}
+
+func toSteamClientURL(parsedURL *url.URL) string {
+	if parsedURL == nil {
+		return ""
+	}
+	if strings.EqualFold(parsedURL.Scheme, "steam") {
+		return parsedURL.String()
+	}
+
+	if itemID := workshopItemIDFromCommunityURL(parsedURL); itemID != "" {
+		return "steam://url/CommunityFilePage/" + itemID
+	}
+
+	return "steam://openurl/" + parsedURL.String()
+}
+
+func workshopItemIDFromCommunityURL(parsedURL *url.URL) string {
+	if parsedURL == nil {
+		return ""
+	}
+	host := strings.ToLower(parsedURL.Hostname())
+	if host != "steamcommunity.com" && !strings.HasSuffix(host, ".steamcommunity.com") {
+		return ""
+	}
+
+	queryID := strings.TrimSpace(parsedURL.Query().Get("id"))
+	if queryID == "" || !isWorkshopNumericID(queryID) {
+		return ""
+	}
+
+	path := strings.ToLower(strings.TrimSpace(parsedURL.Path))
+	if strings.Contains(path, "/sharedfiles/filedetails") || strings.Contains(path, "/workshop/filedetails") {
+		return queryID
+	}
+
+	return ""
+}
+
+func normalizeWorkshopItemID(itemID string) (string, error) {
+	normalizedID := strings.TrimSpace(itemID)
+	if normalizedID == "" {
+		return "", errWorkshopItemIDInvalid
+	}
+	parsed, err := strconv.ParseUint(normalizedID, 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("%w: %q", errWorkshopItemIDInvalid, itemID)
+	}
+
+	return strconv.FormatUint(parsed, 10), nil
+}
+
+func (a *App) openURLInApp(rawURL string) error {
+	if strings.TrimSpace(rawURL) == "" {
+		return errWorkshopOpenInAppFallback
+	}
+	if a.ctx == nil {
+		return errWorkshopOpenInAppFallback
+	}
+
+	quoted := strconv.Quote(rawURL)
+	js := "window.open(" + quoted + ", '_blank', 'noopener,noreferrer')"
+	wruntime.WindowExecJS(a.ctx, js)
+
+	return nil
+}
+
 // FetchWorkshopMetadataForMod returns Steam workshop metadata for a single mod.
 func (a *App) FetchWorkshopMetadataForMod(modID string) (steam.WorkshopItem, error) {
 	if err := a.ensureReady(); err != nil {
@@ -1396,11 +1588,11 @@ func (a *App) FetchWorkshopMetadataForMod(modID string) (steam.WorkshopItem, err
 		return steam.WorkshopItem{}, fmt.Errorf("fetch workshop metadata for mod %q: %w", modID, cacheErr)
 	}
 	if lookup.Hit {
-		a.ensurePreviewCached(lookup.Item)
+		prepared := a.prepareWorkshopItem(lookup.Item)
 		if lookup.Stale {
 			go a.revalidateWorkshopMetadata([]string{itemID})
 		}
-		return lookup.Item, nil
+		return prepared, nil
 	}
 
 	items, err := a.fetchAndCacheWorkshopMetadata([]string{itemID})
@@ -1408,7 +1600,7 @@ func (a *App) FetchWorkshopMetadataForMod(modID string) (steam.WorkshopItem, err
 		return steam.WorkshopItem{}, fmt.Errorf("fetch workshop metadata for mod %q: %w", modID, err)
 	}
 	if item, ok := items[itemID]; ok {
-		return item, nil
+		return a.prepareWorkshopItem(item), nil
 	}
 
 	return steam.WorkshopItem{ItemID: itemID}, nil
@@ -1430,7 +1622,7 @@ func (a *App) RefreshWorkshopMetadataForMod(modID string) (steam.WorkshopItem, e
 		return steam.WorkshopItem{}, fmt.Errorf("refresh workshop metadata for mod %q: %w", modID, err)
 	}
 	if item, ok := items[itemID]; ok {
-		return item, nil
+		return a.prepareRefreshedWorkshopItem(item), nil
 	}
 
 	return steam.WorkshopItem{ItemID: itemID}, nil
@@ -1520,8 +1712,7 @@ func (a *App) mapWorkshopItemsToMods(
 	items map[string]steam.WorkshopItem,
 ) {
 	for itemID := range items {
-		item := items[itemID]
-		a.ensurePreviewCached(item)
+		item := a.prepareWorkshopItem(items[itemID])
 		for _, modID := range workshopToModIDs[itemID] {
 			byModID[modID] = item
 		}
@@ -1545,9 +1736,6 @@ func (a *App) fetchAndCacheWorkshopMetadata(itemIDs []string) (map[string]steam.
 	if setErr := a.steamMetaCache.SetMany(items); setErr != nil {
 		logging.Warnf("steam metadata cache write failed: %v", setErr)
 	}
-	for itemID := range items {
-		a.ensurePreviewCached(items[itemID])
-	}
 	return items, nil
 }
 
@@ -1558,9 +1746,6 @@ func (a *App) refreshAndCacheWorkshopMetadata(itemIDs []string) (map[string]stea
 	}
 	if setErr := a.steamMetaCache.SetMany(items); setErr != nil {
 		logging.Warnf("steam metadata cache write failed: %v", setErr)
-	}
-	for itemID := range items {
-		a.refreshPreviewCached(items[itemID])
 	}
 	return items, nil
 }
@@ -1581,6 +1766,74 @@ func (a *App) refreshPreviewCached(item steam.WorkshopItem) {
 	if _, err := a.steamImageCache.RefreshStored(item); err != nil {
 		logging.Debugf("steam preview cache refresh for %q skipped: %v", item.ItemID, err)
 	}
+}
+
+func (a *App) prepareWorkshopItem(item steam.WorkshopItem) steam.WorkshopItem {
+	a.ensurePreviewCached(item)
+	return a.rewriteDescriptionImages(item)
+}
+
+func (a *App) prepareRefreshedWorkshopItem(item steam.WorkshopItem) steam.WorkshopItem {
+	a.refreshPreviewCached(item)
+	return a.rewriteDescriptionImages(item)
+}
+
+func (a *App) rewriteDescriptionImages(item steam.WorkshopItem) steam.WorkshopItem {
+	if a.steamDescCache == nil || strings.TrimSpace(item.ItemID) == "" {
+		return item
+	}
+
+	imageURLs := steam.ExtractDescriptionImageURLs(item.Description)
+	if len(imageURLs) == 0 {
+		return item
+	}
+
+	replacements := make(map[string]string, len(imageURLs))
+	for _, imageURL := range imageURLs {
+		cachedPath, err := a.steamDescCache.EnsureStored(item.ItemID, imageURL)
+		if err != nil {
+			logging.Debugf("steam description image cache for %q skipped: %v", item.ItemID, err)
+			continue
+		}
+		if src := a.resolveImageSource(cachedPath); src != "" {
+			replacements[imageURL] = src
+			continue
+		}
+		replacements[imageURL] = cachedPath
+	}
+
+	item.Description = steam.ReplaceDescriptionImageURLs(item.Description, replacements)
+	return item
+}
+
+func (a *App) resolveImageSource(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return ""
+	}
+	lowered := strings.ToLower(trimmed)
+	if strings.HasPrefix(lowered, "http://") || strings.HasPrefix(lowered, "https://") || strings.HasPrefix(lowered, "data:image/") {
+		return trimmed
+	}
+
+	cleanPath := filepath.Clean(trimmed)
+	a.imageDataURLMu.RLock()
+	if cached, ok := a.imageDataURLs[cleanPath]; ok && strings.TrimSpace(cached) != "" {
+		a.imageDataURLMu.RUnlock()
+		return cached
+	}
+	a.imageDataURLMu.RUnlock()
+
+	dataURL, err := steam.EncodeImageFileAsDataURL(cleanPath)
+	if err != nil {
+		logging.Debugf("resolve image source %q skipped: %v", cleanPath, err)
+		return ""
+	}
+
+	a.imageDataURLMu.Lock()
+	a.imageDataURLs[cleanPath] = dataURL
+	a.imageDataURLMu.Unlock()
+	return dataURL
 }
 
 func (a *App) revalidateWorkshopMetadata(itemIDs []string) {

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	metadataCacheSchemaVersion = 1
+	metadataCacheSchemaVersion = 2
 	defaultMetadataTTL         = 24 * time.Hour
 	defaultMetadataMaxEntries  = 5000
 )
@@ -76,7 +76,7 @@ func NewMetadataCache(cacheRoot string, ttl time.Duration, maxEntries int) (*Met
 	}
 
 	return &MetadataCache{
-		filePath:   filepath.Join(cacheDir, "metadata_cache_v1.json"),
+		filePath:   filepath.Join(cacheDir, "metadata_cache_v2.json"),
 		ttl:        ttl,
 		maxEntries: maxEntries,
 		now:        time.Now,

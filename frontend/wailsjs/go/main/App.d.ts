@@ -57,9 +57,17 @@ export function LaunchGame():Promise<void>;
 
 export function OpenConfigFolder():Promise<void>;
 
+export function OpenExternalLink(arg1:string):Promise<void>;
+
+export function OpenWorkshopItem(arg1:string):Promise<void>;
+
 export function PickExecutable():Promise<string>;
 
 export function PickFolder():Promise<string>;
+
+export function RefreshWorkshopMetadataBatch(arg1:Array<string>):Promise<Record<string, steam.WorkshopItem>>;
+
+export function RefreshWorkshopMetadataForMod(arg1:string):Promise<steam.WorkshopItem>;
 
 export function RemoveConstraint(arg1:string,arg2:string):Promise<void>;
 

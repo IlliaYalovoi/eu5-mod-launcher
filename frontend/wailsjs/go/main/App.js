@@ -106,12 +106,28 @@ export function OpenConfigFolder() {
   return window['go']['main']['App']['OpenConfigFolder']();
 }
 
+export function OpenExternalLink(arg1) {
+  return window['go']['main']['App']['OpenExternalLink'](arg1);
+}
+
+export function OpenWorkshopItem(arg1) {
+  return window['go']['main']['App']['OpenWorkshopItem'](arg1);
+}
+
 export function PickExecutable() {
   return window['go']['main']['App']['PickExecutable']();
 }
 
 export function PickFolder() {
   return window['go']['main']['App']['PickFolder']();
+}
+
+export function RefreshWorkshopMetadataBatch(arg1) {
+  return window['go']['main']['App']['RefreshWorkshopMetadataBatch'](arg1);
+}
+
+export function RefreshWorkshopMetadataForMod(arg1) {
+  return window['go']['main']['App']['RefreshWorkshopMetadataForMod'](arg1);
 }
 
 export function RemoveConstraint(arg1, arg2) {

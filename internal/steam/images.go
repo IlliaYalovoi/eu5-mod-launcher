@@ -116,7 +116,10 @@ func (c *ImageCache) storeDownloadedLocked(item WorkshopItem) (string, error) {
 		return "", fmt.Errorf("store preview image for %q: %w", itemID, err)
 	}
 
-	ext := extensionForURLPath(parsedURL.Path)
+	ext := detectImageExtension(data)
+	if ext == ".img" {
+		ext = extensionForURLPath(parsedURL.Path)
+	}
 	if err := c.removeItemVariantsLocked(itemID); err != nil {
 		return "", err
 	}
@@ -212,6 +215,32 @@ func extensionForURLPath(path string) string {
 	}
 }
 
+func detectImageExtension(data []byte) string {
+	if len(data) >= 8 {
+		pngSig := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+		if bytes.Equal(data[:8], pngSig) {
+			return ".png"
+		}
+	}
+	if len(data) >= 3 {
+		if data[0] == 0xff && data[1] == 0xd8 && data[2] == 0xff {
+			return ".jpg"
+		}
+	}
+	if len(data) >= 6 {
+		if bytes.Equal(data[:6], []byte("GIF87a")) || bytes.Equal(data[:6], []byte("GIF89a")) {
+			return ".gif"
+		}
+	}
+	if len(data) >= 12 {
+		if bytes.Equal(data[:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WEBP")) {
+			return ".webp"
+		}
+	}
+
+	return ".img"
+}
+
 func (c *ImageCache) cachedPathLocked(itemID string) string {
 	trimmedID := strings.TrimSpace(itemID)
 	if trimmedID == "" {
@@ -228,7 +257,34 @@ func (c *ImageCache) cachedPathLocked(itemID string) string {
 	for _, name := range patterns {
 		path := filepath.Join(c.dirPath, name)
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return path
+			if filepath.Ext(path) != ".img" {
+				return path
+			}
+
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return ""
+			}
+			if guardErr := guardImage(data); guardErr != nil {
+				if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+					return ""
+				}
+				return ""
+			}
+
+			detectedExt := detectImageExtension(data)
+			if detectedExt == ".img" {
+				return path
+			}
+
+			normalizedPath := filepath.Join(c.dirPath, trimmedID+detectedExt)
+			if removeErr := os.Remove(normalizedPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+				return path
+			}
+			if renameErr := os.Rename(path, normalizedPath); renameErr != nil {
+				return path
+			}
+			return normalizedPath
 		}
 	}
 	return ""
