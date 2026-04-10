@@ -82,6 +82,7 @@ Tasks are designed to be **maximally independent**. Each one has a clear input, 
 | 20 | `20-go-steam-workshop-metadata.md` | Go: Steam workshop metadata client |
 | 21 | `21-go-steam-metadata-cache.md` | Go: metadata + thumbnail cache layer |
 | 22 | `22-fe-steam-mod-details.md` | Frontend: Steam-enriched mod details panel |
+| 22.5 | `22.5-fe-steam-description-rendering-and-open-priority.md` | Frontend+Go: Steam BBCode rendering, description image cache, workshop open fallback priority |
 | 23 | `23-go-steam-unsubscribe.md` | Go: unsubscribe workshop item action |
 | 24 | `24-fe-unsubscribe-workflow.md` | Frontend: unsubscribe UX from context/details |
 | 25 | `25-integration-smoke-test-v2.md` | Manual checklist: post-MVP v2 end-to-end validation |
