@@ -98,6 +98,10 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function IsUnsubscribeEnabled() {
+  return window['go']['main']['App']['IsUnsubscribeEnabled']();
+}
+
 export function LaunchGame() {
   return window['go']['main']['App']['LaunchGame']();
 }
@@ -172,4 +176,8 @@ export function SetLoadOrder(arg1) {
 
 export function SetModsDir(arg1) {
   return window['go']['main']['App']['SetModsDir'](arg1);
+}
+
+export function UnsubscribeWorkshopMod(arg1) {
+  return window['go']['main']['App']['UnsubscribeWorkshopMod'](arg1);
 }

@@ -53,6 +53,8 @@ export function GetPlaysetNames():Promise<Array<string>>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function IsUnsubscribeEnabled():Promise<boolean>;
+
 export function LaunchGame():Promise<void>;
 
 export function OpenConfigFolder():Promise<void>;
@@ -90,3 +92,5 @@ export function SetLauncherLayout(arg1:main.LauncherLayout):Promise<void>;
 export function SetLoadOrder(arg1:Array<string>):Promise<void>;
 
 export function SetModsDir(arg1:string):Promise<void>;
+
+export function UnsubscribeWorkshopMod(arg1:string):Promise<void>;

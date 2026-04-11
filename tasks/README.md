@@ -85,8 +85,6 @@ Tasks are designed to be **maximally independent**. Each one has a clear input, 
 | 22.5 | `22.5-fe-steam-description-rendering-and-open-priority.md` | Frontend+Go: Steam BBCode rendering, description image cache, workshop open fallback priority |
 | 23 | `23-go-steam-unsubscribe.md` | Go: unsubscribe workshop item action |
 | 24 | `24-fe-unsubscribe-workflow.md` | Frontend: unsubscribe UX from context/details |
-| 25 | `25-integration-smoke-test-v2.md` | Manual checklist: post-MVP v2 end-to-end validation |
-
 ---
 
 ## Conventions to keep consistent across tasks
@@ -96,3 +94,4 @@ Tasks are designed to be **maximally independent**. Each one has a clear input, 
 - Pinia stores are the single source of truth on the frontend. Components read from stores, never from local component state for anything that needs to persist.
 - Error handling: Go methods return `(Result, error)`. Wails surfaces errors as rejected JS promises. Frontend must handle them.
 - File paths use `filepath` package on Go side — never string concatenation.
+- Everything that can be done on backend should be done on backend — frontend is just a view layer. No business logic in Vue components.

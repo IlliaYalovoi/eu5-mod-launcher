@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import ModListPanel from './components/ModListPanel.vue'
 import LoadOrderPanel from './components/LoadOrderPanel.vue'
@@ -25,6 +25,7 @@ const loadOrderStore = useLoadOrderStore()
 const modsStore = useModsStore()
 const settingsStore = useSettingsStore()
 const { orderedIDs, launcherLayout } = storeToRefs(loadOrderStore)
+const { unsubscribeFeatureEnabled, unsubscribeNotice } = storeToRefs(modsStore)
 const { requiresManualPaths } = storeToRefs(settingsStore)
 
 const ungroupedCategoryID = 'category:ungrouped'
@@ -42,6 +43,7 @@ const constraintModal = reactive({
 })
 
 const settingsOpen = ref(false)
+let unsubscribeNoticeTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(
   requiresManualPaths,
@@ -52,6 +54,26 @@ watch(
   },
   { immediate: true },
 )
+
+watch(unsubscribeNotice, (notice) => {
+  if (unsubscribeNoticeTimeout) {
+    clearTimeout(unsubscribeNoticeTimeout)
+    unsubscribeNoticeTimeout = null
+  }
+  if (!notice) {
+    return
+  }
+  unsubscribeNoticeTimeout = setTimeout(() => {
+    modsStore.clearUnsubscribeNotice()
+  }, 3200)
+})
+
+onBeforeUnmount(() => {
+  if (unsubscribeNoticeTimeout) {
+    clearTimeout(unsubscribeNoticeTimeout)
+    unsubscribeNoticeTimeout = null
+  }
+})
 
 const contextMenuItems = computed<MenuItem[]>(() => {
   const isCategory = contextMenu.targetID.indexOf('category:') === 0
@@ -102,8 +124,11 @@ const contextMenuItems = computed<MenuItem[]>(() => {
   const missing = index < 0
   const atTop = index === 0
   const atBottom = index === orderedIDs.value.length - 1
+  const isWorkshopMod = modsStore.isWorkshopMod(contextMenu.targetID)
+  const unsubscribeLoading = modsStore.isUnsubscribeLoading(contextMenu.targetID)
+  const canShowUnsubscribe = unsubscribeFeatureEnabled.value
 
-  return [
+  const items: MenuItem[] = [
     { id: 'add_constraint', label: 'Add constraint...', icon: '⛓' },
     { id: 'view_constraints', label: 'View constraints', icon: '📖' },
     moveToCategoryMenu,
@@ -111,6 +136,18 @@ const contextMenuItems = computed<MenuItem[]>(() => {
     { id: 'move_bottom', label: 'Move to bottom', icon: '⬇', disabled: missing || atBottom },
     { id: 'disable_mod', label: 'Disable mod', icon: '⛔', danger: true, disabled: missing },
   ]
+
+  if (canShowUnsubscribe) {
+    items.splice(5, 0, {
+      id: 'unsubscribe_workshop',
+      label: unsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop...',
+      icon: '🧹',
+      danger: true,
+      disabled: missing || !isWorkshopMod || unsubscribeLoading,
+    })
+  }
+
+  return items
 })
 
 async function moveModToCategory(modID: string, categoryID: string): Promise<void> {
@@ -191,6 +228,15 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
     return
   }
 
+  if (event.itemID === 'unsubscribe_workshop') {
+    const confirmed = window.confirm('Unsubscribe this mod from Steam Workshop? Steam may take a moment to sync.')
+    if (!confirmed) {
+      return
+    }
+    await modsStore.unsubscribeWorkshop(targetID)
+    return
+  }
+
   if (event.itemID.indexOf('move_to_category:') === 0) {
     const categoryID = event.itemID.slice('move_to_category:'.length)
     await moveModToCategory(targetID, categoryID)
@@ -234,6 +280,9 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
     <aside class="details">
       <ModDetailsPanel />
     </aside>
+    <div v-if="unsubscribeNotice" class="toast" :class="`toast--${unsubscribeNotice.type}`" role="status" aria-live="polite">
+      {{ unsubscribeNotice.message }}
+    </div>
     <ContextMenu
       :open="contextMenu.open"
       :x="contextMenu.x"
@@ -316,5 +365,27 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   grid-area: details;
   border-left: var(--border-width) solid var(--color-border);
   background: var(--color-bg-panel);
+}
+
+.toast {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 1300;
+  max-width: 24rem;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.toast--success {
+  border-color: var(--color-success);
+}
+
+.toast--error {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 </style>

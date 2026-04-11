@@ -48,6 +48,7 @@ var (
 	errWorkshopItemIDInvalid     = errors.New("workshop item id is invalid")
 	errWorkshopOpenInAppFallback = errors.New("in-app workshop fallback unavailable")
 	errExternalLinkInvalid       = errors.New("external link is invalid")
+	errUnsubscribeDisabled       = errors.New("unsubscribe feature is disabled")
 )
 
 // workshopMetadataFetcher is an interface for fetching workshop metadata.
@@ -1425,6 +1426,37 @@ func (a *App) OpenWorkshopItem(itemID string) error {
 	return nil
 }
 
+// UnsubscribeWorkshopMod opens the Steam unsubscribe flow for a workshop item.
+func (a *App) UnsubscribeWorkshopMod(itemID string) error {
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("unsubscribe workshop mod %q: %w", itemID, err)
+	}
+	if !a.IsUnsubscribeEnabled() {
+		return fmt.Errorf("unsubscribe workshop mod %q: %w", itemID, errUnsubscribeDisabled)
+	}
+
+	trimmedID := strings.TrimSpace(itemID)
+	if trimmedID == "" {
+		return nil
+	}
+
+	unsubscribeURL, err := a.launchSvc.BuildWorkshopUnsubscribeURL(trimmedID)
+	if err != nil {
+		return fmt.Errorf("unsubscribe workshop mod %q: %w", itemID, err)
+	}
+
+	if err := a.OpenExternalLink(unsubscribeURL); err != nil {
+		return fmt.Errorf("unsubscribe workshop mod %q: %w", trimmedID, err)
+	}
+
+	return nil
+}
+
+// IsUnsubscribeEnabled reports whether workshop unsubscribe is enabled.
+func (*App) IsUnsubscribeEnabled() bool {
+	return compileEnableUnsubscribe
+}
+
 // OpenExternalLink opens any external URL with priority rules:
 // steam links: steam client -> default browser -> in-app window
 // non-steam links: default browser -> in-app window
@@ -1556,6 +1588,7 @@ func normalizeWorkshopItemID(itemID string) (string, error) {
 
 	return strconv.FormatUint(parsed, 10), nil
 }
+
 
 func (a *App) openURLInApp(rawURL string) error {
 	if strings.TrimSpace(rawURL) == "" {

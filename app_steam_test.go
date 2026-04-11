@@ -17,6 +17,15 @@ type fakeSteamClient struct {
 
 var errSteamUnavailable = errors.New("steam unavailable")
 
+func setCompileUnsubscribeFlag(t *testing.T, enabled bool) {
+	t.Helper()
+	previous := compileEnableUnsubscribe
+	compileEnableUnsubscribe = enabled
+	t.Cleanup(func() {
+		compileEnableUnsubscribe = previous
+	})
+}
+
 func (f *fakeSteamClient) FetchWorkshopMetadata(ids []string) (map[string]steam.WorkshopItem, error) {
 	copied := append([]string(nil), ids...)
 	f.calls = append(f.calls, copied)
@@ -149,3 +158,71 @@ func TestOpenExternalLink_SteamCommunityURLSteamThenBrowser(t *testing.T) {
 	assert.Equal(t, "steam://url/CommunityFilePage/123456", attempts[0])
 	assert.Equal(t, "https://steamcommunity.com/sharedfiles/filedetails/?id=123456", attempts[1])
 }
+
+func TestUnsubscribeWorkshopMod_NonWorkshopNoop(t *testing.T) {
+	setCompileUnsubscribeFlag(t, true)
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	app.openURL = func(_, _ string) error {
+		t.Fatalf("openURL should not be called for non-workshop no-op")
+		return nil
+	}
+
+	err := app.UnsubscribeWorkshopMod("   ")
+	require.NoError(t, err)
+}
+
+func TestUnsubscribeWorkshopMod_FeatureDisabled(t *testing.T) {
+	setCompileUnsubscribeFlag(t, false)
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	err := app.UnsubscribeWorkshopMod("12345")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsubscribe feature is disabled")
+}
+
+func TestUnsubscribeWorkshopMod_InvalidID(t *testing.T) {
+	setCompileUnsubscribeFlag(t, true)
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	err := app.UnsubscribeWorkshopMod("abc")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid workshop item id")
+}
+
+func TestUnsubscribeWorkshopMod_SteamThenBrowserFallback(t *testing.T) {
+	setCompileUnsubscribeFlag(t, true)
+	app := newReadyAppForLaunchTest(t)
+	app.initCoreServices()
+
+	attempts := make([]string, 0, 3)
+	app.openURL = func(_, rawURL string) error {
+		attempts = append(attempts, rawURL)
+		if len(attempts) == 1 {
+			return errSteamUnavailable
+		}
+		return nil
+	}
+	app.openInAppURL = func(rawURL string) error {
+		attempts = append(attempts, rawURL)
+		return nil
+	}
+
+	err := app.UnsubscribeWorkshopMod("12345")
+	require.NoError(t, err)
+	require.Len(t, attempts, 2)
+	assert.Equal(t, "steam://openurl/https://steamcommunity.com/sharedfiles/unsubscribe?id=12345", attempts[0])
+	assert.Equal(t, "https://steamcommunity.com/sharedfiles/unsubscribe?id=12345", attempts[1])
+}
+
+func TestIsUnsubscribeEnabled(t *testing.T) {
+	app := newReadyAppForLaunchTest(t)
+	setCompileUnsubscribeFlag(t, true)
+	assert.True(t, app.IsUnsubscribeEnabled())
+	setCompileUnsubscribeFlag(t, false)
+	assert.False(t, app.IsUnsubscribeEnabled())
+}
+

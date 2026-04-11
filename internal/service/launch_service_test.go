@@ -26,3 +26,21 @@ func TestBuildOpenURLCommandRejectsUnsupportedScheme(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported url scheme")
 }
+
+func TestBuildWorkshopUnsubscribeURL(t *testing.T) {
+	t.Parallel()
+
+	svc := NewLaunchService()
+	url, err := svc.BuildWorkshopUnsubscribeURL("12345")
+	require.NoError(t, err)
+	assert.Equal(t, "https://steamcommunity.com/sharedfiles/unsubscribe?id=12345", url)
+}
+
+func TestBuildWorkshopUnsubscribeURL_InvalidID(t *testing.T) {
+	t.Parallel()
+
+	svc := NewLaunchService()
+	_, err := svc.BuildWorkshopUnsubscribeURL("abc")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid workshop item id")
+}

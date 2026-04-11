@@ -24,6 +24,7 @@ var (
 	errUnsupportedSteamLaunchOS    = errors.New("unsupported os for steam launch")
 	errUnsupportedOpenURLOS        = errors.New("unsupported os for open url")
 	errInvalidSteamAppID           = errors.New("invalid steam app id")
+	errInvalidWorkshopItemID       = errors.New("invalid workshop item id")
 	errInvalidOpenURL              = errors.New("invalid open url")
 	errUnsupportedURLScheme        = errors.New("unsupported url scheme")
 )
@@ -89,6 +90,23 @@ func normalizeSteamAppID(appID string) (string, error) {
 	parsed, err := strconv.ParseUint(appID, 10, 64)
 	if err != nil {
 		return "", fmt.Errorf("%w: %q", errInvalidSteamAppID, appID)
+	}
+
+	return strconv.FormatUint(parsed, 10), nil
+}
+
+func (*LaunchService) BuildWorkshopUnsubscribeURL(itemID string) (string, error) {
+	normalizedID, err := normalizeWorkshopItemID(itemID)
+	if err != nil {
+		return "", err
+	}
+	return "https://steamcommunity.com/sharedfiles/unsubscribe?id=" + normalizedID, nil
+}
+
+func normalizeWorkshopItemID(itemID string) (string, error) {
+	parsed, err := strconv.ParseUint(itemID, 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("%w: %q", errInvalidWorkshopItemID, itemID)
 	}
 
 	return strconv.FormatUint(parsed, 10), nil

@@ -6,7 +6,15 @@ import { OpenExternalLink, OpenWorkshopItem } from '../../wailsjs/go/main/App'
 import { renderRichDescriptionHtml, renderSteamDescriptionHtml, toDisplayImageSrc } from '../utils/steamDescription'
 
 const modsStore = useModsStore()
-const { selectedMod, selectedSteamMetadata, selectedSteamLoading, selectedSteamError, workshopOpenError } = storeToRefs(modsStore)
+const {
+  selectedMod,
+  selectedSteamMetadata,
+  selectedSteamLoading,
+  selectedSteamError,
+  selectedUnsubscribeLoading,
+  selectedUnsubscribeError,
+  workshopOpenError,
+} = storeToRefs(modsStore)
 
 const fallbackThumbnail =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='67' viewBox='0 0 120 67'%3E%3Crect width='120' height='67' rx='8' fill='%23222a35'/%3E%3Cg fill='none' stroke='%23b9b09b' stroke-width='2'%3E%3Cpath d='M20 46l20-20 17 17 8-8 12 17'/%3E%3Crect x='20' y='14' width='80' height='40' rx='5'/%3E%3C/g%3E%3C/svg%3E"
@@ -24,6 +32,10 @@ watch(
 const workshopURL = computed(() => {
   const itemID = selectedSteamMetadata.value?.itemId || ''
   return itemID ? `https://steamcommunity.com/sharedfiles/filedetails/?id=${itemID}` : ''
+})
+const canUnsubscribe = computed(() => {
+  const modID = selectedMod.value?.ID || ''
+  return !!modID && modsStore.unsubscribeFeatureEnabled && modsStore.isWorkshopMod(modID)
 })
 
 const steamThumbnail = computed(
@@ -75,6 +87,24 @@ async function onSteamContentClick(event: MouseEvent): Promise<void> {
     modsStore.setWorkshopOpenError('Failed to open the selected link.')
   }
 }
+
+async function unsubscribeSelectedMod(): Promise<void> {
+  const modID = selectedMod.value?.ID || ''
+  if (!modID || !modsStore.isWorkshopMod(modID) || selectedUnsubscribeLoading.value) {
+    return
+  }
+
+  const confirmed = window.confirm('Unsubscribe this mod from Steam Workshop? Steam may take a moment to sync.')
+  if (!confirmed) {
+    return
+  }
+
+  try {
+    await modsStore.unsubscribeWorkshop(modID)
+  } catch {
+    // Inline and toast errors are populated by store state.
+  }
+}
 </script>
 
 <template>
@@ -113,6 +143,16 @@ async function onSteamContentClick(event: MouseEvent): Promise<void> {
           <p v-if="workshopOpenError" class="state error">{{ workshopOpenError }}</p>
         </div>
         <p v-else class="state muted">No workshop metadata available for this mod.</p>
+        <button
+          v-if="canUnsubscribe"
+          class="workshop-link workshop-link--danger"
+          type="button"
+          :disabled="selectedUnsubscribeLoading"
+          @click="unsubscribeSelectedMod"
+        >
+          {{ selectedUnsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe' }}
+        </button>
+        <p v-if="selectedUnsubscribeError" class="state error">{{ selectedUnsubscribeError }}</p>
       </div>
     </template>
   </section>
@@ -196,6 +236,16 @@ async function onSteamContentClick(event: MouseEvent): Promise<void> {
 
 .workshop-link:hover {
   border-color: var(--color-border-strong);
+}
+
+.workshop-link:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.workshop-link--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .state {
