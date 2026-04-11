@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '../stores/settings'
+import { useLoadOrderStore } from '../stores/loadorder'
 
 const settingsStore = useSettingsStore()
+const loadOrderStore = useLoadOrderStore()
 const { isLaunching, launchError, lastLaunchAt } = storeToRefs(settingsStore)
+const { gameActivePlaysetIndex, playsetNames } = storeToRefs(loadOrderStore)
 
 const isSuccessFlash = ref(false)
 let successTimer: number | null = null
@@ -21,6 +24,14 @@ watch(lastLaunchAt, (value) => {
     isSuccessFlash.value = false
     successTimer = null
   }, 1500)
+})
+
+const gameLabel = computed(() => {
+  const idx = gameActivePlaysetIndex.value
+  if (idx >= 0 && idx < playsetNames.value.length) {
+    return `Launch ${playsetNames.value[idx]}`
+  }
+  return 'Launch Game'
 })
 
 function onLaunch(): void {
@@ -48,7 +59,7 @@ function onDismissError(event: MouseEvent): void {
     <span v-if="isLaunching" class="spinner" aria-hidden="true" />
     <span v-if="isLaunching">Launching...</span>
     <span v-else-if="isSuccessFlash">✓ Launched</span>
-    <span v-else>Launch Game</span>
+    <span v-else>{{ gameLabel }}</span>
     <span
       v-if="launchError"
       class="dismiss"

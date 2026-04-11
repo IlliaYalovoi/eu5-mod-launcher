@@ -106,6 +106,10 @@ export function LaunchGame() {
   return window['go']['main']['App']['LaunchGame']();
 }
 
+export function ListSupportedGames() {
+  return window['go']['main']['App']['ListSupportedGames']();
+}
+
 export function OpenConfigFolder() {
   return window['go']['main']['App']['OpenConfigFolder']();
 }
@@ -160,6 +164,10 @@ export function SaveCompiledLoadOrder() {
 
 export function SetGameExe(arg1) {
   return window['go']['main']['App']['SetGameExe'](arg1);
+}
+
+export function SetGamePaths(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetGamePaths'](arg1, arg2, arg3);
 }
 
 export function SetLauncherActivePlaysetIndex(arg1) {

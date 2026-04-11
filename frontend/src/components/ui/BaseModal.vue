@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
-const props = defineProps<{ open: boolean }>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    slideOver?: boolean
+  }>(),
+  {
+    slideOver: false,
+  },
+)
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const panelRef = ref<HTMLElement | null>(null)
@@ -93,8 +101,15 @@ onBeforeUnmount(() => {
 
 <template>
   <Transition name="modal-fade">
-    <div v-if="open" class="modal-overlay" @click="onOverlayClick">
-      <section ref="panelRef" class="modal-panel" role="dialog" aria-modal="true" tabindex="-1">
+    <div v-if="open" class="modal-overlay" :class="{ 'modal-overlay--slide-over': slideOver }" @click="onOverlayClick">
+      <section
+        ref="panelRef"
+        class="modal-panel"
+        :class="{ 'modal-panel--slide-over': slideOver }"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
+      >
         <slot />
       </section>
     </div>
@@ -110,6 +125,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: var(--space-6);
   background: var(--color-overlay);
+  z-index: 300;
 }
 
 .modal-panel {
@@ -120,6 +136,19 @@ onBeforeUnmount(() => {
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-elevated);
+}
+
+.modal-overlay--slide-over {
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.modal-panel--slide-over {
+  width: min(28rem, 100%);
+  height: 100%;
+  border-radius: 0;
+  border: none;
+  border-left: var(--border-width) solid var(--color-border);
 }
 
 .modal-fade-enter-active,

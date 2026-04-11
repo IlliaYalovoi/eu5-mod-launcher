@@ -23,6 +23,7 @@ const ungroupedID = 'category:ungrouped'
 const emit = defineEmits<{
   (event: 'contextmenu', payload: { modID: string; x: number; y: number }): void
   (event: 'open-constraints', modID: string): void
+  (event: 'select-mod', modID: string): void
 }>()
 
 const loadOrderStore = useLoadOrderStore()
@@ -41,6 +42,8 @@ const globalEditModID = ref('')
 const globalEditValue = ref('')
 const localEditModID = ref('')
 const localEditValue = ref('')
+const editingCategoryID = ref('')
+const editingCategoryName = ref('')
 
 const modsByID = computed(() => {
   const byID: Record<string, Mod> = {}
@@ -228,6 +231,10 @@ function onCycleOpenConstraints(modID: string): void {
   emit('open-constraints', modID)
 }
 
+function onModClick(modID: string): void {
+  emit('select-mod', modID)
+}
+
 function onCreateCategory(): void {
   const name = categoryName.value.trim()
   if (!name) {
@@ -286,6 +293,44 @@ function cancelGlobalEdit(): void {
 
 function cancelLocalEdit(): void {
   localEditModID.value = ''
+}
+
+function beginCategoryEdit(block: EditableBlock): void {
+  if (block.isUngrouped) {
+    return
+  }
+  editingCategoryID.value = block.id
+  editingCategoryName.value = block.name
+  void nextTick().then(() => {
+    const input = document.querySelector<HTMLInputElement>(`[data-category-edit="${block.id}"]`)
+    input?.focus()
+    input?.select()
+  })
+}
+
+function cancelCategoryEdit(): void {
+  editingCategoryID.value = ''
+  editingCategoryName.value = ''
+}
+
+function confirmCategoryEdit(): void {
+  if (!editingCategoryID.value) {
+    return
+  }
+  const trimmed = editingCategoryName.value.trim()
+  if (!trimmed) {
+    editingCategoryID.value = ''
+    return
+  }
+  void loadOrderStore
+    .renameCategory(editingCategoryID.value, trimmed)
+    .then(() => {
+      editingCategoryID.value = ''
+    })
+    .catch((err: unknown) => {
+      persistError.value = err instanceof Error ? err.message : String(err)
+      editingCategoryID.value = ''
+    })
 }
 
 function moveModByGlobalIndex(modID: string, desiredOneBased: number): void {
@@ -386,8 +431,14 @@ function onSaveCompiled(): void {
     </header>
 
     <div class="category-create">
-      <input v-model="categoryName" class="category-input" type="text" placeholder="New category name..." />
-      <BaseButton variant="ghost" @click="onCreateCategory">Create Category</BaseButton>
+      <input
+        v-model="categoryName"
+        class="category-input"
+        type="text"
+        placeholder="New category name..."
+        @keydown.enter.prevent="onCreateCategory"
+      />
+      <BaseButton variant="ghost" @click="onCreateCategory">+ Category</BaseButton>
     </div>
 
     <p v-if="persistError" class="alert">{{ persistError }}</p>
@@ -396,12 +447,41 @@ function onSaveCompiled(): void {
     <div class="list-wrap">
       <draggable v-model="blocks" item-key="id" handle=".category-handle" :animation="150" @end="persistLayout">
         <template #item="{ element: block }">
-          <section class="bucket category-block" @contextmenu="onItemContextMenu($event, block.id)">
+          <section
+            v-if="block.modIds.length > 0 || block.isUngrouped"
+            class="bucket category-block"
+            @contextmenu="onItemContextMenu($event, block.id)"
+          >
             <div class="category-head">
-              <button class="category-handle" type="button" aria-label="Drag category">☰</button>
-              <h3 class="bucket-title">{{ block.name }}</h3>
+              <button class="category-handle" type="button" aria-label="Drag category">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                  <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                  <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+                </svg>
+              </button>
+              <span class="category-dot" aria-hidden="true" />
+
+              <template v-if="editingCategoryID === block.id">
+                <input
+                  v-model="editingCategoryName"
+                  :data-category-edit="block.id"
+                  class="category-name-input"
+                  type="text"
+                  @keydown.enter.prevent="confirmCategoryEdit"
+                  @keydown.esc.prevent="cancelCategoryEdit"
+                />
+                <button class="confirm" type="button" @click="confirmCategoryEdit">✓</button>
+              </template>
+              <template v-else>
+                <button class="category-name-btn" type="button" @click="beginCategoryEdit(block)">
+                  <h3 class="bucket-title">{{ block.name }}</h3>
+                </button>
+              </template>
+
+              <span class="category-count">{{ block.modIds.length }}</span>
               <button class="fold" type="button" @click="onToggleCollapse(block.id)">{{ block.collapsed ? '+' : '-' }}</button>
-              <button v-if="!block.isUngrouped" class="delete-category" type="button" @click="onDeleteCategory(block.id)">×</button>
+              <button v-if="!block.isUngrouped" class="delete-category" type="button" @click="onDeleteCategory(block.id)" aria-label="Delete category">×</button>
             </div>
 
             <draggable
@@ -414,8 +494,14 @@ function onSaveCompiled(): void {
               @end="persistLayout"
             >
               <template #item="{ element: modID }">
-                <article class="mod-row" @contextmenu.stop.prevent="onItemContextMenu($event, modID)">
-                  <button class="mod-handle" type="button" aria-label="Drag mod">☰</button>
+                <article class="mod-row" @contextmenu.stop.prevent="onItemContextMenu($event, modID)" @click="onModClick(modID)">
+                  <button class="mod-handle" type="button" aria-label="Drag mod">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                      <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                      <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+                    </svg>
+                  </button>
 
                   <div class="mod-number-cell">
                     <template v-if="globalEditModID === modID">
@@ -430,7 +516,7 @@ function onSaveCompiled(): void {
                       />
                       <button class="confirm" type="button" @click="confirmGlobalEdit(modID)">✓</button>
                     </template>
-                    <button v-else class="number-btn" type="button" @click="beginGlobalEdit(modID)">{{ numberByModID[modID] }}</button>
+                    <button v-else class="number-btn" type="button" @click.stop="beginGlobalEdit(modID)">{{ numberByModID[modID] }}</button>
                   </div>
 
                   <div class="mod-local-number-cell">
@@ -447,7 +533,7 @@ function onSaveCompiled(): void {
                         />
                         <button class="confirm" type="button" @click="confirmLocalEdit(modID)">✓</button>
                       </template>
-                      <button v-else class="number-btn secondary" type="button" @click="beginLocalEdit(modID)">
+                      <button v-else class="number-btn secondary" type="button" @click.stop="beginLocalEdit(modID)">
                         {{ localNumberByModID[modID] }}
                       </button>
                     </template>
@@ -457,6 +543,10 @@ function onSaveCompiled(): void {
                 </article>
               </template>
             </draggable>
+
+            <div v-if="!block.collapsed && block.modIds.length === 0" class="empty-hint">
+              Drop mods here
+            </div>
           </section>
         </template>
       </draggable>
@@ -552,6 +642,25 @@ function onSaveCompiled(): void {
   letter-spacing: 0.04em;
 }
 
+.category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cat-1);
+  flex-shrink: 0;
+}
+
+.category-count {
+  margin-left: auto;
+  margin-right: var(--space-2);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-base);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-family: var(--font-mono), monospace;
+}
+
 .category-head {
   display: flex;
   align-items: center;
@@ -594,6 +703,15 @@ function onSaveCompiled(): void {
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-elevated);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  border-left: 3px solid transparent;
+}
+
+.mod-row:hover {
+  border-color: var(--color-border);
+  border-left-color: var(--color-accent);
+  background: var(--color-bg-base);
 }
 
 .mod-number {
@@ -642,6 +760,40 @@ function onSaveCompiled(): void {
   background: transparent;
   color: var(--color-success);
   cursor: pointer;
+}
+
+.category-name-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.category-name-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 1.5rem;
+  padding: 0.1rem var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.empty-hint {
+  padding: var(--space-3);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  border: var(--border-width) dashed var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 .mod-name {

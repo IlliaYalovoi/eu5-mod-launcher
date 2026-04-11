@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useModsStore } from '../stores/mods'
 import { OpenExternalLink, OpenWorkshopItem } from '../../wailsjs/go/main/App'
 import { renderRichDescriptionHtml, renderSteamDescriptionHtml, toDisplayImageSrc } from '../utils/steamDescription'
+import ConfirmModal from './ui/ConfirmModal.vue'
 
 const modsStore = useModsStore()
 const {
@@ -18,6 +19,8 @@ const {
 
 const fallbackThumbnail =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='67' viewBox='0 0 120 67'%3E%3Crect width='120' height='67' rx='8' fill='%23222a35'/%3E%3Cg fill='none' stroke='%23b9b09b' stroke-width='2'%3E%3Cpath d='M20 46l20-20 17 17 8-8 12 17'/%3E%3Crect x='20' y='14' width='80' height='40' rx='5'/%3E%3C/g%3E%3C/svg%3E"
+
+const unsubscribeConfirmOpen = ref(false)
 
 watch(
   () => selectedMod.value?.ID,
@@ -88,14 +91,18 @@ async function onSteamContentClick(event: MouseEvent): Promise<void> {
   }
 }
 
-async function unsubscribeSelectedMod(): Promise<void> {
-  const modID = selectedMod.value?.ID || ''
-  if (!modID || !modsStore.isWorkshopMod(modID) || selectedUnsubscribeLoading.value) {
-    return
-  }
+function openUnsubscribeConfirm(): void {
+  unsubscribeConfirmOpen.value = true
+}
 
-  const confirmed = window.confirm('Unsubscribe this mod from Steam Workshop? Steam may take a moment to sync.')
-  if (!confirmed) {
+function closeUnsubscribeConfirm(): void {
+  unsubscribeConfirmOpen.value = false
+}
+
+async function confirmUnsubscribe(): Promise<void> {
+  unsubscribeConfirmOpen.value = false
+  const modID = selectedMod.value?.ID || ''
+  if (!modID) {
     return
   }
 
@@ -143,26 +150,38 @@ async function unsubscribeSelectedMod(): Promise<void> {
           <p v-if="workshopOpenError" class="state error">{{ workshopOpenError }}</p>
         </div>
         <p v-else class="state muted">No workshop metadata available for this mod.</p>
+      </div>
+
+      <div v-if="canUnsubscribe" class="unsubscribe-area">
         <button
-          v-if="canUnsubscribe"
-          class="workshop-link workshop-link--danger"
+          class="unsubscribe-btn"
           type="button"
           :disabled="selectedUnsubscribeLoading"
-          @click="unsubscribeSelectedMod"
+          @click="openUnsubscribeConfirm"
         >
-          {{ selectedUnsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe' }}
+          {{ selectedUnsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop' }}
         </button>
         <p v-if="selectedUnsubscribeError" class="state error">{{ selectedUnsubscribeError }}</p>
       </div>
     </template>
   </section>
+
+  <ConfirmModal
+    :open="unsubscribeConfirmOpen"
+    title="Unsubscribe from Workshop?"
+    message="This will remove the mod from your Steam subscription. Steam may take a moment to sync."
+    confirm-label="Unsubscribe"
+    :danger="true"
+    @close="closeUnsubscribeConfirm"
+    @confirm="confirmUnsubscribe"
+  />
 </template>
 
 <style scoped>
 .mod-details-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   height: 100%;
   min-height: 0;
   overflow: auto;
@@ -176,7 +195,7 @@ async function unsubscribeSelectedMod(): Promise<void> {
 
 .name {
   color: var(--color-text-primary);
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -198,7 +217,7 @@ async function unsubscribeSelectedMod(): Promise<void> {
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .section-title {
@@ -211,14 +230,15 @@ async function unsubscribeSelectedMod(): Promise<void> {
 
 .body {
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.45;
+  font-size: 0.85rem;
+  line-height: 1.6;
   white-space: pre-wrap;
 }
 
 .steam-title {
   color: var(--color-text-primary);
   font-weight: 700;
+  margin-bottom: var(--space-2);
 }
 
 .workshop-link {
@@ -229,13 +249,16 @@ async function unsubscribeSelectedMod(): Promise<void> {
   padding: 0 var(--space-3);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
+  background: transparent;
   color: var(--color-text-primary);
   cursor: pointer;
+  font-size: 0.82rem;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .workshop-link:hover {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
+  background: var(--color-bg-elevated);
 }
 
 .workshop-link:disabled {
@@ -243,9 +266,37 @@ async function unsubscribeSelectedMod(): Promise<void> {
   cursor: wait;
 }
 
-.workshop-link--danger {
-  border-color: var(--color-danger);
+.unsubscribe-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.unsubscribe-btn {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--color-danger);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.unsubscribe-btn:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: var(--color-bg-base);
+}
+
+.unsubscribe-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .state {
@@ -342,4 +393,3 @@ async function unsubscribeSelectedMod(): Promise<void> {
   margin: var(--space-3) 0;
 }
 </style>
-

@@ -131,6 +131,35 @@ export namespace mods {
 
 }
 
+export namespace service {
+	
+	export class DetectedGame {
+	    id: string;
+	    name: string;
+	    iconKey: string;
+	    detected: boolean;
+	    installDir: string;
+	    documentsDir: string;
+	    needsManualSetup: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new DetectedGame(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.iconKey = source["iconKey"];
+	        this.detected = source["detected"];
+	        this.installDir = source["installDir"];
+	        this.documentsDir = source["documentsDir"];
+	        this.needsManualSetup = source["needsManualSetup"];
+	    }
+	}
+
+}
+
 export namespace steam {
 	
 	export class WorkshopItem {
