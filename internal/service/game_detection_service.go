@@ -1,0 +1,249 @@
+package service
+
+import (
+	"os"
+	"path/filepath"
+	"sort"
+
+	"eu5-mod-launcher/internal/game"
+	"eu5-mod-launcher/internal/loadorder"
+	"eu5-mod-launcher/internal/repo"
+)
+
+// DetectedGame represents a game with its detection state and paths.
+type DetectedGame struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	IconKey          string `json:"iconKey"`
+	Detected         bool   `json:"detected"`
+	InstallDir       string `json:"installDir"`
+	DocumentsDir     string `json:"documentsDir"`
+	NeedsManualSetup bool   `json:"needsManualSetup"`
+}
+
+// GameDetectionService handles game detection and path management.
+type GameDetectionService struct {
+	settingsRepo   repo.SettingsRepository
+	supportedGames []gameInfo
+}
+
+type gameInfo struct {
+	id          game.GameID
+	name        string
+	iconKey     string
+	appID       string
+	documents   func() string
+	installDirs func() []string
+}
+
+var (
+	vic3SteamAppID = "529340"
+	vic3DocsRoot   = func() string {
+		home, _ := os.UserHomeDir()
+		if home == "" {
+			return ""
+		}
+		return filepath.Join(home, "Documents", "Paradox Interactive", "Victoria 3")
+	}
+	vic3InstallDirs = func() []string {
+		home, _ := os.UserHomeDir()
+		if home == "" {
+			return nil
+		}
+		libraryRoots := loadorder.DiscoverSteamLibraryRoots()
+		dirs := []string{}
+		if len(libraryRoots) > 0 {
+			dirs = append(dirs, filepath.Join(libraryRoots[0], "steamapps", "common", "Victoria 3"))
+		}
+		// Check common locations
+		common := filepath.Join(home, "Games", "Paradox Interactive", "Victoria 3")
+		if _, err := os.Stat(common); err == nil {
+			dirs = append(dirs, common)
+		}
+		return dirs
+	}
+)
+
+func NewGameDetectionService(settingsRepo repo.SettingsRepository) *GameDetectionService {
+	if settingsRepo == nil {
+		settingsRepo = repo.NewFileSettingsRepository()
+	}
+
+	return &GameDetectionService{
+		settingsRepo: settingsRepo,
+		supportedGames: []gameInfo{
+			{
+				id:        game.GameIDEU5,
+				name:      "Europa Universalis V",
+				iconKey:   "eu5",
+				appID:     "3450310",
+				documents: eu5DocumentsDir,
+				installDirs: func() []string {
+					return discoverEU5InstallDirs()
+				},
+			},
+			{
+				id:        game.GameIDVic3,
+				name:      "Victoria 3",
+				iconKey:   "vic3",
+				appID:     vic3SteamAppID,
+				documents: vic3DocsRoot,
+				installDirs: vic3InstallDirs,
+			},
+		},
+	}
+}
+
+func eu5DocumentsDir() string {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return ""
+	}
+	return filepath.Join(home, "Documents", "Paradox Interactive", "Europa Universalis V")
+}
+
+func discoverEU5InstallDirs() []string {
+	libraryRoots := loadorder.DiscoverSteamLibraryRoots()
+	dirs := make([]string, 0, len(libraryRoots))
+	for _, root := range libraryRoots {
+		candidate := filepath.Join(root, "steamapps", "common", "Europa Universalis V")
+		if _, err := os.Stat(candidate); err == nil {
+			dirs = append(dirs, candidate)
+		}
+	}
+	return dirs
+}
+
+// ListSupportedGames returns all supported games with their detection state.
+func (s *GameDetectionService) ListSupportedGames(settingsPath string) ([]DetectedGame, error) {
+	overrides, err := s.loadOverrides(settingsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]DetectedGame, 0, len(s.supportedGames))
+
+	for _, gi := range s.supportedGames {
+		override := overrides[gi.id]
+
+		// Auto-detect paths
+		docsDir := gi.documents()
+		installDir := s.detectInstallDir(gi.installDirs())
+
+		// Merge with overrides
+		if override.InstallDir != "" {
+			installDir = override.InstallDir
+		}
+		if override.DocumentsDir != "" {
+			docsDir = override.DocumentsDir
+		}
+
+		detected := installDir != "" && dirExists(installDir)
+
+		result = append(result, DetectedGame{
+			ID:               string(gi.id),
+			Name:             gi.name,
+			IconKey:          gi.iconKey,
+			Detected:         detected,
+			InstallDir:       installDir,
+			DocumentsDir:     docsDir,
+			NeedsManualSetup: !detected && (installDir != "" || docsDir != ""),
+		})
+	}
+
+	// Sort: detected first, then stable order
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].Detected != result[j].Detected {
+			return result[i].Detected
+		}
+		return result[i].ID < result[j].ID
+	})
+
+	return result, nil
+}
+
+// SetGamePaths persists manual path overrides for a game.
+func (s *GameDetectionService) SetGamePaths(settingsPath, gameID, installDir, documentsDir string) error {
+	overrides, err := s.loadOverrides(settingsPath)
+	if err != nil {
+		return err
+	}
+
+	gi := s.findGameInfo(game.GameID(gameID))
+	if gi == nil {
+		return nil // Unknown game, ignore
+	}
+
+	overrides[gi.id] = pathOverride{
+		InstallDir:   installDir,
+		DocumentsDir: documentsDir,
+	}
+
+	return s.saveOverrides(settingsPath, overrides)
+}
+
+type pathOverride struct {
+	InstallDir   string
+	DocumentsDir string
+}
+
+func (s *GameDetectionService) loadOverrides(path string) (map[game.GameID]pathOverride, error) {
+	settings, err := s.settingsRepo.Load(path)
+	if err != nil {
+		return nil, err
+	}
+
+	overrides := make(map[game.GameID]pathOverride)
+	if settings.GamePaths == nil {
+		return overrides, nil
+	}
+
+	for gid, paths := range settings.GamePaths {
+		overrides[game.GameID(gid)] = pathOverride{
+			InstallDir:   paths.InstallDir,
+			DocumentsDir: paths.DocumentsDir,
+		}
+	}
+
+	return overrides, nil
+}
+
+func (s *GameDetectionService) saveOverrides(path string, overrides map[game.GameID]pathOverride) error {
+	settings, _ := s.settingsRepo.Load(path)
+
+	if settings.GamePaths == nil {
+		settings.GamePaths = make(map[string]repo.GamePathOverride)
+	}
+
+	for gid, ov := range overrides {
+		settings.GamePaths[string(gid)] = repo.GamePathOverride{
+			InstallDir:   ov.InstallDir,
+			DocumentsDir: ov.DocumentsDir,
+		}
+	}
+
+	return s.settingsRepo.Save(path, settings)
+}
+
+func (s *GameDetectionService) findGameInfo(id game.GameID) *gameInfo {
+	for i := range s.supportedGames {
+		if s.supportedGames[i].id == id {
+			return &s.supportedGames[i]
+		}
+	}
+	return nil
+}
+
+func (s *GameDetectionService) detectInstallDir(dirs []string) string {
+	for _, dir := range dirs {
+		if dirExists(dir) {
+			return dir
+		}
+	}
+	return ""
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}

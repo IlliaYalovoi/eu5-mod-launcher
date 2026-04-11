@@ -9,11 +9,18 @@ import (
 	"strings"
 )
 
+// GamePathOverride stores manual path overrides for a specific game.
+type GamePathOverride struct {
+	InstallDir   string `json:"installDir,omitempty"`
+	DocumentsDir string `json:"documentsDir,omitempty"`
+}
+
 type AppSettingsData struct {
-	ModsDir                    string   `json:"modsDir,omitempty"`
-	GameExe                    string   `json:"gameExe,omitempty"`
-	GameArgs                   []string `json:"gameArgs,omitempty"`
-	LauncherActivePlaysetIndex *int     `json:"launcherActivePlaysetIndex,omitempty"`
+	ModsDir                    string                       `json:"modsDir,omitempty"`
+	GameExe                    string                       `json:"gameExe,omitempty"`
+	GameArgs                   []string                     `json:"gameArgs,omitempty"`
+	LauncherActivePlaysetIndex *int                         `json:"launcherActivePlaysetIndex,omitempty"`
+	GamePaths                  map[string]GamePathOverride  `json:"gamePaths,omitempty"`
 }
 
 type SettingsRepository interface {
