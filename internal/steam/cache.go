@@ -34,21 +34,18 @@ type metadataCacheRecord struct {
 	AccessedAtUTC time.Time    `json:"accessedAtUtc"`
 }
 
-// MetadataLookup is one cache read result.
 type MetadataLookup struct {
 	Item  WorkshopItem
 	Hit   bool
 	Stale bool
 }
 
-// MetadataResolveResult partitions cache state by freshness.
 type MetadataResolveResult struct {
 	Fresh   map[string]WorkshopItem
 	Stale   map[string]WorkshopItem
 	Missing []string
 }
 
-// MetadataCache provides a file-backed Steam metadata cache with TTL.
 type MetadataCache struct {
 	filePath   string
 	ttl        time.Duration
@@ -57,7 +54,6 @@ type MetadataCache struct {
 	mu         sync.Mutex
 }
 
-// NewMetadataCache creates a file-backed metadata cache in cacheRoot.
 func NewMetadataCache(cacheRoot string, ttl time.Duration, maxEntries int) (*MetadataCache, error) {
 	root := strings.TrimSpace(cacheRoot)
 	if root == "" {
@@ -83,7 +79,6 @@ func NewMetadataCache(cacheRoot string, ttl time.Duration, maxEntries int) (*Met
 	}, nil
 }
 
-// Get returns one cached metadata record and whether it is stale.
 func (c *MetadataCache) Get(itemID string) (MetadataLookup, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -107,7 +102,6 @@ func (c *MetadataCache) Get(itemID string) (MetadataLookup, error) {
 	return MetadataLookup{Item: record.Item, Hit: true, Stale: isStale}, nil
 }
 
-// ResolveMany partitions ids into fresh, stale, and missing sets.
 func (c *MetadataCache) ResolveMany(ids []string) (MetadataResolveResult, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -145,7 +139,6 @@ func (c *MetadataCache) ResolveMany(ids []string) (MetadataResolveResult, error)
 	return result, nil
 }
 
-// SetMany writes metadata records into cache and runs eviction when needed.
 func (c *MetadataCache) SetMany(items map[string]WorkshopItem) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -214,10 +207,10 @@ func (c *MetadataCache) saveLocked(state metadataCacheFile) error {
 	payload = append(payload, '\n')
 
 	tmpPath := c.filePath + ".tmp"
-	if err := os.WriteFile(tmpPath, payload, 0o600); err != nil {
+	if err = os.WriteFile(tmpPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write metadata cache tmp %q: %w", tmpPath, err)
 	}
-	if err := os.Rename(tmpPath, c.filePath); err != nil {
+	if err = os.Rename(tmpPath, c.filePath); err != nil {
 		if removeErr := os.Remove(tmpPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
 			return fmt.Errorf(
 				"replace metadata cache %q: %w; cleanup tmp %q: %s",

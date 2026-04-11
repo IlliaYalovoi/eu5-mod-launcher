@@ -21,3 +21,4 @@ When writing or modifying Go code:
 - **Commenting:** Self-documenting code only. No comments unless explaining non-obvious business logic.
 - **Multi-file awareness:** Change spans multiple files → resolve all affected files in single pass. No partial states.
 - **No regressions:** Before finalizing edit, verify no breakage of existing call sites, type contracts, or interface implementations visible in context.
+- **Testing:** No creation of new tests unless explicitly asked. If tests already exist, ensure they still pass after changes.

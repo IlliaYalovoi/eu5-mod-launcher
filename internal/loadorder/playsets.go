@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// ListPlaysets returns playset names and the game-active playset index.
 func ListPlaysets(path string) ([]string, int, error) {
 	root, err := readPlaysetsRoot(path)
 	if err != nil {
@@ -54,8 +53,6 @@ func ListPlaysets(path string) ([]string, int, error) {
 	return names, gameActiveIndex, nil
 }
 
-// LoadStateFromPlaysets reads enabled ordered mods from the selected playset.
-// It also returns ID->path mapping for subsequent persistence.
 func LoadStateFromPlaysets(path string, playsetIndex int) (State, map[string]string, error) {
 	root, err := readPlaysetsRoot(path)
 	if err != nil {
@@ -95,7 +92,6 @@ func LoadStateFromPlaysets(path string, playsetIndex int) (State, map[string]str
 	return State{OrderedIDs: ids}, pathsByID, nil
 }
 
-// SaveStateToPlaysets writes ordered enabled mods into the selected playset.
 func SaveStateToPlaysets(path string, playsetIndex int, state State, idToPath map[string]string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create playsets dir for %q: %w", path, err)

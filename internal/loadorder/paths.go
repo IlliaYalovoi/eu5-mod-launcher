@@ -1,21 +1,17 @@
 package loadorder
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
+
+	"github.com/adrg/xdg"
 )
 
 const steamWorkshopAppID = "3450310"
 
-var errAppDataNotSet = errors.New("APPDATA is not set")
-
-// GamePaths groups auto-discovered EU5 locations used by the launcher.
 type GamePaths struct {
 	PlaysetsPath    string
 	LocalModsDir    string
@@ -23,44 +19,14 @@ type GamePaths struct {
 	GameExePath     string
 }
 
-// DefaultConfigPath returns the platform-appropriate path for the config file.
-// Windows: %APPDATA%\EU5ModLauncher\loadorder.json
-// Linux:   $XDG_CONFIG_HOME/eu5-mod-launcher/loadorder.json
-//
-//	(falls back to $HOME/.config/... if XDG not set)
 func DefaultConfigPath() (string, error) {
-	return defaultConfigPathForOS(runtime.GOOS, os.Getenv)
-}
-
-func defaultConfigPathForOS(goos string, getenv func(string) string) (string, error) {
-	switch goos {
-	case "windows":
-		appData := getenv("APPDATA")
-		if appData == "" {
-			return "", errAppDataNotSet
-		}
-		return filepath.Join(appData, "EU5ModLauncher", "loadorder.json"), nil
-	case "linux":
-		base := getenv("XDG_CONFIG_HOME")
-		if base == "" {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return "", fmt.Errorf("resolve user home for linux config path: %w", err)
-			}
-			base = filepath.Join(home, ".config")
-			return filepath.Join(base, "eu5-mod-launcher", "loadorder.json"), nil
-		}
-		return path.Join(base, "eu5-mod-launcher", "loadorder.json"), nil
-	default:
-		base, err := os.UserConfigDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve user config dir for %q: %w", goos, err)
-		}
-		return filepath.Join(base, "eu5-mod-launcher", "loadorder.json"), nil
+	configHome, err := xdg.ConfigFile("eu5-mod-launcher/loadorder.json")
+	if err != nil {
+		return "", fmt.Errorf("resolve config path via xdg: %w", err)
 	}
+	return configHome, nil
 }
 
-// DiscoverGamePaths resolves standard EU5 locations and Steam workshop roots.
 func DiscoverGamePaths() (GamePaths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -124,7 +90,6 @@ func discoverGameExePath() string {
 	return ""
 }
 
-// DiscoverSteamLibraryRoots returns all Steam library roots (including the main Steam path).
 func DiscoverSteamLibraryRoots() []string {
 	steamRoot := findSteamInstallPath()
 	if steamRoot == "" {

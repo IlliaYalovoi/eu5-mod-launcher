@@ -24,6 +24,7 @@ const (
 	defaultImageMaxEntries = 1000
 	maxImageBytes          = 10 * 1024 * 1024
 	maxImageDimension      = 8192
+	defaultTimeout         = 10 * time.Second
 )
 
 var (
@@ -35,7 +36,6 @@ var (
 	errImageDecodeFailed       = errors.New("image decode guard failed")
 )
 
-// ImageCache stores workshop preview thumbnails in a bounded local directory.
 type ImageCache struct {
 	dirPath    string
 	maxEntries int
@@ -43,7 +43,6 @@ type ImageCache struct {
 	mu         sync.Mutex
 }
 
-// NewImageCache creates an image cache at cacheRoot.
 func NewImageCache(cacheRoot string, maxEntries int, httpClient *http.Client) (*ImageCache, error) {
 	root := strings.TrimSpace(cacheRoot)
 	if root == "" {
@@ -64,14 +63,12 @@ func NewImageCache(cacheRoot string, maxEntries int, httpClient *http.Client) (*
 	return &ImageCache{dirPath: dirPath, maxEntries: maxEntries, httpClient: httpClient}, nil
 }
 
-// CachedPath returns local thumbnail path for itemID if any cached file exists.
 func (c *ImageCache) CachedPath(itemID string) string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.cachedPathLocked(itemID)
 }
 
-// EnsureStored returns existing image path or downloads it when missing.
 func (c *ImageCache) EnsureStored(item WorkshopItem) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -82,7 +79,6 @@ func (c *ImageCache) EnsureStored(item WorkshopItem) (string, error) {
 	return c.storeDownloadedLocked(item)
 }
 
-// RefreshStored always re-downloads preview image.
 func (c *ImageCache) RefreshStored(item WorkshopItem) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

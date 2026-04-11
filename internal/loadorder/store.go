@@ -9,14 +9,12 @@ import (
 	"strings"
 )
 
-// Store persists and retrieves load order state from a JSON file.
 type Store struct {
 	configPath string
 }
 
 var errConfigPathEmpty = errors.New("config path must not be empty")
 
-// State is the persisted load order format.
 type State struct {
 	OrderedIDs []string `json:"orderedIds"`
 }
@@ -39,7 +37,6 @@ func New(configPath string) (*Store, error) {
 	return &Store{configPath: absPath}, nil
 }
 
-// Load reads current state from disk.
 func (s *Store) Load() (State, error) {
 	content, err := os.ReadFile(s.configPath)
 	if err != nil {
@@ -64,7 +61,6 @@ func (s *Store) Load() (State, error) {
 	return state, nil
 }
 
-// Save writes state to disk atomically (write to temp file, rename).
 func (s *Store) Save(state State) error {
 	if state.OrderedIDs == nil {
 		state.OrderedIDs = []string{}
@@ -77,11 +73,11 @@ func (s *Store) Save(state State) error {
 	payload = append(payload, '\n')
 
 	tmpPath := s.configPath + ".tmp"
-	if err := os.WriteFile(tmpPath, payload, 0o600); err != nil {
+	if err = os.WriteFile(tmpPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write temporary loadorder file %q: %w", tmpPath, err)
 	}
 
-	if err := os.Rename(tmpPath, s.configPath); err != nil {
+	if err = os.Rename(tmpPath, s.configPath); err != nil {
 		if removeErr := os.Remove(tmpPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
 			return fmt.Errorf(
 				"replace loadorder file %q: %w; cleanup temp %q: %s",
@@ -97,7 +93,6 @@ func (s *Store) Save(state State) error {
 	return nil
 }
 
-// ConfigPath returns the resolved absolute path used by this store.
 func (s *Store) ConfigPath() string {
 	return s.configPath
 }

@@ -1,28 +1,22 @@
 package game
 
-import "eu5-mod-launcher/internal/loadorder"
-
-type GameID string
-
-const (
-	GameIDEU5  GameID = "eu5"
-	GameIDVic3 GameID = "vic3"
+import (
+	"eu5-mod-launcher/internal/domain"
+	"eu5-mod-launcher/internal/loadorder"
 )
 
-type GameDescriptor struct {
-	ID           GameID `json:"id"`
-	DisplayName  string `json:"displayName"`
-	Detected     bool   `json:"detected"`
-	InstallDir   string `json:"installDir"`
-	DocumentsDir string `json:"documentsDir"`
-}
+type GameID = domain.GameID
+
+const (
+	GameIDEU5  GameID = domain.GameIDEU5
+	GameIDVic3 GameID = domain.GameIDVic3
+)
+
+type GameDescriptor = domain.GameDescriptor
 
 type ModListAdapter interface {
-	GameID() GameID
-	Descriptor() GameDescriptor
-	DiscoverPaths() (loadorder.GamePaths, error)
+	Adapter
 	ListModLists(playsetsPath string) ([]string, int, error)
 	ImportModList(playsetsPath string, listIndex int) (loadorder.State, map[string]string, error)
 	ExportModList(playsetsPath string, listIndex int, state loadorder.State, modPathByID map[string]string) error
 }
-
