@@ -9,9 +9,11 @@ import BaseModal from './components/ui/BaseModal.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import SearchOverlay from './components/ui/SearchOverlay.vue'
 import ToastContainer from './components/ui/ToastContainer.vue'
+import ManualGamePathSetup from './components/ManualGamePathSetup.vue'
 import { useLoadOrderStore } from './stores/loadorder'
 import { useModsStore } from './stores/mods'
 import { useSettingsStore } from './stores/settings'
+import { useGamesStore } from './stores/games'
 
 type MenuItem = {
   id: string
@@ -25,9 +27,11 @@ type MenuItem = {
 const loadOrderStore = useLoadOrderStore()
 const modsStore = useModsStore()
 const settingsStore = useSettingsStore()
+const gamesStore = useGamesStore()
 const { orderedIDs, launcherLayout, playsetNames, launcherActivePlaysetIndex } = storeToRefs(loadOrderStore)
 const { unsubscribeFeatureEnabled, unsubscribeNotice } = storeToRefs(modsStore)
 const { requiresManualPaths } = storeToRefs(settingsStore)
+const { supportedGames, activeGameID } = storeToRefs(gamesStore)
 
 const ungroupedCategoryID = 'category:ungrouped'
 
@@ -35,6 +39,9 @@ const ungroupedCategoryID = 'category:ungrouped'
 const detailsOpen = ref(false)
 const settingsOpen = ref(false)
 const searchOpen = ref(false)
+const manualSetupOpen = ref(false)
+const setupGameID = ref<string>('')
+const setupGameName = ref<string>('')
 
 const contextMenu = reactive({
   open: false,
@@ -115,8 +122,9 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
+  await gamesStore.initialize()
 })
 
 onUnmounted(() => {
@@ -271,6 +279,25 @@ function onLauncherPlaysetChange(event: Event): void {
   void loadOrderStore.setLauncherPlayset(index).then(() => modsStore.fetchAll())
 }
 
+function onGameClick(game: { id: string; name: string; detected: boolean }): void {
+  if (!game.detected) {
+    // Open manual setup for undetected games
+    setupGameID.value = game.id
+    setupGameName.value = game.name
+    manualSetupOpen.value = true
+    return
+  }
+
+  // Switch to detected game
+  gamesStore.setActiveGame(game.id)
+  // Trigger data refresh for the new game context
+  void Promise.all([
+    settingsStore.fetch(),
+    modsStore.fetchAll(),
+    loadOrderStore.fetch()
+  ])
+}
+
 function openSearch(): void {
   searchOpen.value = true
 }
@@ -385,6 +412,31 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
       </div>
     </header>
 
+    <aside class="game-sidebar">
+      <div class="sidebar-header">
+        <h3 class="sidebar-title">Games</h3>
+      </div>
+      <nav class="sidebar-nav">
+        <button
+          v-for="game in supportedGames"
+          :key="game.id"
+          class="game-item"
+          :class="{
+            'game-item--detected': game.detected,
+            'game-item--undetected': !game.detected,
+            'game-item--active': activeGameID === game.id
+          }"
+          @click="onGameClick(game)"
+        >
+          <div class="game-item-icon">🎮</div>
+          <div class="game-item-info">
+            <div class="game-item-name">{{ game.name }}</div>
+            <div v-if="!game.detected" class="game-item-status">Not detected</div>
+          </div>
+        </button>
+      </nav>
+    </aside>
+
     <main class="content" aria-label="Main content area">
       <LoadOrderPanel
         @contextmenu="openContextMenu"
@@ -429,6 +481,15 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 
     <!-- Toast notifications -->
     <ToastContainer />
+
+    <!-- Manual Game Path Setup -->
+    <ManualGamePathSetup
+      v-if="manualSetupOpen"
+      :gameID="setupGameID"
+      :gameName="setupGameName"
+      :open="manualSetupOpen"
+      @close="manualSetupOpen = false"
+    />
   </div>
 </template>
 
@@ -436,10 +497,90 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 .shell {
   display: grid;
   grid-template-rows: 3.25rem 1fr;
-  grid-template-columns: 1fr;
+  grid-template-columns: 12rem 1fr;
   height: 100%;
   background: var(--color-bg-base);
   color: var(--color-text-primary);
+}
+
+.game-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: var(--border-width) solid var(--color-border);
+  background: var(--color-bg-panel);
+  padding: var(--space-4);
+  overflow: hidden;
+}
+
+.sidebar-header {
+  margin-bottom: var(--space-4);
+}
+
+.sidebar-title {
+  font-family: var(--font-display), serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.game-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.game-item:hover {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-strong);
+}
+
+.game-item--active {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-accent);
+}
+
+.game-item--detected {
+  opacity: 1;
+}
+
+.game-item--undetected {
+  opacity: 0.6;
+}
+
+.game-item-icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.game-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-item-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.game-item-status {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .commandbar {
@@ -555,6 +696,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 
 .content {
   display: flex;
+  min-height: 0;
   overflow: hidden;
   padding: var(--space-5);
   gap: var(--space-4);

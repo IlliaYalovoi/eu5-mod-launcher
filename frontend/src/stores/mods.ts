@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { logger } from '../lib/logger'
 import { useLoadOrderStore } from './loadorder'
 import type { Mod, WorkshopItem } from '../types'
 import {
@@ -39,12 +40,15 @@ export const useModsStore = defineStore('mods', () => {
   const metadataRequests = new Map<string, Promise<void>>()
   const unsubscribeRequests = new Map<string, Promise<void>>()
 
+  logger.debug('mods', 'Mods store initialized')
+
   async function ensureUnsubscribeCapability(): Promise<void> {
     if (unsubscribeCapabilityLoaded.value) {
       return
     }
     unsubscribeFeatureEnabled.value = await IsUnsubscribeEnabled()
     unsubscribeCapabilityLoaded.value = true
+    logger.debug('mods', `Unsubscribe capability loaded: ${unsubscribeFeatureEnabled.value}`)
   }
 
   function modByID(id: string): Mod | null {
@@ -92,15 +96,18 @@ export const useModsStore = defineStore('mods', () => {
   async function fetchAll(): Promise<void> {
     isLoading.value = true
     error.value = null
+    logger.debug('mods', 'Fetching all mods')
 
     try {
       await ensureUnsubscribeCapability()
       allMods.value = (await GetAllMods()) as Mod[]
+      logger.info('mods', `Fetched ${allMods.value.length} mods`)
       if (!allMods.value.some((mod) => mod.ID === selectedModID.value)) {
         selectedModID.value = allMods.value[0]?.ID || ''
       }
     } catch (err) {
       error.value = errorMessage(err)
+      logger.error('mods', `Fetch failed: ${errorMessage(err)}`)
       allMods.value = []
       selectedModID.value = ''
     } finally {
@@ -111,6 +118,7 @@ export const useModsStore = defineStore('mods', () => {
   function selectMod(id: string): void {
     selectedModID.value = id
     workshopOpenError.value = null
+    logger.debug('mods', `Selected mod: ${id}`)
   }
 
   function setWorkshopOpenError(message: string): void {

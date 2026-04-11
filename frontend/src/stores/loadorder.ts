@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
+import { logger } from '../lib/logger'
 import type { LauncherCategory, LauncherLayout } from '../types'
 import {
   Autosort,
@@ -38,6 +39,7 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
   const launcherLayout = ref<LauncherLayout>({ ...emptyLauncherLayout })
 
   async function fetch(): Promise<void> {
+    logger.debug('loadorder', 'Fetching load order state')
     try {
       const [ids, names, gameIndex, launcherIndex, layout] = await Promise.all([
         GetLoadOrder(),
@@ -51,7 +53,9 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
       gameActivePlaysetIndex.value = gameIndex
       launcherActivePlaysetIndex.value = launcherIndex
       launcherLayout.value = (layout || emptyLauncherLayout) as LauncherLayout
-    } catch {
+      logger.info('loadorder', `Loaded ${ids.length} mods, ${names.length} playsets`)
+    } catch (err) {
+      logger.error('loadorder', `Failed to fetch: ${errorMessage(err)}`)
       orderedIDs.value = []
       playsetNames.value = []
       gameActivePlaysetIndex.value = -1
