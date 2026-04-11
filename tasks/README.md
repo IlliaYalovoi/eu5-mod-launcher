@@ -90,6 +90,7 @@ Tasks are designed to be **maximally independent**. Each one has a clear input, 
 | 27 | `27-go-game-detection-eu5-vic3.md` | Go: detect supported games (EU5, Vic3) + manual path overrides |
 | 28 | `28-fe-multi-game-sidebar.md` | Frontend: left game sidebar, detected-state ordering and switching |
 | 28.5 | `28.5-fe-ui-reform.md` | Frontend: bold UI reform — 2-row layout, slide-over panels, keyboard shortcuts |
+| 28.6 | `28.6-fe-ui-reform-pt2.md` | Frontend: 7 UI bug fixes from 28.5 review |
 | 29 | `29-fe-manual-game-path-setup.md` | Frontend: popup workflow for manual install/documents paths |
 | 30 | `30-fe-game-themes.md` | Frontend: per-game theme tokens and runtime theme switch |
 | 31 | `31-go-fe-last-selected-game-persistence.md` | Go+Frontend: persist/restore last selected game |

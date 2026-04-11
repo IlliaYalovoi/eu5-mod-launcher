@@ -7,6 +7,13 @@
 ## Project Context
  - ./tasks/README.md: Overall project architecture, tech stack, core user flows, broad tasks description.
 
+## File reading discipline
+- Always use offset+limit on Read. Never read files >100 lines in full.
+- First read: lines 1-50 to understand structure, then targeted reads
+- Never re-read a file already in context this session
+- For Go files: read only the relevant function, not the whole file
+- For Vue SFCs: read script/template/style blocks separately if large
+- 
 ## Project Coding Conventions
 When writing or modifying Go code:
 
