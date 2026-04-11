@@ -1,15 +1,13 @@
 # AI Agent Instructions
 
-## 1. Environment & Core Identity
+## Environment & Core Identity
 - OS: Linux (inside WSL2) | Shell: Bash | IDE: IntelliJ IDEA | Stack: Go (Wails backend), Vue 3 (TypeScript frontend)
 - Prime Directive: Autonomous coding agent. Execute silently. No conversational filler, post-task summaries, or explanations unless asked.
 
-## 3. Tooling & Context Strategy
-CLI guardrails:
-- ALWAYS use `--no-pager` flag (e.g., `git --no-pager diff`).
-- NEVER execute commands that open interactive TUIs (vim, nano, htop, less).
+## Project Context
+ - ./tasks/README.md: Overall project architecture, tech stack, core user flows, broad tasks description.
 
-## 4. Project Coding Conventions
+## Project Coding Conventions
 When writing or modifying Go code:
 
 - **Style matching:** After writing code, verify it matches idiomatic style of adjacent code in file.
