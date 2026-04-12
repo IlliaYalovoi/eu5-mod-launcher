@@ -1,0 +1,9 @@
+/* frontend/src/styles/tokens.css */
+:root {
+  --rail-bg: var(--bg-sidebar);
+  --workspace-bg: var(--bg-body);
+  --inspector-bg: var(--bg-panel);
+  --card-bg: var(--bg-elevated);
+  --card-border: var(--border);
+  --accent-primary: var(--accent);
+}

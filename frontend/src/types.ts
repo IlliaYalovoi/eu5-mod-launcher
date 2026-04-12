@@ -36,3 +36,5 @@ export interface LauncherLayout {
   collapsed?: Record<string, boolean>
 }
 
+export type WorkspaceMode = 'load-order' | 'discover' | 'rules';
+
