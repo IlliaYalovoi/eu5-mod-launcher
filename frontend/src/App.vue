@@ -1,12 +1,13 @@
 <script lang="ts" setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import type { LauncherLayout } from './types'
+import type { LauncherLayout, Mod } from './types'
 import {
   DisableMod,
   GetGameActivePlaysetIndex,
   GetLauncherActivePlaysetIndex,
   GetLauncherLayout,
   GetLoadOrder,
+  GetAllMods,
   GetModsDirStatus,
   ListSupportedGames,
   SetActiveGame,
@@ -51,7 +52,8 @@ const orderedIDs = ref<string[]>([])
 const launcherLayout = ref<LauncherLayout>({ ungrouped: [], categories: [], order: [], collapsed: {} })
 
 // Mod detail state
-const selectedModID = ref('')
+const selectedMod = ref<Mod | null>(null)
+const allMods = ref<Mod[]>([])
 
 // Unsubscribe feature
 const unsubscribeFeatureEnabled = ref(false)
@@ -72,7 +74,7 @@ const constraintModal = reactive({ open: false, modID: '' })
 
 async function load() {
   try {
-    const [games, gameIdx, layout, order, names, unsubEnabled, dirsStatus] = await Promise.all([
+    const [games, gameIdx, layout, order, names, unsubEnabled, dirsStatus, mods] = await Promise.all([
       ListSupportedGames(),
       GetGameActivePlaysetIndex(),
       GetLauncherLayout(),
@@ -80,6 +82,7 @@ async function load() {
       GetPlaysetNames(),
       IsUnsubscribeEnabled(),
       GetModsDirStatus(),
+      GetAllMods(),
     ])
     supportedGames.value = games.map((g: any) => ({ id: g.id, name: g.name, detected: g.detected }))
     const detected = supportedGames.value.find((g: any) => g.detected)
@@ -88,6 +91,7 @@ async function load() {
     launcherLayout.value = layout as LauncherLayout
     orderedIDs.value = order
     playsetNames.value = names
+    allMods.value = mods as Mod[]
     unsubscribeFeatureEnabled.value = unsubEnabled
     requiresManualPaths.value = !(dirsStatus as any).autoDetectedExists && !(dirsStatus as any).effectiveExists
     if (requiresManualPaths.value) settingsOpen.value = true
@@ -193,10 +197,16 @@ async function onGameClick(game: { id: string; name: string; detected: boolean }
   } catch (err) { showToast({ type: 'error', message: errorMessage(err) }) }
 }
 
-function onSearchAddMod(modID: string): void { searchOpen.value = false; selectedModID.value = modID; detailsOpen.value = true }
+function onSearchAddMod(modID: string): void {
+  searchOpen.value = false
+  selectedMod.value = allMods.value.find(m => m.ID === modID) || null
+  detailsOpen.value = true
+}
 function onModSelect(modID: string): void {
-  if (modID === selectedModID.value && detailsOpen.value) { detailsOpen.value = false; return }
-  searchOpen.value = false; settingsOpen.value = false; selectedModID.value = modID; detailsOpen.value = true
+  if (modID === selectedMod.value?.ID && detailsOpen.value) { detailsOpen.value = false; return }
+  searchOpen.value = false; settingsOpen.value = false
+  selectedMod.value = allMods.value.find(m => m.ID === modID) || null
+  detailsOpen.value = true
 }
 
 async function handleMenuAction(event: { itemID: string; targetID: string }): Promise<void> {
@@ -303,7 +313,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>
-        <ModDetailsPanel :open="detailsOpen" :mod-id="selectedModID" />
+        <ModDetailsPanel :open="detailsOpen" :mod="selectedMod" />
       </aside>
     </Transition>
 

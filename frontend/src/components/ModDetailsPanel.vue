@@ -1,130 +1,112 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useModsStore } from '../stores/mods'
-import { OpenExternalLink, OpenWorkshopItem } from '../../wailsjs/go/launcher/App'
+import { OpenExternalLink, OpenWorkshopItem, FetchWorkshopMetadataForMod, IsUnsubscribeEnabled } from '../../wailsjs/go/launcher/App'
 import { renderRichDescriptionHtml, renderSteamDescriptionHtml, toDisplayImageSrc } from '../utils/steamDescription'
+import { showToast } from '../lib/toast'
+import { errorMessage } from '../lib/error'
+import type { Mod, WorkshopItem } from '../types'
 import ConfirmModal from './ui/ConfirmModal.vue'
 
-const modsStore = useModsStore()
-const {
-  selectedMod,
-  selectedSteamMetadata,
-  selectedSteamLoading,
-  selectedSteamError,
-  selectedUnsubscribeLoading,
-  selectedUnsubscribeError,
-  workshopOpenError,
-} = storeToRefs(modsStore)
+const props = defineProps<{ open: boolean; mod: Mod | null }>()
 
-const fallbackThumbnail =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='67' viewBox='0 0 120 67'%3E%3Crect width='120' height='67' rx='8' fill='%23222a35'/%3E%3Cg fill='none' stroke='%23b9b09b' stroke-width='2'%3E%3Cpath d='M20 46l20-20 17 17 8-8 12 17'/%3E%3Crect x='20' y='14' width='80' height='40' rx='5'/%3E%3C/g%3E%3C/svg%3E"
-
+const mod = ref<Mod | null>(null)
+watch(() => props.mod, (m) => { mod.value = m })
+const steamMetadata = ref<WorkshopItem | null>(null)
+const steamLoading = ref(false)
+const steamError = ref<string>('')
+const unsubscribeLoading = ref(false)
+const unsubscribeError = ref<string>('')
+const workshopOpenError = ref<string>('')
 const unsubscribeConfirmOpen = ref(false)
+const unsubscribeEnabled = ref(false)
+const unsubscribeFeatureLoaded = ref(false)
 
-watch(
-  () => selectedMod.value?.ID,
-  (id) => {
-    if (id) {
-      void modsStore.fetchSteamMetadata(id)
+const fallbackThumbnail = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='67' viewBox='0 0 120 67'%3E%3Crect width='120' height='67' rx='8' fill='%23222a35'/%3E%3Cg fill='none' stroke='%23b9b09b' stroke-width='2'%3E%3Cpath d='M20 46l20-20 17 17 8-8 12 17'/%3E%3Crect x='20' y='14' width='80' height='40' rx='5'/%3E%3C/g%3E%3C/svg%3E"
+
+async function loadModDetails() {
+  if (!props.mod?.ID || !props.open) return
+  steamLoading.value = true
+  steamError.value = ''
+  try {
+    if (!unsubscribeFeatureLoaded.value) {
+      unsubscribeEnabled.value = await IsUnsubscribeEnabled()
+      unsubscribeFeatureLoaded.value = true
     }
-  },
-  { immediate: true },
-)
-
-const workshopURL = computed(() => {
-  const itemID = selectedSteamMetadata.value?.itemId || ''
-  return itemID ? `https://steamcommunity.com/sharedfiles/filedetails/?id=${itemID}` : ''
-})
-const canUnsubscribe = computed(() => {
-  const modID = selectedMod.value?.ID || ''
-  return !!modID && modsStore.unsubscribeFeatureEnabled && modsStore.isWorkshopMod(modID)
-})
-
-const steamThumbnail = computed(
-  () =>
-    toDisplayImageSrc(selectedMod.value?.ThumbnailPath || '') ||
-    toDisplayImageSrc(selectedSteamMetadata.value?.previewUrl || '') ||
-    fallbackThumbnail,
-)
-const localDescriptionHtml = computed(() => renderRichDescriptionHtml(selectedMod.value?.Description || ''))
-const steamDescriptionHtml = computed(() => renderSteamDescriptionHtml(selectedSteamMetadata.value?.description || ''))
-
-function retry(): void {
-  if (selectedMod.value?.ID) {
-    void modsStore.fetchSteamMetadata(selectedMod.value.ID)
+    const ws = await FetchWorkshopMetadataForMod(props.modID)
+    steamMetadata.value = ws as WorkshopItem
+  } catch (err) {
+    steamError.value = errorMessage(err)
+  } finally {
+    steamLoading.value = false
   }
 }
 
-async function openWorkshop(): Promise<void> {
-  const itemID = selectedSteamMetadata.value?.itemId || ''
-  if (!itemID) {
-    return
-  }
+watch(() => props.open, (isOpen) => { if (isOpen && props.mod) void loadModDetails() })
 
-  modsStore.clearWorkshopOpenError()
-  try {
-    await OpenWorkshopItem(itemID)
-  } catch {
-    modsStore.setWorkshopOpenError('Failed to open workshop item in Steam, browser, and fallback window.')
-  }
+const workshopURL = computed(() => {
+  const itemID = steamMetadata.value?.itemId || ''
+  return itemID ? `https://steamcommunity.com/sharedfiles/filedetails/?id=${itemID}` : ''
+})
+const canUnsubscribe = computed(() => !!props.mod?.ID && unsubscribeEnabled.value)
+
+const steamThumbnail = computed(() =>
+  toDisplayImageSrc(mod.value?.ThumbnailPath || '') ||
+  toDisplayImageSrc(steamMetadata.value?.previewUrl || '') ||
+  fallbackThumbnail)
+const localDescriptionHtml = computed(() => renderRichDescriptionHtml(mod.value?.Description || ''))
+const steamDescriptionHtml = computed(() => renderSteamDescriptionHtml(steamMetadata.value?.description || ''))
+
+function retry(): void { void loadModDetails() }
+
+async function openWorkshop(): Promise<void> {
+  const itemID = steamMetadata.value?.itemId || ''
+  if (!itemID) return
+  workshopOpenError.value = ''
+  try { await OpenWorkshopItem(itemID) }
+  catch { workshopOpenError.value = 'Failed to open workshop item.' }
 }
 
 async function onSteamContentClick(event: MouseEvent): Promise<void> {
   const target = event.target as HTMLElement | null
   const anchor = target?.closest('a') as HTMLAnchorElement | null
-  if (!anchor) {
-    return
-  }
-
+  if (!anchor) return
   const href = anchor.getAttribute('href')?.trim() || ''
-  if (!href) {
-    return
-  }
-
+  if (!href) return
   event.preventDefault()
-  modsStore.clearWorkshopOpenError()
-  try {
-    await OpenExternalLink(href)
-  } catch {
-    modsStore.setWorkshopOpenError('Failed to open the selected link.')
-  }
+  workshopOpenError.value = ''
+  try { await OpenExternalLink(href) }
+  catch { workshopOpenError.value = 'Failed to open the selected link.' }
 }
 
-function openUnsubscribeConfirm(): void {
-  unsubscribeConfirmOpen.value = true
-}
-
-function closeUnsubscribeConfirm(): void {
-  unsubscribeConfirmOpen.value = false
-}
-
+function openUnsubscribeConfirm(): void { unsubscribeConfirmOpen.value = true }
+function closeUnsubscribeConfirm(): void { unsubscribeConfirmOpen.value = false }
 async function confirmUnsubscribe(): Promise<void> {
   unsubscribeConfirmOpen.value = false
-  const modID = selectedMod.value?.ID || ''
-  if (!modID) {
-    return
-  }
-
+  if (!props.mod?.ID) return
+  unsubscribeLoading.value = true
   try {
-    await modsStore.unsubscribeWorkshop(modID)
-  } catch {
-    // Inline and toast errors are populated by store state.
+    const { UnsubscribeWorkshopMod } = await import('../../wailsjs/go/launcher/App')
+    await UnsubscribeWorkshopMod(props.mod.ID)
+    showToast({ type: 'success', message: 'Unsubscribed successfully' })
+  } catch (err) {
+    unsubscribeError.value = errorMessage(err)
+  } finally {
+    unsubscribeLoading.value = false
   }
 }
 </script>
 
 <template>
   <section class="mod-details-panel" aria-label="Mod details panel">
-    <div v-if="!selectedMod" class="state empty">Select a mod to view details.</div>
+    <div v-if="!mod" class="state empty">Select a mod to view details.</div>
 
     <template v-else>
       <header class="header">
-        <h2 class="name">{{ selectedMod.Name }}</h2>
-        <p class="subtitle">Version {{ selectedMod.Version || 'Unknown' }} · {{ selectedMod.Enabled ? 'Enabled' : 'Disabled' }}</p>
+        <h2 class="name">{{ mod.Name }}</h2>
+        <p class="subtitle">Version {{ mod.Version || 'Unknown' }} · {{ mod.Enabled ? 'Enabled' : 'Disabled' }}</p>
       </header>
 
-      <img class="preview" :src="steamThumbnail" :alt="`${selectedMod.Name} preview`" loading="lazy" />
+      <img class="preview" :src="steamThumbnail" :alt="`${mod.Name} preview`" loading="lazy" />
 
       <div class="section">
         <h3 class="section-title">Local details</h3>
@@ -135,13 +117,13 @@ async function confirmUnsubscribe(): Promise<void> {
       <div class="section">
         <h3 class="section-title">Steam details</h3>
 
-        <p v-if="selectedSteamLoading" class="state loading">Loading workshop details...</p>
-        <p v-else-if="selectedSteamError" class="state error">
-          {{ selectedSteamError }}
+        <p v-if="steamLoading" class="state loading">Loading workshop details...</p>
+        <p v-else-if="steamError" class="state error">
+          {{ steamError }}
           <button class="retry" type="button" @click="retry">Retry</button>
         </p>
-        <div v-else-if="selectedSteamMetadata && selectedSteamMetadata.itemId" class="steam-content">
-          <p class="steam-title">{{ selectedSteamMetadata.title || selectedMod.Name }}</p>
+        <div v-else-if="steamMetadata && steamMetadata.itemId" class="steam-content">
+          <p class="steam-title">{{ steamMetadata.title || mod.Name }}</p>
           <div v-if="steamDescriptionHtml" class="body steam-html" @click="onSteamContentClick" v-html="steamDescriptionHtml" />
           <p v-else class="body">No workshop description provided.</p>
           <button v-if="workshopURL" class="workshop-link" type="button" @click="openWorkshop">
@@ -156,12 +138,12 @@ async function confirmUnsubscribe(): Promise<void> {
         <button
           class="unsubscribe-btn"
           type="button"
-          :disabled="selectedUnsubscribeLoading"
+          :disabled="unsubscribeLoading"
           @click="openUnsubscribeConfirm"
         >
-          {{ selectedUnsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop' }}
+          {{ unsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop' }}
         </button>
-        <p v-if="selectedUnsubscribeError" class="state error">{{ selectedUnsubscribeError }}</p>
+        <p v-if="unsubscribeError" class="state error">{{ unsubscribeError }}</p>
       </div>
     </template>
   </section>
