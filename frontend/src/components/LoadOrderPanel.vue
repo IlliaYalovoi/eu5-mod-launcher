@@ -16,7 +16,6 @@ import {
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
 import AutosortButton from './AutosortButton.vue'
-import CycleErrorPanel from './CycleErrorPanel.vue'
 import LaunchButton from './LaunchButton.vue'
 import BaseButton from './ui/BaseButton.vue'
 
@@ -211,9 +210,6 @@ function persistLayout(): void {
   })
 }
 
-function onCycleOpenConstraints(modID: string): void {
-  emit('open-constraints', modID)
-}
 
 function onModClick(modID: string): void {
   emit('select-mod', modID)
@@ -532,7 +528,6 @@ function onSaveCompiled(): void {
       </draggable>
     </div>
 
-    <CycleErrorPanel @open-constraints="onCycleOpenConstraints" />
   </section>
 </template>
 
