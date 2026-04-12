@@ -7,6 +7,7 @@ export interface Mod {
   thumbnailPath: string
   dirPath: string
   enabled: boolean
+  hasConflict?: boolean
   constraints?: Constraint[]
 }
 
