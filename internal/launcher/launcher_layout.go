@@ -20,18 +20,22 @@ type LauncherCategory struct {
 }
 
 type LauncherLayout struct {
-	Ungrouped  []string           `json:"ungrouped"`
-	Categories []LauncherCategory `json:"categories"`
-	Order      []string           `json:"order,omitempty"`
-	Collapsed  map[string]bool    `json:"collapsed,omitempty"`
+	Groups      []LauncherCategory `json:"groups"`
+	Constraints []domain.Constraint `json:"constraints"` // Group-to-Group rules
+	Ungrouped   []string           `json:"ungrouped"`
+	Categories  []LauncherCategory `json:"categories"`
+	Order       []string           `json:"order,omitempty"`
+	Collapsed   map[string]bool    `json:"collapsed,omitempty"`
 }
 
 func defaultLauncherLayout(enabled []string) LauncherLayout {
 	return LauncherLayout{
-		Ungrouped:  append([]string(nil), enabled...),
-		Categories: []LauncherCategory{},
-		Order:      []string{defaultUngroupedCategoryID},
-		Collapsed:  map[string]bool{},
+		Groups:      []LauncherCategory{},
+		Constraints: []domain.Constraint{},
+		Ungrouped:   append([]string(nil), enabled...),
+		Categories:  []LauncherCategory{},
+		Order:       []string{defaultUngroupedCategoryID},
+		Collapsed:   map[string]bool{},
 	}
 }
 
@@ -40,10 +44,12 @@ func normalizeLauncherLayout(layout LauncherLayout, enabled []string) LauncherLa
 	seen := make(map[string]struct{}, len(enabled))
 
 	normalized := LauncherLayout{
-		Ungrouped:  []string{},
-		Categories: normalizeCategories(layout.Categories, enabledSet, seen),
-		Order:      []string{},
-		Collapsed:  map[string]bool{},
+		Groups:      normalizeCategories(layout.Groups, enabledSet, nil), // Groups don't consume mods from 'seen'
+		Constraints: layout.Constraints,
+		Ungrouped:   []string{},
+		Categories:  normalizeCategories(layout.Categories, enabledSet, seen),
+		Order:       []string{},
+		Collapsed:   map[string]bool{},
 	}
 
 	availableOrderIDs := buildAvailableOrderIDs(normalized.Categories)
@@ -82,10 +88,12 @@ func normalizeCategories(
 			if _, ok := enabledSet[modID]; !ok {
 				continue
 			}
-			if _, exists := seen[modID]; exists {
-				continue
+			if seen != nil {
+				if _, exists := seen[modID]; exists {
+					continue
+				}
+				seen[modID] = struct{}{}
 			}
-			seen[modID] = struct{}{}
 			next.ModIDs = append(next.ModIDs, modID)
 		}
 		normalized = append(normalized, next)

@@ -77,11 +77,11 @@ func (a *App) Autosort() ([]string, error) {
 	if err := a.mustBeReady(); err != nil {
 		return nil, err
 	}
-	prevOrder := append([]string(nil), a.loadOrder.OrderedIDs...)
+	prevOrder := append([]string(nil), a.loadOrder.ActiveModIDs...)
 	prevLayout := a.launcherLayout
 
 	sorter := NewGraphSorter(a.svc.conGraph)
-	sorted, err := sorter.Sort(a.loadOrder.OrderedIDs)
+	sorted, err := sorter.Sort(a.loadOrder.ActiveModIDs)
 	if err != nil {
 		return nil, fmt.Errorf("sort constraints: %w", err)
 	}
@@ -104,12 +104,12 @@ func (a *App) Autosort() ([]string, error) {
 		a.launcherLayout = prevLayout
 		return nil, fmt.Errorf("save launcher layout: %w", err)
 	}
-	return append([]string(nil), a.loadOrder.OrderedIDs...), nil
+	return append([]string(nil), a.loadOrder.ActiveModIDs...), nil
 }
 
 func (a *App) reorderLauncherLayoutAfterAutosort(sortedIDs []string) (LauncherLayout, error) {
-	enabledSet := make(map[string]struct{}, len(a.loadOrder.OrderedIDs))
-	for _, id := range a.loadOrder.OrderedIDs {
+	enabledSet := make(map[string]struct{}, len(a.loadOrder.ActiveModIDs))
+	for _, id := range a.loadOrder.ActiveModIDs {
 		enabledSet[id] = struct{}{}
 	}
 	layout := a.launcherLayout

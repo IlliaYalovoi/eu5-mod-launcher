@@ -78,27 +78,38 @@ func (g *Graph) All() []Constraint {
 	out := make([]Constraint, 0)
 	for from, tos := range g.edges {
 		for to := range tos {
-			out = append(out, Constraint{Type: ConstraintAfter, From: from, To: to})
+			out = append(out, Constraint{
+				Type:     ConstraintAfter,
+				FromID:   from,
+				FromType: TargetMod,
+				ToID:     to,
+				ToType:   TargetMod,
+			})
 		}
 	}
 	for id := range g.first {
-		out = append(out, Constraint{Type: ConstraintFirst, ModID: id})
+		out = append(out, Constraint{
+			Type:     ConstraintFirst,
+			FromID:   id,
+			FromType: TargetMod,
+		})
 	}
 	for id := range g.last {
-		out = append(out, Constraint{Type: ConstraintLast, ModID: id})
+		out = append(out, Constraint{
+			Type:     ConstraintLast,
+			FromID:   id,
+			FromType: TargetMod,
+		})
 	}
 
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Type != out[j].Type {
 			return out[i].Type < out[j].Type
 		}
-		if out[i].Type == ConstraintAfter {
-			if out[i].From == out[j].From {
-				return out[i].To < out[j].To
-			}
-			return out[i].From < out[j].From
+		if out[i].FromID == out[j].FromID {
+			return out[i].ToID < out[j].ToID
 		}
-		return out[i].ModID < out[j].ModID
+		return out[i].FromID < out[j].FromID
 	})
 
 	return out

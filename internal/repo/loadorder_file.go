@@ -21,12 +21,12 @@ func (r *FileLoadOrderRepo) Load() (domain.LoadOrder, error) {
 		return domain.LoadOrder{}, err
 	}
 	return domain.LoadOrder{
-		GameID:     domain.GameIDEU5,
-		PlaysetIdx: 0,
-		OrderedIDs: state.OrderedIDs,
+		GameID:       domain.GameIDEU5,
+		PlaysetIdx:   0,
+		ActiveModIDs: state.OrderedIDs,
 	}, nil
 }
 
 func (r *FileLoadOrderRepo) Save(order domain.LoadOrder) error {
-	return r.store.Save(loadorder.State{OrderedIDs: order.OrderedIDs})
+	return r.store.Save(loadorder.State{OrderedIDs: order.ActiveModIDs})
 }

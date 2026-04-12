@@ -19,11 +19,11 @@ func (*FilePlaysetRepo) LoadState(path string, idx domain.PlaysetIndex) (domain.
 	if err != nil {
 		return domain.LoadOrder{}, nil, err
 	}
-	return domain.LoadOrder{GameID: domain.GameIDEU5, PlaysetIdx: idx, OrderedIDs: state.OrderedIDs}, paths, nil
+	return domain.LoadOrder{GameID: domain.GameIDEU5, PlaysetIdx: idx, ActiveModIDs: state.OrderedIDs}, paths, nil
 }
 
 func (*FilePlaysetRepo) SaveState(path string, idx domain.PlaysetIndex, order domain.LoadOrder, modPathByID map[string]string) error {
-	return loadorder.SaveStateToPlaysets(path, int(idx), loadorder.State{OrderedIDs: order.OrderedIDs}, modPathByID)
+	return loadorder.SaveStateToPlaysets(path, int(idx), loadorder.State{OrderedIDs: order.ActiveModIDs}, modPathByID)
 }
 
 // Backward compat aliases.

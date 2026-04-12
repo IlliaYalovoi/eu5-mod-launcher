@@ -65,7 +65,13 @@ func decodeConstraints(content []byte, path string) ([]domain.Constraint, error)
 		constraints = make([]domain.Constraint, 0, len(legacy))
 		for i := range legacy {
 			item := legacy[i]
-			constraints = append(constraints, domain.Constraint{Type: domain.ConstraintAfter, From: item.From, To: item.To})
+			constraints = append(constraints, domain.Constraint{
+				Type:     domain.ConstraintAfter,
+				FromID:   item.From,
+				FromType: domain.TargetMod,
+				ToID:     item.To,
+				ToType:   domain.TargetMod,
+			})
 		}
 	}
 
@@ -81,16 +87,16 @@ func applyConstraints(constraintGraph *domain.Graph, constraints []domain.Constr
 		}
 		switch typ {
 		case string(domain.ConstraintFirst):
-			if constraint.ModID != "" {
-				constraintGraph.AddFirst(constraint.ModID)
+			if constraint.FromID != "" {
+				constraintGraph.AddFirst(constraint.FromID)
 			}
 		case string(domain.ConstraintLast):
-			if constraint.ModID != "" {
-				constraintGraph.AddLast(constraint.ModID)
+			if constraint.FromID != "" {
+				constraintGraph.AddLast(constraint.FromID)
 			}
 		default:
-			if constraint.From != "" && constraint.To != "" {
-				constraintGraph.Add(constraint.From, constraint.To)
+			if constraint.FromID != "" && constraint.ToID != "" {
+				constraintGraph.Add(constraint.FromID, constraint.ToID)
 			}
 		}
 	}
