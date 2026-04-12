@@ -102,29 +102,32 @@ onMounted(load)
 
 .title {
   font-family: var(--font-display), serif;
-  font-size: 1rem;
-  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .close {
   width: 2rem;
   height: 2rem;
-  border: var(--border-width) solid var(--color-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .close:hover {
-  background: var(--color-bg-panel);
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 .required-note {
   padding: var(--space-3);
-  border: var(--border-width) solid var(--color-danger);
+  border: 1px solid #ef4444;
   border-radius: var(--radius-sm);
-  color: var(--color-danger);
+  color: #ef4444;
   font-size: 0.85rem;
 }
 
@@ -141,7 +144,7 @@ onMounted(load)
 }
 
 .label {
-  color: var(--color-text-secondary);
+  color: var(--text-muted);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -153,7 +156,7 @@ onMounted(load)
   align-items: center;
   gap: var(--space-1);
   padding: 0.1rem 0.5rem;
-  border-radius: var(--radius-pill);
+  border-radius: 9999px;
   font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -161,13 +164,13 @@ onMounted(load)
 }
 
 .badge--auto {
-  border: var(--border-width) solid var(--color-success);
-  color: var(--color-success);
+  border: 1px solid var(--success);
+  color: var(--success);
 }
 
 .badge--custom {
-  border: var(--border-width) solid var(--color-accent);
-  color: var(--color-accent);
+  border: 1px solid var(--accent);
+  color: var(--accent);
 }
 
 .value-row {
@@ -180,10 +183,10 @@ onMounted(load)
   flex: 1;
   min-height: 2.25rem;
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--color-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-panel);
-  color: var(--color-text-primary);
+  background: var(--bg-body);
+  color: var(--text);
   font-family: var(--font-mono), monospace;
   font-size: 0.8rem;
 }
@@ -194,34 +197,34 @@ onMounted(load)
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border: var(--border-width) solid var(--color-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
   transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .copy-btn:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .copy-btn--copied {
-  color: var(--color-success);
-  border-color: var(--color-success);
+  color: var(--success);
+  border-color: var(--success);
 }
 
 .hint {
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 
 .inline-link {
   border: 0;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--accent);
   cursor: pointer;
   font-size: inherit;
   padding: 0;
@@ -229,7 +232,7 @@ onMounted(load)
 }
 
 .inline-link:hover {
-  color: var(--color-accent-hover);
+  color: var(--accent-hover);
 }
 
 .actions {
@@ -238,7 +241,7 @@ onMounted(load)
 }
 
 .error {
-  color: var(--color-danger);
+  color: #ef4444;
   font-size: 0.85rem;
 }
 </style>

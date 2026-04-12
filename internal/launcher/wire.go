@@ -21,7 +21,7 @@ type Dependencies struct {
 func NewLauncher(deps Dependencies) *App {
 	a := &App{
 		activeGameID: domain.GameIDEU5,
-		loadOrder:    domain.LoadOrder{OrderedIDs: []string{}},
+		loadOrder:    domain.LoadOrder{ActiveModIDs: []string{}},
 		modPathByID:  map[string]string{},
 		launcherLayout: LauncherLayout{Ungrouped: []string{}, Categories: []LauncherCategory{}},
 		imageData:    map[string]string{},

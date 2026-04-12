@@ -35,7 +35,7 @@ const isCategoryTarget = computed(() => props.modID.indexOf('category:') === 0)
 
 const modsByID = computed(() => {
   const byID: Record<string, Mod> = {}
-  for (const mod of allMods.value) byID[mod.ID] = mod
+  for (const mod of allMods.value) byID[mod.id] = mod
   return byID
 })
 
@@ -45,7 +45,7 @@ const categoryNames = computed(() => {
   return byID
 })
 
-const currentTargetName = computed(() => modsByID.value[props.modID]?.Name || categoryNames.value[props.modID] || props.modID)
+const currentTargetName = computed(() => modsByID.value[props.modID]?.name || categoryNames.value[props.modID] || props.modID)
 const targetNoun = computed(() => props.modID.indexOf('category:') === 0 ? 'category' : 'mod')
 const subjectLabel = computed(() => `This ${targetNoun.value}`)
 
@@ -60,10 +60,10 @@ const existingRows = computed(() => {
     if (type === 'last') return { key: `last:${c.modId}`, text: `${subjectLabel.value} is marked to load last`, type, from: '', to: '', modID: c.modId || '' }
     if (c.from === props.modID) {
       const t = c.to || ''
-      return { key: `${c.from}->${t}`, text: `${subjectLabel.value} always loads after ${modsByID.value[t]?.Name || categoryNames.value[t] || t}`, type, from: c.from || '', to: t, modID: '' }
+      return { key: `${c.from}->${t}`, text: `${subjectLabel.value} always loads after ${modsByID.value[t]?.name || categoryNames.value[t] || t}`, type, from: c.from || '', to: t, modID: '' }
     }
     const s = c.from || '', t = c.to || ''
-    return { key: `${s}->${t}`, text: `${modsByID.value[s]?.Name || categoryNames.value[s] || s} always loads after ${subjectLabel.value.toLowerCase()}`, type, from: s, to: t, modID: '' }
+    return { key: `${s}->${t}`, text: `${modsByID.value[s]?.name || categoryNames.value[s] || s} always loads after ${subjectLabel.value.toLowerCase()}`, type, from: s, to: t, modID: '' }
   })
 })
 
@@ -77,15 +77,15 @@ const availableMods = computed(() => {
   }
   const result: Mod[] = []
   if (isCategoryTarget.value) {
-    if (props.modID !== 'category:ungrouped' && !blocked['category:ungrouped']) result.push({ ID: 'category:ungrouped', Name: '[Category] Ungrouped', Version: '', Tags: [], Description: '', ThumbnailPath: '', DirPath: '', Enabled: true })
+    if (props.modID !== 'category:ungrouped' && !blocked['category:ungrouped']) result.push({ id: 'category:ungrouped', name: '[Category] Ungrouped', version: '', tags: [], description: '', thumbnailPath: '', dirPath: '', enabled: true })
     for (const cat of launcherLayout.value.categories) {
       if (cat.id === props.modID || blocked[cat.id]) continue
-      result.push({ ID: cat.id, Name: `[Category] ${cat.name}`, Version: '', Tags: [], Description: '', ThumbnailPath: '', DirPath: '', Enabled: true })
+      result.push({ id: cat.id, name: `[Category] ${cat.name}`, version: '', tags: [], description: '', thumbnailPath: '', dirPath: '', enabled: true })
     }
     return result
   }
   for (const mod of allMods.value) {
-    if (mod.ID === props.modID || blocked[mod.ID]) continue
+    if (mod.id === props.modID || blocked[mod.id]) continue
     result.push(mod)
   }
   return result
@@ -94,8 +94,8 @@ const availableMods = computed(() => {
 async function load() {
   const [c, mods, layout] = await Promise.all([GetConstraints(), GetAllMods(), GetLauncherLayout()])
   constraints.value = c as Constraint[]
-  allMods.value = mods as Mod[]
-  launcherLayout.value = layout as LauncherLayout
+  allMods.value = mods as unknown as Mod[]
+  launcherLayout.value = layout as unknown as LauncherLayout
 }
 
 watch(() => props.open, (isOpen) => {

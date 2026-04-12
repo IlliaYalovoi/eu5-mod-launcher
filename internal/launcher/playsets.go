@@ -61,7 +61,7 @@ func LoadStateFromPlaysets(path string, playsetIndex int) (State, map[string]str
 
 	playsets, ok := root["playsets"].([]any)
 	if !ok || len(playsets) == 0 {
-		return State{OrderedIDs: []string{}}, map[string]string{}, nil
+		return State{ActiveModIDs: []string{}}, map[string]string{}, nil
 	}
 
 	resolvedIndex := resolvePlaysetIndex(playsets, playsetIndex, gameActiveIndex(playsets))
@@ -89,7 +89,7 @@ func LoadStateFromPlaysets(path string, playsetIndex int) (State, map[string]str
 		pathsByID[id] = normalizeModPath(entry.path)
 	}
 
-	return State{OrderedIDs: ids}, pathsByID, nil
+	return State{ActiveModIDs: ids}, pathsByID, nil
 }
 
 func SaveStateToPlaysets(path string, playsetIndex int, state State, idToPath map[string]string) error {
@@ -104,7 +104,7 @@ func SaveStateToPlaysets(path string, playsetIndex int, state State, idToPath ma
 
 	playsets := ensurePlaysets(root)
 	selectedPlayset := ensureSelectedPlayset(playsets, playsetIndex)
-	orderedEntries := buildOrderedEntries(state.OrderedIDs, idToPath)
+	orderedEntries := buildOrderedEntries(state.ActiveModIDs, idToPath)
 
 	selectedPlayset["orderedListMods"] = orderedEntries
 	root["playsets"] = playsets

@@ -16,7 +16,7 @@ type Store struct {
 var errConfigPathEmpty = errors.New("config path must not be empty")
 
 type State struct {
-	OrderedIDs []string `json:"orderedIds"`
+	ActiveModIDs []string `json:"orderedIds"`
 }
 
 // New opens (or creates) the store at the given config file path.
@@ -41,29 +41,29 @@ func (s *Store) Load() (State, error) {
 	content, err := os.ReadFile(s.configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return State{OrderedIDs: []string{}}, nil
+			return State{ActiveModIDs: []string{}}, nil
 		}
 		return State{}, fmt.Errorf("read loadorder file %q: %w", s.configPath, err)
 	}
 
 	if strings.TrimSpace(string(content)) == "" {
-		return State{OrderedIDs: []string{}}, nil
+		return State{ActiveModIDs: []string{}}, nil
 	}
 
 	var state State
 	if err := json.Unmarshal(content, &state); err != nil {
 		return State{}, fmt.Errorf("decode loadorder file %q: %w", s.configPath, err)
 	}
-	if state.OrderedIDs == nil {
-		state.OrderedIDs = []string{}
+	if state.ActiveModIDs == nil {
+		state.ActiveModIDs = []string{}
 	}
 
 	return state, nil
 }
 
 func (s *Store) Save(state State) error {
-	if state.OrderedIDs == nil {
-		state.OrderedIDs = []string{}
+	if state.ActiveModIDs == nil {
+		state.ActiveModIDs = []string{}
 	}
 
 	payload, err := json.MarshalIndent(state, "", "  ")

@@ -49,34 +49,35 @@ const classes = computed(() => ['base-button', `base-button--${props.variant}`])
 }
 
 .base-button--primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-bg-base);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-body);
 }
 
 .base-button--primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .base-button--ghost {
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .base-button--ghost:hover:not(:disabled) {
-  background: var(--color-bg-elevated);
+  background: var(--bg-elevated);
 }
 
 .base-button--danger {
   background: transparent;
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 .base-button--danger:hover:not(:disabled) {
-  background: var(--color-danger);
-  color: var(--color-bg-base);
+  background: #ef4444;
+  color: white;
 }
 
 .base-button:disabled {

@@ -99,19 +99,21 @@ async function onSave(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-overlay);
+  background: rgba(0,0,0,0.8);
   z-index: 300;
+  backdrop-filter: blur(4px);
 }
 
 .setup-modal {
   width: min(32rem, 90vw);
   padding: var(--space-5);
-  border: var(--border-width) solid var(--color-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
+  background: var(--bg-panel);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
 }
 
 .modal-head {
@@ -123,22 +125,25 @@ async function onSave(): Promise<void> {
 
 .title {
   font-family: var(--font-display), serif;
-  font-size: 1rem;
-  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .close-button {
   width: 2rem;
   height: 2rem;
-  border: var(--border-width) solid var(--color-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .close-button:hover {
-  background: var(--color-bg-panel);
+  background: var(--bg-elevated);
+  color: var(--text);
 }
 
 .field {
@@ -154,7 +159,7 @@ async function onSave(): Promise<void> {
 }
 
 .label {
-  color: var(--color-text-secondary);
+  color: var(--text-muted);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -171,10 +176,10 @@ async function onSave(): Promise<void> {
   flex: 1;
   min-height: 2.25rem;
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--color-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-panel);
-  color: var(--color-text-primary);
+  background: var(--bg-body);
+  color: var(--text);
   font-family: var(--font-mono), monospace;
   font-size: 0.8rem;
 }
@@ -185,7 +190,7 @@ async function onSave(): Promise<void> {
 }
 
 .error {
-  color: var(--color-danger);
+  color: #ef4444;
   font-size: 0.85rem;
 }
 

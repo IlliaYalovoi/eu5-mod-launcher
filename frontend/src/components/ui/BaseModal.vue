@@ -123,9 +123,10 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
-  background: var(--color-overlay);
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.75);
   z-index: 300;
+  backdrop-filter: blur(4px);
 }
 
 .modal-panel {
@@ -133,9 +134,11 @@ onBeforeUnmount(() => {
   max-height: 100%;
   overflow: auto;
   padding: var(--space-5);
-  border: var(--border-width) solid var(--color-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
 }
 
 .modal-overlay--slide-over {

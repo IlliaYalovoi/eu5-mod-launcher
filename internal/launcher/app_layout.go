@@ -25,31 +25,31 @@ func (a *App) SetLauncherLayout(layout LauncherLayout) error {
 	return nil
 }
 
-func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
+func (a *App) CreateLauncherCategory(name string) (LauncherLayout, error) {
 	if err := a.mustBeReady(); err != nil {
-		return LauncherCategory{}, err
+		return LauncherLayout{}, err
 	}
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		return LauncherCategory{}, fmt.Errorf("create launcher category: %w", errLauncherCategoryNameEmpty)
+		return LauncherLayout{}, fmt.Errorf("create launcher category: %w", errLauncherCategoryNameEmpty)
 	}
 	created := LauncherCategory{ID: generateCategoryID(trimmed), Name: trimmed, ModIDs: []string{}}
 	a.launcherLayout.Categories = append(a.launcherLayout.Categories, created)
 	next := a.launcherLayout
 	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.ActiveModIDs); err != nil {
-		return LauncherCategory{}, fmt.Errorf("save launcher layout after category create: %w", err)
+		return LauncherLayout{}, fmt.Errorf("save launcher layout after category create: %w", err)
 	}
 	a.launcherLayout = next
-	return created, nil
+	return a.launcherLayout, nil
 }
 
-func (a *App) DeleteLauncherCategory(categoryID string) error {
+func (a *App) DeleteLauncherCategory(categoryID string) (LauncherLayout, error) {
 	if err := a.mustBeReady(); err != nil {
-		return err
+		return LauncherLayout{}, err
 	}
 	trimmedID := strings.TrimSpace(categoryID)
 	if trimmedID == "" {
-		return nil
+		return a.launcherLayout, nil
 	}
 	found := -1
 	for i, cat := range a.launcherLayout.Categories {
@@ -59,18 +59,19 @@ func (a *App) DeleteLauncherCategory(categoryID string) error {
 		}
 	}
 	if found < 0 {
-		return nil
+		return a.launcherLayout, nil
 	}
 	// Move category mods to ungrouped before removing
+	a.launcherLayout.Ungrouped = append(a.launcherLayout.Ungrouped, a.launcherLayout.Categories[found].ModIDs...)
 	a.launcherLayout.Categories[found].ModIDs = nil
 	newCategories := append(a.launcherLayout.Categories[:found], a.launcherLayout.Categories[found+1:]...)
 	a.launcherLayout.Categories = newCategories
 	next := a.launcherLayout
 	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.ActiveModIDs); err != nil {
-		return fmt.Errorf("save launcher layout after category delete: %w", err)
+		return LauncherLayout{}, fmt.Errorf("save launcher layout after category delete: %w", err)
 	}
 	a.launcherLayout = next
-	return nil
+	return a.launcherLayout, nil
 }
 
 func (a *App) SaveCompiledLoadOrder() ([]string, error) {

@@ -11,11 +11,18 @@ import (
 )
 
 type GraphSorter struct {
-	g *domain.Graph
+	g           *domain.Graph
+	constraints []domain.Constraint
 }
 
 func NewGraphSorter(g *domain.Graph) *GraphSorter {
-	return &GraphSorter{g: g}
+	return &GraphSorter{g: g, constraints: g.All()}
+}
+
+func NewGraphSorterWithConstraints(constraints []domain.Constraint) *GraphSorter {
+	g := domain.NewGraph()
+	applyConstraints(g, constraints)
+	return &GraphSorter{g: g, constraints: constraints}
 }
 
 func (s *GraphSorter) Sort(modIDs []string) ([]string, error) {
@@ -25,7 +32,7 @@ func (s *GraphSorter) Sort(modIDs []string) ([]string, error) {
 	}
 
 	present, position := buildNodeMetadata(nodes)
-	adj, indegree := buildAdjacency(nodes, s.g.All(), present)
+	adj, indegree := buildAdjacency(nodes, s.constraints, present)
 	sortAdjacency(nodes, adj, position)
 
 	result, err := topologicalOrder(nodes, adj, indegree)
@@ -66,6 +73,9 @@ func buildAdjacency(
 		if c.Type != domain.ConstraintAfter {
 			continue
 		}
+
+		// Currently only mod-to-mod constraints in the simple list.
+		// Layout-based hierarchical sorting will handle categories.
 
 		_, fromInInput := present[c.FromID]
 		_, toInInput := present[c.ToID]

@@ -120,9 +120,9 @@ func (*SQLitePlaysetRepo) LoadState(dbPath string, idx domain.PlaysetIndex) (dom
 	}
 
 	return domain.LoadOrder{
-		GameID:     domain.GameIDVic3,
-		PlaysetIdx: idx,
-		OrderedIDs: orderedIDs,
+		GameID:       domain.GameIDVic3,
+		PlaysetIdx:   idx,
+		ActiveModIDs: orderedIDs,
 	}, modPathByID, nil
 }
 
@@ -163,7 +163,7 @@ func (*SQLitePlaysetRepo) SaveState(dbPath string, idx domain.PlaysetIndex, orde
 	}
 
 	// Insert new entries.
-	for position, modID := range order.OrderedIDs {
+	for position, modID := range order.ActiveModIDs {
 		_, err = tx.Exec(`
 			INSERT INTO playsets_mods (playsetId, modId, enabled, position)
 			VALUES (?, ?, 1, ?)

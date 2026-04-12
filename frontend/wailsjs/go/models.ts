@@ -1,10 +1,11 @@
 export namespace domain {
 	
 	export class Constraint {
-	    type?: string;
-	    from?: string;
-	    to?: string;
-	    modId?: string;
+	    type: string;
+	    fromId: string;
+	    fromType: string;
+	    toId: string;
+	    toType: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Constraint(source);
@@ -13,9 +14,10 @@ export namespace domain {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
-	        this.from = source["from"];
-	        this.to = source["to"];
-	        this.modId = source["modId"];
+	        this.fromId = source["fromId"];
+	        this.fromType = source["fromType"];
+	        this.toId = source["toId"];
+	        this.toType = source["toType"];
 	    }
 	}
 
@@ -69,6 +71,8 @@ export namespace launcher {
 	    }
 	}
 	export class LauncherLayout {
+	    groups: LauncherCategory[];
+	    constraints: domain.Constraint[];
 	    ungrouped: string[];
 	    categories: LauncherCategory[];
 	    order?: string[];
@@ -80,6 +84,8 @@ export namespace launcher {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.groups = this.convertValues(source["groups"], LauncherCategory);
+	        this.constraints = this.convertValues(source["constraints"], domain.Constraint);
 	        this.ungrouped = source["ungrouped"];
 	        this.categories = this.convertValues(source["categories"], LauncherCategory);
 	        this.order = source["order"];
@@ -132,14 +138,14 @@ export namespace launcher {
 export namespace mods {
 	
 	export class Mod {
-	    ID: string;
+	    id: string;
 	    name: string;
-	    Version: string;
-	    Tags: string[];
-	    Description: string;
-	    ThumbnailPath: string;
-	    DirPath: string;
-	    Enabled: boolean;
+	    version: string;
+	    tags: string[];
+	    description: string;
+	    thumbnailPath: string;
+	    dirPath: string;
+	    enabled: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Mod(source);
@@ -147,14 +153,14 @@ export namespace mods {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.ID = source["ID"];
-	        this.name = source["Name"];
-	        this.Version = source["Version"];
-	        this.Tags = source["Tags"];
-	        this.Description = source["Description"];
-	        this.ThumbnailPath = source["ThumbnailPath"];
-	        this.DirPath = source["DirPath"];
-	        this.Enabled = source["Enabled"];
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.tags = source["tags"];
+	        this.description = source["description"];
+	        this.thumbnailPath = source["thumbnailPath"];
+	        this.dirPath = source["dirPath"];
+	        this.enabled = source["enabled"];
 	    }
 	}
 

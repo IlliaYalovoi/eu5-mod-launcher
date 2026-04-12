@@ -1,12 +1,12 @@
 export interface Mod {
-  ID: string
-  Name: string
-  Version: string
-  Tags: string[]
-  Description: string
-  ThumbnailPath: string
-  DirPath: string
-  Enabled: boolean
+  id: string
+  name: string
+  version: string
+  tags: string[]
+  description: string
+  thumbnailPath: string
+  dirPath: string
+  enabled: boolean
 }
 
 export interface WorkshopItem {
