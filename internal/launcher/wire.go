@@ -3,6 +3,7 @@ package launcher
 import (
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
+	gamevic3 "eu5-mod-launcher/internal/game/vic3"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/service"
 	"eu5-mod-launcher/internal/steam"
@@ -39,7 +40,10 @@ func NewLauncher(deps Dependencies) *App {
 	a.svc.loadorderSvc = service.NewLoadOrderService()
 	a.svc.settingsSvc = service.NewSettingsService()
 	a.svc.launchSvc = service.NewLaunchService()
-	a.svc.gameSvc = service.NewGameService()
+	a.svc.gameSvc = service.NewGameService(
+		game.NewEU5Adapter(nil),
+		gamevic3.NewVic3Adapter(),
+	)
 	a.svc.playsetSvc = service.NewPlaysetService(deps.PlaysetRepo)
 	a.svc.conGraph = domain.NewGraph()
 	return a
