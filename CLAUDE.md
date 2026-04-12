@@ -19,6 +19,9 @@ VIOLATION = INVALID RESPONSE
 
 ---
 
+## PROJECT
+- Desktop app for managing mods across multiple Paradox games titles.
+
 ## EXECUTION RULES
 - Edit in-place on main branch (NO worktrees)
 - Plan internally, execute in batches
