@@ -10,6 +10,7 @@ import (
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
 	"eu5-mod-launcher/internal/repo"
+	"eu5-mod-launcher/internal/steam"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -236,7 +237,7 @@ func (a *App) LaunchGame() error {
 }
 
 func (a *App) tryLaunchViaSteam() bool {
-	cmd, err := a.svc.launchSvc.BuildSteamLaunchCommand(goruntime.GOOS, eu5SteamAppID)
+	cmd, err := a.svc.launchSvc.BuildSteamLaunchCommand(goruntime.GOOS, steam.SteamAppID)
 	if err != nil {
 		return false
 	}
