@@ -1,63 +1,39 @@
 package launcher
 
-import "eu5-mod-launcher/internal/repo"
+import (
+	"github.com/mitchellh/mapstructure"
+
+	"eu5-mod-launcher/internal/repo"
+)
 
 func toRepoSettings(s appSettings) repo.AppSettingsData {
-	return repo.AppSettingsData{
-		ModsDir:                    s.ModsDir,
-		GameExe:                    s.GameExe,
-		GameArgs:                   append([]string(nil), s.GameArgs...),
-		LauncherActivePlaysetIndex: s.LauncherActivePlaysetIndex,
+	var result repo.AppSettingsData
+	if err := mapstructure.Decode(s, &result); err != nil {
+		return repo.AppSettingsData{}
 	}
+	return result
 }
 
 func fromRepoSettings(s repo.AppSettingsData) appSettings {
-	return appSettings{
-		ModsDir:                    s.ModsDir,
-		GameExe:                    s.GameExe,
-		GameArgs:                   append([]string(nil), s.GameArgs...),
-		LauncherActivePlaysetIndex: s.LauncherActivePlaysetIndex,
+	var result appSettings
+	if err := mapstructure.Decode(s, &result); err != nil {
+		return appSettings{}
 	}
+	return result
 }
 
 func toRepoLayout(layout LauncherLayout) repo.LauncherLayoutData {
-	cats := make([]repo.LauncherCategoryData, 0, len(layout.Categories))
-	for _, c := range layout.Categories {
-		cats = append(cats, repo.LauncherCategoryData{
-			ID:     c.ID,
-			Name:   c.Name,
-			ModIDs: append([]string(nil), c.ModIDs...),
-		})
+	var result repo.LauncherLayoutData
+	if err := mapstructure.Decode(layout, &result); err != nil {
+		return repo.LauncherLayoutData{}
 	}
-	collapsed := map[string]bool{}
-	for id, v := range layout.Collapsed {
-		collapsed[id] = v
-	}
-	return repo.LauncherLayoutData{
-		Ungrouped:  append([]string(nil), layout.Ungrouped...),
-		Categories: cats,
-		Order:      append([]string(nil), layout.Order...),
-		Collapsed:  collapsed,
-	}
+	return result
 }
 
 func fromRepoLayout(layout repo.LauncherLayoutData) LauncherLayout {
-	cats := make([]LauncherCategory, 0, len(layout.Categories))
-	for _, c := range layout.Categories {
-		cats = append(cats, LauncherCategory{
-			ID:     c.ID,
-			Name:   c.Name,
-			ModIDs: append([]string(nil), c.ModIDs...),
-		})
+	var result LauncherLayout
+	if err := mapstructure.Decode(layout, &result); err != nil {
+		return LauncherLayout{}
 	}
-	collapsed := map[string]bool{}
-	for id, v := range layout.Collapsed {
-		collapsed[id] = v
-	}
-	return LauncherLayout{
-		Ungrouped:  append([]string(nil), layout.Ungrouped...),
-		Categories: cats,
-		Order:      append([]string(nil), layout.Order...),
-		Collapsed:  collapsed,
-	}
+	return result
 }
