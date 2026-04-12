@@ -1,15 +1,15 @@
-package main
+package launcher
 
 import (
-	"eu5-mod-launcher/internal/graph"
+	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/logging"
 	"fmt"
 )
 
-func (a *App) GetConstraints() []graph.Constraint {
+func (a *App) GetConstraints() []domain.Constraint {
 	if err := a.ensureReady(); err != nil {
 		logging.Errorf("GetConstraints called before initialization: %v", err)
-		return []graph.Constraint{}
+		return []domain.Constraint{}
 	}
 	return a.svc.conService.All()
 }
@@ -81,7 +81,8 @@ func (a *App) Autosort() ([]string, error) {
 	prevOrder := append([]string(nil), a.loadOrder.OrderedIDs...)
 	prevLayout := a.launcherLayout
 
-	sorted, err := a.svc.conGraph.Sort(a.loadOrder.OrderedIDs)
+	sorter := NewGraphSorter(a.svc.conGraph)
+	sorted, err := sorter.Sort(a.loadOrder.OrderedIDs)
 	if err != nil {
 		return nil, fmt.Errorf("sort constraints: %w", err)
 	}

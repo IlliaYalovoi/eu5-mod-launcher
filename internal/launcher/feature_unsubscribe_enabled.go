@@ -1,6 +1,6 @@
 //go:build enable_unsubscribe
 
-package main
+package launcher
 
 var compileEnableUnsubscribe = true
 

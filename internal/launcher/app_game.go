@@ -1,14 +1,15 @@
-package main
+package launcher
 
 import (
-	"eu5-mod-launcher/internal/domain"
-	"eu5-mod-launcher/internal/repo"
-	"eu5-mod-launcher/internal/service"
 	"fmt"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
+
+	"eu5-mod-launcher/internal/domain"
+	"eu5-mod-launcher/internal/game"
+	"eu5-mod-launcher/internal/repo"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -154,7 +155,7 @@ func (a *App) SetLauncherActivePlaysetIndex(idx int) error {
 	return nil
 }
 
-func (a *App) ListSupportedGames() ([]service.DetectedGame, error) {
+func (a *App) ListSupportedGames() ([]game.DetectedGame, error) {
 	return a.svc.gameDetection.ListSupportedGames(a.settingsPath)
 }
 

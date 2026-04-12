@@ -1,4 +1,4 @@
-package main
+package launcher
 
 type appSettings struct {
 	ModsDir                    string   `json:"modsDir,omitempty"`

@@ -1,4 +1,4 @@
-package main
+package launcher
 
 import (
 	"eu5-mod-launcher/internal/domain"

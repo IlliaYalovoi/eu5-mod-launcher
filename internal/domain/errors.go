@@ -9,4 +9,5 @@ var (
 	ErrTypeMismatch = errors.New("target type mismatch")
 	ErrOutOfRange   = errors.New("value out of range")
 	ErrEmptyValue   = errors.New("value must not be empty")
+	ErrCycle        = errors.New("constraint cycle detected")
 )

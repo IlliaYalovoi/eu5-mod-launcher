@@ -1,18 +1,18 @@
-package main
+package launcher
 
 import (
 	"errors"
+	"fmt"
+
 	"eu5-mod-launcher/internal/domain"
-	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/steam"
-	"fmt"
 )
 
 type startupLoads struct {
 	settings       repo.AppSettingsData
 	settingsErr    error
-	constraints    *graph.Graph
+	constraints    *domain.Graph
 	constraintsErr error
 	layout         repo.LauncherLayoutData
 	layoutErr      error
