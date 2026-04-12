@@ -2,10 +2,12 @@ package main
 
 import (
 	"embed"
-	"fmt"
+	"log/slog"
+	"os"
 
 	"eu5-mod-launcher/internal/launcher"
-	"eu5-mod-launcher/internal/logging"
+	"eu5-mod-launcher/internal/repo"
+	"eu5-mod-launcher/internal/steam"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -16,9 +18,18 @@ import (
 var assets embed.FS
 
 func main() {
-	app := launcher.NewApp()
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
-	// Create application with options
+	deps := launcher.Dependencies{
+		SettingsRepo:    repo.NewFileSettingsRepository(),
+		ConstraintsRepo: repo.NewFileConstraintsRepository(),
+		LayoutRepo:     repo.NewFileLayoutRepository(),
+		PlaysetRepo:    repo.NewFilePlaysetRepo(),
+		LoadOrderRepo:  repo.NewFileLoadOrderRepo(nil),
+		SteamClient:    steam.NewClient(),
+	}
+	app := launcher.NewLauncher(deps)
+
 	err := wails.Run(&options.App{
 		Title:  "eu5-mod-launcher",
 		Width:  1024,
@@ -33,6 +44,6 @@ func main() {
 		},
 	})
 	if err != nil {
-		logging.Errorf("wails run failed: %v", fmt.Errorf("run wails app: %w", err))
+		slog.Error("wails run failed", "err", err)
 	}
 }
