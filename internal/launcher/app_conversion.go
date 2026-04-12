@@ -1,9 +1,9 @@
 package launcher
 
 import (
-	"github.com/mitchellh/mapstructure"
-
 	"eu5-mod-launcher/internal/repo"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 func toRepoSettings(s appSettings) repo.AppSettingsData {

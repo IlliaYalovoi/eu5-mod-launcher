@@ -1,14 +1,13 @@
 package game
 
 import (
-	"os"
-	"path/filepath"
-	"sort"
-
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/logging"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/steam"
+	"os"
+	"path/filepath"
+	"sort"
 )
 
 type DetectedGame struct {
@@ -81,11 +80,11 @@ func NewDetector(settingsRepo repo.SettingsRepository) *Detector {
 				},
 			},
 			{
-				id:        domain.GameIDVic3,
-				name:      "Victoria 3",
-				iconKey:   "vic3",
-				appID:     vic3SteamAppID,
-				documents: vic3DocsRoot,
+				id:          domain.GameIDVic3,
+				name:        "Victoria 3",
+				iconKey:     "vic3",
+				appID:       vic3SteamAppID,
+				documents:   vic3DocsRoot,
 				installDirs: vic3InstallDirs,
 			},
 		},

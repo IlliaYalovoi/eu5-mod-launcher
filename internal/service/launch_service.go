@@ -3,14 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"eu5-mod-launcher/internal/game"
 	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
-
-	"eu5-mod-launcher/internal/game"
 )
 
 type LaunchService struct{}

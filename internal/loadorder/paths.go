@@ -1,6 +1,7 @@
 package loadorder
 
 import (
+	"eu5-mod-launcher/internal/steam"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/adrg/xdg"
-
-	"eu5-mod-launcher/internal/steam"
 )
 
 const steamWorkshopAppID = steam.SteamAppID

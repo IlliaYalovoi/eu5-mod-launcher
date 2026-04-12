@@ -2,12 +2,11 @@ package main
 
 import (
 	"embed"
-	"log/slog"
-	"os"
-
 	"eu5-mod-launcher/internal/launcher"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/steam"
+	"log/slog"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -23,10 +22,10 @@ func main() {
 	deps := launcher.Dependencies{
 		SettingsRepo:    repo.NewFileSettingsRepository(),
 		ConstraintsRepo: repo.NewFileConstraintsRepository(),
-		LayoutRepo:     repo.NewFileLayoutRepository(),
-		PlaysetRepo:    repo.NewFilePlaysetRepo(),
-		LoadOrderRepo:  repo.NewFileLoadOrderRepo(nil),
-		SteamClient:    steam.NewClient(),
+		LayoutRepo:      repo.NewFileLayoutRepository(),
+		PlaysetRepo:     repo.NewFilePlaysetRepo(),
+		LoadOrderRepo:   repo.NewFileLoadOrderRepo(nil),
+		SteamClient:     steam.NewClient(),
 	}
 	app := launcher.NewLauncher(deps)
 

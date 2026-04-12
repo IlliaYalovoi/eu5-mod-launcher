@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrUnsupportedGame = errors.New("unsupported game")
+	ErrUnsupportedGame  = errors.New("unsupported game")
 	ErrGamePathsMissing = errors.New("game paths are missing")
 )
 

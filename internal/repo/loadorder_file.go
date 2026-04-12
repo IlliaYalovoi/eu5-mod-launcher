@@ -30,4 +30,3 @@ func (r *FileLoadOrderRepo) Load() (domain.LoadOrder, error) {
 func (r *FileLoadOrderRepo) Save(order domain.LoadOrder) error {
 	return r.store.Save(loadorder.State{OrderedIDs: order.OrderedIDs})
 }
-

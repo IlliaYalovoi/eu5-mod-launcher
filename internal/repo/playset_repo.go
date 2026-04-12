@@ -26,6 +26,7 @@ func (*FilePlaysetRepo) SaveState(path string, idx domain.PlaysetIndex, order do
 	return loadorder.SaveStateToPlaysets(path, int(idx), loadorder.State{OrderedIDs: order.OrderedIDs}, modPathByID)
 }
 
-// Backward compat aliases
+// Backward compat aliases.
 type PlaysetRepository = PlaysetRepo
+
 var NewFilePlaysetRepository = NewFilePlaysetRepo

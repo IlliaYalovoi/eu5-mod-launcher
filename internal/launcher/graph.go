@@ -2,13 +2,12 @@ package launcher
 
 import (
 	"encoding/json"
+	"eu5-mod-launcher/internal/domain"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"eu5-mod-launcher/internal/domain"
 )
 
 type GraphSorter struct {
