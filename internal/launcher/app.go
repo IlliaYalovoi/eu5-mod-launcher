@@ -53,3 +53,10 @@ func NewApp() *App {
 func (*App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
+
+func (a *App) mustBeReady() error {
+	if a.svc.loadOrderRepo == nil {
+		return domain.ErrNotInitialized
+	}
+	return nil
+}

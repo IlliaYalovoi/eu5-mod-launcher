@@ -10,8 +10,8 @@ func (a *App) GetLauncherLayout() LauncherLayout {
 }
 
 func (a *App) SetLauncherLayout(layout LauncherLayout) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set launcher layout: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	next := layout
 	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.OrderedIDs); err != nil {
@@ -22,8 +22,8 @@ func (a *App) SetLauncherLayout(layout LauncherLayout) error {
 }
 
 func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
-	if err := a.ensureReady(); err != nil {
-		return LauncherCategory{}, fmt.Errorf("create launcher category: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return LauncherCategory{}, err
 	}
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
@@ -40,8 +40,8 @@ func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
 }
 
 func (a *App) DeleteLauncherCategory(categoryID string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("delete launcher category: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	trimmedID := strings.TrimSpace(categoryID)
 	if trimmedID == "" {
@@ -70,8 +70,8 @@ func (a *App) DeleteLauncherCategory(categoryID string) error {
 }
 
 func (a *App) SaveCompiledLoadOrder() ([]string, error) {
-	if err := a.ensureReady(); err != nil {
-		return nil, fmt.Errorf("save compiled load order: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return nil, err
 	}
 	next := a.launcherLayout
 	a.svc.layoutSvc.Normalize(&next, a.loadOrder.OrderedIDs)

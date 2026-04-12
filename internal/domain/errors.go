@@ -5,9 +5,10 @@ import (
 )
 
 var (
-	ErrInvalidID    = errors.New("invalid identifier")
-	ErrTypeMismatch = errors.New("target type mismatch")
-	ErrOutOfRange   = errors.New("value out of range")
-	ErrEmptyValue   = errors.New("value must not be empty")
-	ErrCycle        = errors.New("constraint cycle detected")
+	ErrInvalidID       = errors.New("invalid identifier")
+	ErrTypeMismatch    = errors.New("target type mismatch")
+	ErrOutOfRange      = errors.New("value out of range")
+	ErrEmptyValue      = errors.New("value must not be empty")
+	ErrCycle           = errors.New("constraint cycle detected")
+	ErrNotInitialized  = errors.New("app not initialized")
 )

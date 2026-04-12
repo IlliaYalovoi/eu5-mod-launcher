@@ -19,8 +19,8 @@ func (a *App) GetGameExe() string { return a.effectiveGameExe() }
 func (a *App) GetAutoDetectedGameExe() string { return a.gamePaths.GameExePath }
 
 func (a *App) SetGameExe(path string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set game exe: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	clean := strings.TrimSpace(path)
 	a.settings.GameExe = clean
@@ -55,8 +55,8 @@ func (a *App) GetModsDirStatus() ModsDirStatus {
 }
 
 func (a *App) SetModsDir(path string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set mods dir: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	clean, err := a.svc.settingsSvc.NormalizeModsDir(path)
 	if err != nil {
@@ -126,8 +126,8 @@ func (a *App) GetGameActivePlaysetIndex() int { return a.gameActiveIdx }
 func (a *App) GetLauncherActivePlaysetIndex() int { return a.launcherIdx }
 
 func (a *App) SetLauncherActivePlaysetIndex(idx int) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set launcher active playset index %d: %w", idx, err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	if _, err := domain.ParsePlaysetIndex(idx); err != nil {
 		return fmt.Errorf("set launcher active playset index %d: %w", idx, err)
@@ -160,8 +160,8 @@ func (a *App) ListSupportedGames() ([]game.DetectedGame, error) {
 }
 
 func (a *App) SetGamePaths(gameID, installDir, documentsDir string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set game paths: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	settings, err := a.svc.settingsRepo.Load(a.settingsPath)
 	if err != nil {
@@ -185,8 +185,8 @@ func (a *App) SetGamePaths(gameID, installDir, documentsDir string) error {
 }
 
 func (a *App) SetActiveGame(id string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set active game: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	parsedID := domain.GameID(id)
 	adapter, err := a.svc.gameSvc.ResolveAdapter(parsedID)
@@ -216,8 +216,8 @@ func (a *App) RefreshGamePaths() error {
 }
 
 func (a *App) LaunchGame() error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("launch game: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	absExe, err := a.svc.launchSvc.ValidateExecutable(strings.TrimSpace(a.effectiveGameExe()))
 	if err != nil {

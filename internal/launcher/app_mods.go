@@ -8,8 +8,8 @@ import (
 )
 
 func (a *App) GetAllMods() ([]mods.Mod, error) {
-	if err := a.ensureReady(); err != nil {
-		return nil, fmt.Errorf("get all mods: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return nil, err
 	}
 	roots := make([]string, 0, 1+len(a.gamePaths.WorkshopModDirs))
 	roots = append(roots, a.effectiveModsDir())
@@ -39,16 +39,15 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 }
 
 func (a *App) GetLoadOrder() []string {
-	if err := a.ensureReady(); err != nil {
-		logging.Errorf("GetLoadOrder called before initialization: %v", err)
+	if err := a.mustBeReady(); err != nil {
 		return []string{}
 	}
 	return append([]string(nil), a.loadOrder.OrderedIDs...)
 }
 
 func (a *App) SetLoadOrder(ids []string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("set load order: %w", err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	next, err := a.svc.loadorderSvc.ValidateAndNormalize(ids)
 	if err != nil {
@@ -74,8 +73,8 @@ func (a *App) SetLoadOrder(ids []string) error {
 }
 
 func (a *App) EnableMod(id string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("enable mod %q: %w", id, err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	next, err := a.svc.loadorderSvc.Enable(a.loadOrder.OrderedIDs, id)
 	if err != nil {
@@ -85,8 +84,8 @@ func (a *App) EnableMod(id string) error {
 }
 
 func (a *App) DisableMod(id string) error {
-	if err := a.ensureReady(); err != nil {
-		return fmt.Errorf("disable mod %q: %w", id, err)
+	if err := a.mustBeReady(); err != nil {
+		return err
 	}
 	next, err := a.svc.loadorderSvc.Disable(a.loadOrder.OrderedIDs, id)
 	if err != nil {
