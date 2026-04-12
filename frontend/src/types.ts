@@ -7,6 +7,7 @@ export interface Mod {
   thumbnailPath: string
   dirPath: string
   enabled: boolean
+  constraints?: Constraint[]
 }
 
 export interface WorkshopItem {
