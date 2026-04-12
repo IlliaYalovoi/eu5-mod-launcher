@@ -279,7 +279,7 @@ function onLauncherPlaysetChange(event: Event): void {
   void loadOrderStore.setLauncherPlayset(index).then(() => modsStore.fetchAll())
 }
 
-function onGameClick(game: { id: string; name: string; detected: boolean }): void {
+async function onGameClick(game: { id: string; name: string; detected: boolean }): Promise<void> {
   if (!game.detected) {
     // Open manual setup for undetected games
     setupGameID.value = game.id
@@ -289,9 +289,9 @@ function onGameClick(game: { id: string; name: string; detected: boolean }): voi
   }
 
   // Switch to detected game
-  gamesStore.setActiveGame(game.id)
+  await gamesStore.setActiveGame(game.id)
   // Trigger data refresh for the new game context
-  void Promise.all([
+  await Promise.all([
     settingsStore.fetch(),
     modsStore.fetchAll(),
     loadOrderStore.fetch()

@@ -6,6 +6,7 @@ import (
 	"eu5-mod-launcher/internal/game"
 	"fmt"
 	"strings"
+	"eu5-mod-launcher/internal/logging"
 )
 
 var (
@@ -65,6 +66,7 @@ func (s *GameService) ListModLists(id domain.GameID, playsetsPath string) ([]str
 		return nil, -1, fmt.Errorf("%w: %s playsets path", ErrGamePathsMissing, id)
 	}
 	names, idx, err := adapter.PlaysetRepo().ListPlaysets(playsetsPath)
+	logging.Debugf("game-service: listed %d playsets for game %s (active index: %d)", len(names), id, idx)
 	return names, int(idx), err
 }
 

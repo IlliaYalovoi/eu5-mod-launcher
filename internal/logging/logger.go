@@ -8,7 +8,7 @@ import (
 )
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-	Level: parseLevel(os.Getenv("EU5_LOG_LEVEL")),
+	Level: parseLevel(os.Getenv("debug")),
 }))
 
 func parseLevel(raw string) slog.Level {

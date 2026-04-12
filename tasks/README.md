@@ -1,108 +1,181 @@
-# EU5 Mod Launcher — Project Overview
+# MOD LAUNCHER — SPEC
 
-## What this is
+## PURPOSE
 
-A standalone desktop application for managing mods for Europa Universalis 5 (and similar Paradox-style games). Built with **Wails v2** (Go backend + Vue 3 + TypeScript frontend), compiled to a single native binary.
+Desktop app for managing Paradox-style mods across multiple game titles.
 
-The launcher sits outside the game itself. It reads mod metadata from a well-known directory, lets the user curate a load order, define ordering constraints between mods, and writes the final load order back to a format the game understands.
-
----
-
-## Core user flows
-
-1. **Discovery** — App scans the mods directory and shows all installed mods with metadata (name, version, tags, thumbnail if present).
-2. **Load order curation** — User enables/disables mods and arranges them via drag-and-drop in an ordered list.
-3. **Constraint authoring** — User right-clicks a mod to define relations: "this mod always loads after X" or "always before Y". These are stored as a directed graph.
-4. **Autosort** — User triggers a sort that resolves the constraint graph (topological sort) and reorders the active list accordingly, warning on cycles.
-5. **Launch** — App writes the resolved load order to the game's config and optionally launches the game executable.
+- Platform: Wails v2 (Go backend + Vue 3 + TypeScript)
+- Output: single native binary
+- Scope:
+    - detect installed games (EU5, Vic3)
+    - read mod metadata
+    - manage load order per game
+    - enforce ordering constraints
+    - write final config
+    - optionally launch game
 
 ---
 
-## Architecture
+## CORE FLOWS
+
+1. GAME DETECTION
+    - probe known registry locations
+    - support manual path override
+    - report detected vs undetected games
+
+2. DISCOVERY
+    - scan game-specific mods directories
+    - extract metadata (name, version, tags, thumbnail)
+    - Workshop support via Steam
+
+3. LOAD ORDER
+    - per-game mod enable/disable
+    - reorder via drag-and-drop
+
+4. CONSTRAINTS
+    - define relations: AFTER(X), BEFORE(Y)
+    - stored as directed graph per game
+
+5. AUTOSORT
+    - topological sort
+    - detect + report cycles
+
+6. LAUNCH
+    - write resolved order to config
+    - start game process
+
+---
+
+## ARCHITECTURE
 
 ```
-/                        ← Wails project root
-├── main.go              ← Wails bootstrap
-├── app.go               ← Go backend: all business logic exposed to frontend
-├── internal/
-│   ├── mods/            ← Mod scanning, metadata parsing
-│   ├── loadorder/       ← Load order state, persistence
-│   └── graph/           ← Constraint graph, topological sort
-├── frontend/
-│   ├── src/
-│   │   ├── components/  ← Vue components
-│   │   ├── stores/      ← Pinia stores (mod list, load order, settings)
-│   │   ├── views/       ← Top-level page views
-│   │   └── wailsjs/     ← Auto-generated Go bindings (DO NOT edit)
-│   └── ...
-└── tasks/               ← You are here
+/ (root)
+  main.go           → entry point, wires launcher via factory
+
+internal/
+  domain/            → shared types (no business logic)
+    constraint.go
+    errors.go
+    game.go
+    loadorder.go
+    mod.go
+
+  launcher/          → Wails-exposed App, mod scanning, loadorder, constraints
+    app_mods.go
+    app_game.go
+    app_constraints.go
+    app_layout.go
+    app_workshop.go
+    app_conversion.go
+    app_structs.go
+    settings.go
+    wire.go          → NewApp factory, dependency construction
+    loadorder.go
+    playsets.go
+    graph.go
+
+  game/              → game detection, adapters, launch process
+    detection.go
+    adapter.go
+    eu5.go
+    launch.go
+
+  steam/             → Workshop, metadata, image cache
+    workshop.go
+    client.go
+    cache.go
+    metadata.go
+    images.go
+    descriptions.go
+    steam.go         → steamAppID const + helpers
+
+  repo/              → interfaces + file-backed implementations
+    constraints_repo.go
+    layout_repo.go
+    settings_repo.go
+    playset_repo.go
+    loadorder_repo.go
+
+  service/           → thin orchestration layer
+    constraints_service.go
+    loadorder_service.go
+    mods_service.go
+    game_service.go
+    layout_service.go
+    playset_service.go
+    settings_service.go
+    launch_service.go
+
+frontend/
+  src/
+    components/
+    stores/          → Pinia (SOURCE OF TRUTH)
+    views/
+    wailsjs/         → GENERATED (DO NOT EDIT)
 ```
 
 ---
 
-## Tech choices
+## TECH (FIXED)
 
-| Concern            | Choice                                          |
-|--------------------|-------------------------------------------------|
-| GUI framework      | Wails v2                                        |
-| Frontend           | Vue 3 + TypeScript + Vite                       |
-| State management   | Pinia                                           |
-| Drag and drop      | vuedraggable (wraps SortableJS)                 |
-| Styling            | CSS custom properties + scoped component styles |
-| Config persistence | JSON file in OS user config dir                 |
-| Graph / sort       | Pure Go, no exposure to frontend                |
+- GUI: Wails v2
+- FE: Vue 3 + TypeScript + Vite
+- State: Pinia
+- DnD: vuedraggable (SortableJS)
+- Styling: scoped CSS + variables
+- Persistence: JSON (user config dir)
+- Graph: pure Go (NO frontend logic)
+- Logging: slog (stdlib)
+- Error stacks: pkgerrors
+- Struct mapping: mapstructure
 
 ---
 
-## Task index
+## BACKEND CONTRACTS (STRICT)
 
-Tasks are designed to be **maximally independent**. Each one has a clear input, clear output, and minimal assumptions about other tasks being done first. Do them roughly in order, but most can be handed to an AI agent as a standalone context.
+- Wails exposure = methods on `App`
+- Return ONLY plain structs (NO interfaces)
+- Function signature: `(Result, error)`
+- ALL business logic → backend
+- frontend = view ONLY
+- File paths: use `filepath`, NEVER string concat
 
-| # | File | Scope |
-|---|---|---|
-| 01 | `01-go-mod-scanner.md` | Go: scan mods directory, parse metadata |
-| 02 | `02-go-loadorder-store.md` | Go: persist & load the load order JSON |
-| 03 | `03-go-constraint-graph.md` | Go: constraint graph data structure + topological sort |
-| 04 | `04-go-app-bridge.md` | Go: wire internal packages into Wails `app.go` methods |
-| 05 | `05-fe-project-setup.md` | Frontend: Pinia stores skeleton, Wails bindings integration |
-| 06 | `06-fe-design-system.md` | Frontend: global CSS design tokens, typography, base component stubs |
-| 07 | `07-fe-mod-list-panel.md` | Frontend: "All mods" panel, search/filter, enable toggle |
-| 08 | `08-fe-load-order-panel.md` | Frontend: ordered list of active mods, drag-and-drop reorder |
-| 09 | `09-fe-context-menu.md` | Frontend: right-click context menu component (reusable) |
-| 10 | `10-fe-constraint-modal.md` | Frontend: modal for adding/viewing constraints on a mod |
-| 11 | `11-fe-autosort.md` | Frontend: autosort button, cycle error display |
-| 12 | `12-fe-settings.md` | Frontend: settings panel (mods path, game executable path) |
-| 13 | `13-go-detached-game-launcher.md` | Go: launch game as detached process |
-| 14 | `14-fe-launch-controls.md` | Frontend: launch button and launch-state UX |
-| 15 | `15-go-refactor-domain-types.md` | Go refactor: domain types and strict contracts |
-| 16 | `16-go-refactor-service-layer.md` | Go refactor: extract service layer from app glue |
-| 17 | `17-go-refactor-repositories-and-boundaries.md` | Go refactor: repository interfaces and boundary tests |
-| 18 | `18-go-concurrent-mod-scan.md` | Go performance: concurrent scanner pipeline |
-| 19 | `19-go-concurrency-audit.md` | Go performance: profile-driven concurrency improvements |
-| 20 | `20-go-steam-workshop-metadata.md` | Go: Steam workshop metadata client |
-| 21 | `21-go-steam-metadata-cache.md` | Go: metadata + thumbnail cache layer |
-| 22 | `22-fe-steam-mod-details.md` | Frontend: Steam-enriched mod details panel |
-| 22.5 | `22.5-fe-steam-description-rendering-and-open-priority.md` | Frontend+Go: Steam BBCode rendering, description image cache, workshop open fallback priority |
-| 23 | `23-go-steam-unsubscribe.md` | Go: unsubscribe workshop item action |
-| 24 | `24-fe-unsubscribe-workflow.md` | Frontend: unsubscribe UX from context/details |
-| 25 | `25-go-game-adapter-interfaces.md` | Go refactor: game adapter interfaces for mod list import/export |
-| 26 | `26-go-eu5-game-adapter.md` | Go: EU5 concrete adapter over new game interface |
-| 27 | `27-go-game-detection-eu5-vic3.md` | Go: detect supported games (EU5, Vic3) + manual path overrides |
-| 28 | `28-fe-multi-game-sidebar.md` | Frontend: left game sidebar, detected-state ordering and switching |
-| 28.5 | `28.5-fe-ui-reform.md` | Frontend: bold UI reform — 2-row layout, slide-over panels, keyboard shortcuts |
-| 28.6 | `28.6-fe-ui-reform-pt2.md` | Frontend: 7 UI bug fixes from 28.5 review |
-| 29 | `29-fe-manual-game-path-setup.md` | Frontend: popup workflow for manual install/documents paths |
-| 30 | `30-fe-game-themes.md` | Frontend: per-game theme tokens and runtime theme switch |
-| 31 | `31-go-fe-last-selected-game-persistence.md` | Go+Frontend: persist/restore last selected game |
-| 32 | `32-go-vic3-playsets.md` | Go: Vic3 SQLite playset repository |
-| 33 | `33-go-mod-game-version-check.md` | Go+Frontend: mod/game version compatibility check |
 ---
 
-## Conventions to keep consistent across tasks
+## FRONTEND RULES (STRICT)
 
-- All Go public methods on `App` struct are what Wails exposes — keep them flat and serialization-friendly (return plain structs, not interfaces).
-- Frontend never mutates backend state directly — always calls a Go method, then refreshes from the returned value.
-- Pinia stores are the single source of truth on the frontend. Components read from stores, never from local component state for anything that needs to persist.
-- Error handling: Go methods return `(Result, error)`. Wails surfaces errors as rejected JS promises. Frontend must handle them.
-- File paths use `filepath` package on Go side — never string concatenation.
-- Everything that can be done on backend should be done on backend — frontend is just a view layer. No business logic in Vue components.
+- Pinia = SINGLE SOURCE OF TRUTH
+- Components:
+    - read from stores ONLY
+    - NO persistent local state
+- State updates:
+    - call backend
+    - replace store state with response
+- Errors: backend → rejected promise, MUST be handled
+
+---
+
+## DATA FLOW
+
+```
+Frontend → Go method → Result → Store update → UI
+```
+
+NO DIRECT STATE MUTATION
+
+---
+
+## GRAPH RULES
+
+- constraints = directed edges
+- sorting = topological sort
+- cycles: must be detected, reported, NOT crash
+
+---
+
+## NON-GOALS
+
+- NO business logic in Vue
+- NO frontend-side sorting logic
+- NO manual state syncing
+- NO editing `wailsjs/`
