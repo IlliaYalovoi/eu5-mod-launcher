@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
-import type { Mod } from '../types'
+import type { mods } from '../wailsjs/go/models'
 import { GetAllMods, EnableMod } from '../wailsjs/go/launcher/App'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
@@ -10,18 +10,18 @@ const emit = defineEmits<{
   (event: 'mod-enabled'): void
 }>()
 
-const allMods = ref<Mod[]>([])
+const allMods = ref<mods.Mod[]>([])
 const searchQuery = ref('')
 const sortBy = ref<'name-asc' | 'name-desc' | 'id'>('name-asc')
 const loading = ref(false)
 
 const filteredMods = computed(() => {
   const query = searchQuery.value.toLowerCase().trim()
-  const mods = allMods.value
+  const modsList = allMods.value
     .filter(m => !m.enabled) // Repository shows disabled mods
     .filter(m => !query || m.name.toLowerCase().includes(query) || m.id.toLowerCase().includes(query))
 
-  return [...mods].sort((a, b) => {
+  return [...modsList].sort((a, b) => {
     switch (sortBy.value) {
       case 'name-asc':
         return a.name.localeCompare(b.name)
@@ -38,8 +38,7 @@ const filteredMods = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const mods = await GetAllMods()
-    allMods.value = mods as any as Mod[]
+    allMods.value = await GetAllMods()
   } catch (err) {
     showToast({ type: 'error', message: errorMessage(err) })
   } finally {
@@ -50,8 +49,9 @@ async function load() {
 async function handleEnable(modID: string) {
   try {
     await EnableMod(modID)
+    // Optimistic UI: remove from local list instead of full refetch
+    allMods.value = allMods.value.filter(m => m.id !== modID)
     showToast({ type: 'success', message: 'Mod added to load order' })
-    await load()
     emit('mod-enabled')
   } catch (err) {
     showToast({ type: 'error', message: errorMessage(err) })
@@ -100,7 +100,11 @@ defineExpose({ load })
           <span class="repo-item-name">{{ mod.name }}</span>
           <span class="repo-item-id">{{ mod.tags?.join(', ') || mod.id }}</span>
         </div>
-        <button class="enable-btn" @click.stop="handleEnable(mod.id)">
+        <button
+          class="enable-btn"
+          aria-label="Enable mod"
+          @click.stop="handleEnable(mod.id)"
+        >
           <div class="toggle"></div>
         </button>
       </div>
@@ -121,16 +125,16 @@ defineExpose({ load })
   background: var(--bg-surface);
   border: 1px solid var(--border);
   min-height: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px var(--shadow-color, rgba(0, 0, 0, 0.2));
 }
 
 .repo-header {
-  padding: var(--space-5) var(--space-6);
-  background: var(--bg-surface);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .repo-header-top {
@@ -141,7 +145,7 @@ defineExpose({ load })
 
 .repo-title {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -149,15 +153,16 @@ defineExpose({ load })
 }
 
 .repo-count {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .filter-bar {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   align-items: center;
 }
 
@@ -167,30 +172,30 @@ defineExpose({ load })
 
 .repo-search {
   width: 100%;
-  padding: var(--space-2) var(--space-4);
-  background: var(--bg-elevated);
-  border: 1px solid var(--card-border);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   transition: all var(--transition-fast);
 }
 
 .repo-search:focus {
   border-color: var(--accent-primary);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(var(--accent-primary-rgb), 0.2);
+  box-shadow: 0 0 0 2px var(--accent-primary-transparent, rgba(59, 130, 246, 0.2));
 }
 
 .sort-box {
-  width: 140px;
+  width: 130px;
 }
 
 .repo-sort {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text);
   font-size: 0.8125rem;
@@ -205,17 +210,17 @@ defineExpose({ load })
 .repo-list {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4);
-  background: rgba(0, 0, 0, 0.05);
+  padding: var(--space-3);
+  background: var(--bg-sidebar);
 }
 
 .repo-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   cursor: pointer;
@@ -223,10 +228,8 @@ defineExpose({ load })
 }
 
 .repo-item:hover {
-  transform: translateY(-2px);
   border-color: var(--accent-primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background: var(--bg-elevated);
+  background: var(--bg-surface);
 }
 
 .repo-item-main {
@@ -237,8 +240,8 @@ defineExpose({ load })
 }
 
 .repo-item-name {
-  font-weight: 600;
-  font-size: 1rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -258,11 +261,11 @@ defineExpose({ load })
 }
 
 .toggle {
-  width: 40px;
-  height: 20px;
-  background: var(--bg-elevated);
+  width: 36px;
+  height: 18px;
+  background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 9px;
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
@@ -272,8 +275,8 @@ defineExpose({ load })
 .toggle::after {
   content: '';
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   background: var(--text-muted);
   border-radius: 50%;
   top: 2px;

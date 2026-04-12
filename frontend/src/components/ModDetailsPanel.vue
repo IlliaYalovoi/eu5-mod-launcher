@@ -9,10 +9,6 @@ import ConfirmModal from './ui/ConfirmModal.vue'
 
 const props = defineProps<{ mod: Mod | null }>()
 
-const emit = defineEmits<{
-  (event: 'close'): void
-}>()
-
 const mod = ref<Mod | null>(null)
 const steamMetadata = ref<WorkshopItem | null>(null)
 const steamLoading = ref(false)
@@ -27,7 +23,10 @@ const unsubscribeFeatureLoaded = ref(false)
 const fallbackThumbnail = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='67' viewBox='0 0 120 67'%3E%3Crect width='120' height='67' rx='8' fill='%23222a35'/%3E%3Cg fill='none' stroke='%23b9b09b' stroke-width='2'%3E%3Cpath d='M20 46l20-20 17 17 8-8 12 17'/%3E%3Crect x='20' y='14' width='80' height='40' rx='5'/%3E%3C/g%3E%3C/svg%3E"
 
 async function loadModDetails() {
-  if (!props.mod?.id) return
+  if (!props.mod?.id) {
+    steamMetadata.value = null
+    return
+  }
   steamLoading.value = true
   steamError.value = ''
   try {
@@ -46,7 +45,7 @@ async function loadModDetails() {
 
 watch(() => props.mod, (m) => {
   mod.value = m
-  if (m) void loadModDetails()
+  void loadModDetails()
 }, { immediate: true })
 
 const workshopURL = computed(() => {
@@ -103,52 +102,60 @@ async function confirmUnsubscribe(): Promise<void> {
 
 <template>
   <section class="mod-details-panel" aria-label="Mod details panel">
-    <div v-if="!mod" class="state empty">Select a mod to view details.</div>
+    <div v-if="!mod" class="state-empty">
+      <div class="empty-content">
+        <div class="empty-icon">📂</div>
+        <h2 class="empty-title">Inspector</h2>
+        <p class="empty-text">Select a mod to view details, descriptions, and workshop information.</p>
+      </div>
+    </div>
 
     <template v-else>
-      <header class="header">
-        <h2 class="name">{{ mod.name }}</h2>
-        <p class="subtitle">Version {{ mod.version || 'Unknown' }} · {{ mod.enabled ? 'Enabled' : 'Disabled' }}</p>
-      </header>
+      <div class="scroller">
+        <header class="header">
+          <h2 class="name">{{ mod.name }}</h2>
+          <p class="subtitle">Version {{ mod.version || 'Unknown' }} · {{ mod.enabled ? 'Enabled' : 'Disabled' }}</p>
+        </header>
 
-      <img class="preview" :src="steamThumbnail" :alt="`${mod.name} preview`" loading="lazy" />
+        <img class="preview" :src="steamThumbnail" :alt="`${mod.name} preview`" loading="lazy" />
 
-      <div class="section">
-        <h3 class="section-title">Local details</h3>
-        <div v-if="localDescriptionHtml" class="body steam-html" @click="onSteamContentClick" v-html="localDescriptionHtml" />
-        <p v-else class="body">No local description provided.</p>
-      </div>
-
-      <div class="section">
-        <h3 class="section-title">Steam details</h3>
-
-        <p v-if="steamLoading" class="state loading">Loading workshop details...</p>
-        <p v-else-if="steamError" class="state error">
-          {{ steamError }}
-          <button class="retry" type="button" @click="retry">Retry</button>
-        </p>
-        <div v-else-if="steamMetadata && steamMetadata.itemId" class="steam-content">
-          <p class="steam-title">{{ steamMetadata.title || mod.name }}</p>
-          <div v-if="steamDescriptionHtml" class="body steam-html" @click="onSteamContentClick" v-html="steamDescriptionHtml" />
-          <p v-else class="body">No workshop description provided.</p>
-          <button v-if="workshopURL" class="workshop-link" type="button" @click="openWorkshop">
-            Open in Steam Workshop
-          </button>
-          <p v-if="workshopOpenError" class="state error">{{ workshopOpenError }}</p>
+        <div class="section">
+          <h3 class="section-title">Local details</h3>
+          <div v-if="localDescriptionHtml" class="body steam-html" @click="onSteamContentClick" v-html="localDescriptionHtml" />
+          <p v-else class="body">No local description provided.</p>
         </div>
-        <p v-else class="state muted">No workshop metadata available for this mod.</p>
-      </div>
 
-      <div v-if="canUnsubscribe" class="unsubscribe-area">
-        <button
-          class="unsubscribe-btn"
-          type="button"
-          :disabled="unsubscribeLoading"
-          @click="openUnsubscribeConfirm"
-        >
-          {{ unsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop' }}
-        </button>
-        <p v-if="unsubscribeError" class="state error">{{ unsubscribeError }}</p>
+        <div class="section">
+          <h3 class="section-title">Steam details</h3>
+
+          <p v-if="steamLoading" class="state loading">Loading workshop details...</p>
+          <p v-else-if="steamError" class="state error">
+            {{ steamError }}
+            <button class="retry" type="button" @click="retry">Retry</button>
+          </p>
+          <div v-else-if="steamMetadata && steamMetadata.itemId" class="steam-content">
+            <p class="steam-title">{{ steamMetadata.title || mod.name }}</p>
+            <div v-if="steamDescriptionHtml" class="body steam-html" @click="onSteamContentClick" v-html="steamDescriptionHtml" />
+            <p v-else class="body">No workshop description provided.</p>
+            <button v-if="workshopURL" class="workshop-link" type="button" @click="openWorkshop">
+              Open in Steam Workshop
+            </button>
+            <p v-if="workshopOpenError" class="state error">{{ workshopOpenError }}</p>
+          </div>
+          <p v-else class="state muted">No workshop metadata available for this mod.</p>
+        </div>
+
+        <div v-if="canUnsubscribe" class="unsubscribe-area">
+          <button
+            class="unsubscribe-btn"
+            type="button"
+            :disabled="unsubscribeLoading"
+            @click="openUnsubscribeConfirm"
+          >
+            {{ unsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop' }}
+          </button>
+          <p v-if="unsubscribeError" class="state error">{{ unsubscribeError }}</p>
+        </div>
       </div>
     </template>
   </section>
@@ -168,9 +175,55 @@ async function confirmUnsubscribe(): Promise<void> {
 .mod-details-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
   height: 100%;
   min-height: 0;
+  background: var(--inspector-bg, var(--bg-panel));
+}
+
+.scroller {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+}
+
+.state-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 240px;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  opacity: 0.2;
+}
+
+.empty-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.empty-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .header {
@@ -198,7 +251,7 @@ async function confirmUnsubscribe(): Promise<void> {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   object-fit: cover;
-  background: var(--bg-elevated);
+  background: var(--card-bg, var(--bg-elevated));
 }
 
 .section {
@@ -208,7 +261,7 @@ async function confirmUnsubscribe(): Promise<void> {
 }
 
 .section-title {
-  color: var(--accent);
+  color: var(--accent-primary, var(--accent));
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -246,8 +299,8 @@ async function confirmUnsubscribe(): Promise<void> {
 }
 
 .workshop-link:hover {
-  border-color: var(--accent);
-  background: var(--bg-elevated);
+  border-color: var(--accent-primary, var(--accent));
+  background: var(--card-bg-hover, var(--bg-elevated));
 }
 
 .unsubscribe-area {
@@ -304,14 +357,14 @@ async function confirmUnsubscribe(): Promise<void> {
 }
 
 :deep(.steam-html a) {
-  color: var(--accent);
+  color: var(--accent-primary, var(--accent));
   text-decoration: underline;
 }
 
 :deep(.steam-html blockquote) {
   margin: var(--space-3) 0;
   padding: var(--space-3);
-  border-left: 4px solid var(--accent);
-  background: var(--bg-panel);
+  border-left: 4px solid var(--accent-primary, var(--accent));
+  background: var(--card-bg, var(--bg-panel));
 }
 </style>
