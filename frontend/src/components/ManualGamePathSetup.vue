@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { PickFolder, SetGamePaths, SetActiveGame } from '../../wailsjs/go/launcher/App'
+import { PickFolder, SetGamePaths, SetActiveGame } from '../wailsjs/go/launcher/App'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
 import BaseButton from './ui/BaseButton.vue'

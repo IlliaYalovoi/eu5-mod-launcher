@@ -12,7 +12,7 @@ import {
   GetPlaysetNames,
   SaveCompiledLoadOrder,
   SetLauncherLayout,
-} from '../../wailsjs/go/launcher/App'
+} from '../wailsjs/go/launcher/App'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
 import AutosortButton from './AutosortButton.vue'

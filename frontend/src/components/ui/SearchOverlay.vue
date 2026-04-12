@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { GetAllMods, GetLoadOrder } from '../../../wailsjs/go/launcher/App'
+import { GetAllMods, GetLoadOrder } from '../../wailsjs/go/launcher/App'
 import type { Mod } from '../../types'
 
 const props = defineProps<{ open: boolean }>()
