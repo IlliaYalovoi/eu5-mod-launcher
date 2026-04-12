@@ -8,9 +8,16 @@ const (
 	ConstraintLast  ConstraintType = "last"
 )
 
+type TargetType string
+const (
+	TargetMod   TargetType = "mod"
+	TargetGroup TargetType = "group"
+)
+
 type Constraint struct {
-	Type  ConstraintType `json:"type,omitempty"`
-	From  string         `json:"from,omitempty"`
-	To    string         `json:"to,omitempty"`
-	ModID string         `json:"modId,omitempty"`
+	Type     ConstraintType `json:"type"`
+	FromID   string         `json:"fromId"`
+	FromType TargetType     `json:"fromType"`
+	ToID     string         `json:"toId"`
+	ToType   TargetType     `json:"toType"`
 }

@@ -8,6 +8,7 @@ import (
 type (
 	ModID        string
 	CategoryID   string
+	GroupID      string
 	PlaysetIndex int
 )
 
