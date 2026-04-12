@@ -1,30 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useLoadOrderStore } from '../stores/loadorder'
+import { computed, ref } from 'vue'
+import { Autosort } from '../../wailsjs/go/launcher/App'
+import { showToast } from '../lib/toast'
+import { errorMessage } from '../lib/error'
 
-const loadOrderStore = useLoadOrderStore()
-const { isSorting, autosortError, lastSortedAt } = storeToRefs(loadOrderStore)
+const emit = defineEmits<{ (e: 'sorted'): void }>()
 
-const isSuccessFlash = ref(false)
-let successTimer: number | null = null
-
-watch(lastSortedAt, (value) => {
-  if (!value) {
-    return
-  }
-  isSuccessFlash.value = true
-  if (successTimer !== null) {
-    window.clearTimeout(successTimer)
-  }
-  successTimer = window.setTimeout(() => {
-    isSuccessFlash.value = false
-    successTimer = null
-  }, 1500)
-})
+const isSorting = ref(false)
+const cycleError = ref<string>('')
 
 const cycleNodes = computed(() => {
-  const err = autosortError.value || ''
+  const err = cycleError.value
+  if (!err) return []
   const marker = err.toLowerCase().lastIndexOf('cycle detected:')
   if (marker < 0) return []
   return err
@@ -39,11 +26,29 @@ const cycleDiagram = computed(() => {
   return cycleNodes.value.join(' → ')
 })
 
-function onClick(): void {
-  if (autosortError.value) {
-    return
+const isSuccessFlash = ref(false)
+let successTimer: ReturnType<typeof setTimeout> | null = null
+
+async function onClick() {
+  if (isSorting.value) return
+  isSorting.value = true
+  cycleError.value = ''
+  try {
+    await Autosort()
+    isSuccessFlash.value = true
+    if (successTimer !== null) clearTimeout(successTimer)
+    successTimer = setTimeout(() => { isSuccessFlash.value = false; successTimer = null }, 1500)
+    emit('sorted')
+  } catch (err) {
+    const msg = errorMessage(err)
+    if (msg.toLowerCase().includes('cycle')) {
+      cycleError.value = msg
+    } else {
+      showToast({ type: 'error', message: msg })
+    }
+  } finally {
+    isSorting.value = false
   }
-  void loadOrderStore.autosort()
 }
 </script>
 
@@ -54,20 +59,20 @@ function onClick(): void {
       :class="{
         'autosort-button--sorting': isSorting,
         'autosort-button--success': isSuccessFlash,
-        'autosort-button--error': !!autosortError,
+        'autosort-button--error': !!cycleError,
       }"
       type="button"
-      :disabled="isSorting || !!autosortError"
+      :disabled="isSorting || !!cycleError"
       @click="onClick"
     >
       <span v-if="isSorting" class="spinner" aria-hidden="true" />
       <span v-if="isSorting">Sorting...</span>
       <span v-else-if="isSuccessFlash">✓ Sorted</span>
-      <span v-else-if="autosortError">⚠ Cycle</span>
+      <span v-else-if="cycleError">⚠ Cycle</span>
       <span v-else>Auto-sort</span>
     </button>
 
-    <div v-if="autosortError" class="cycle-breadcrumb">
+    <div v-if="cycleError" class="cycle-breadcrumb">
       <span class="cycle-text">{{ cycleDiagram }}</span>
       <span class="cycle-arrow" aria-hidden="true">↻</span>
     </div>
