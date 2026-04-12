@@ -12,7 +12,7 @@ const (
 	windowsDetachedProcess       = 0x00000008
 )
 
-func applyDetachedProcessAttributes(cmd *exec.Cmd) {
+func ApplyDetachedProcessAttributes(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		CreationFlags: windowsCreateNewProcessGroup | windowsDetachedProcess,
 	}

@@ -7,6 +7,6 @@ import (
 	"syscall"
 )
 
-func applyDetachedProcessAttributes(cmd *exec.Cmd) {
+func ApplyDetachedProcessAttributes(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 }

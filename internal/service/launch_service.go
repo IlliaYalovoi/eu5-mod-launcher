@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+
+	"eu5-mod-launcher/internal/game"
 )
 
 type LaunchService struct{}
@@ -57,7 +59,7 @@ func (*LaunchService) BuildLaunchCommand(exePath string, args []string) *exec.Cm
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	cmd.Stdin = nil
-	applyDetachedProcessAttributes(cmd)
+	game.ApplyDetachedProcessAttributes(cmd)
 	return cmd
 }
 
@@ -71,15 +73,15 @@ func (*LaunchService) BuildSteamLaunchCommand(goos, appID string) (*exec.Cmd, er
 	switch goos {
 	case windowsOS:
 		cmd := exec.CommandContext(context.Background(), "rundll32", "url.dll,FileProtocolHandler", steamURL)
-		applyDetachedProcessAttributes(cmd)
+		game.ApplyDetachedProcessAttributes(cmd)
 		return cmd, nil
 	case darwinOS:
 		cmd := exec.CommandContext(context.Background(), "open", steamURL)
-		applyDetachedProcessAttributes(cmd)
+		game.ApplyDetachedProcessAttributes(cmd)
 		return cmd, nil
 	case linuxOS:
 		cmd := exec.CommandContext(context.Background(), "xdg-open", steamURL)
-		applyDetachedProcessAttributes(cmd)
+		game.ApplyDetachedProcessAttributes(cmd)
 		return cmd, nil
 	default:
 		return nil, fmt.Errorf("%w: %q", errUnsupportedSteamLaunchOS, goos)
@@ -145,15 +147,15 @@ func (*LaunchService) BuildOpenURLCommand(goos, rawURL string) (*exec.Cmd, error
 	switch goos {
 	case windowsOS:
 		cmd := exec.CommandContext(context.Background(), "rundll32", "url.dll,FileProtocolHandler", normalizedURL)
-		applyDetachedProcessAttributes(cmd)
+		game.ApplyDetachedProcessAttributes(cmd)
 		return cmd, nil
 	case darwinOS:
 		cmd := exec.CommandContext(context.Background(), "open", normalizedURL)
-		applyDetachedProcessAttributes(cmd)
+		game.ApplyDetachedProcessAttributes(cmd)
 		return cmd, nil
 	case linuxOS:
 		cmd := exec.CommandContext(context.Background(), "xdg-open", normalizedURL)
-		applyDetachedProcessAttributes(cmd)
+		game.ApplyDetachedProcessAttributes(cmd)
 		return cmd, nil
 	default:
 		return nil, fmt.Errorf("%w: %q", errUnsupportedOpenURLOS, goos)
