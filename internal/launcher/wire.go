@@ -18,7 +18,16 @@ type Dependencies struct {
 }
 
 func NewLauncher(deps Dependencies) *App {
-	a := &App{}
+	a := &App{
+		activeGameID: domain.GameIDEU5,
+		loadOrder:    domain.LoadOrder{OrderedIDs: []string{}},
+		modPathByID:  map[string]string{},
+		launcherLayout: LauncherLayout{Ungrouped: []string{}, Categories: []LauncherCategory{}},
+		imageData:    map[string]string{},
+		playsetNames: []string{},
+		gameActiveIdx: -1,
+		launcherIdx:  -1,
+	}
 	a.svc.settingsRepo = deps.SettingsRepo
 	a.svc.layoutRepo = deps.LayoutRepo
 	a.svc.constraintsRepo = deps.ConstraintsRepo

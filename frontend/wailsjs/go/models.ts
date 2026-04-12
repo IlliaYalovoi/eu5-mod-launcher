@@ -1,4 +1,4 @@
-export namespace graph {
+export namespace domain {
 	
 	export class Constraint {
 	    type?: string;
@@ -21,7 +21,36 @@ export namespace graph {
 
 }
 
-export namespace main {
+export namespace game {
+	
+	export class DetectedGame {
+	    id: string;
+	    name: string;
+	    iconKey: string;
+	    detected: boolean;
+	    installDir: string;
+	    documentsDir: string;
+	    needsManualSetup: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new DetectedGame(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.iconKey = source["iconKey"];
+	        this.detected = source["detected"];
+	        this.installDir = source["installDir"];
+	        this.documentsDir = source["documentsDir"];
+	        this.needsManualSetup = source["needsManualSetup"];
+	    }
+	}
+
+}
+
+export namespace launcher {
 	
 	export class LauncherCategory {
 	    id: string;
@@ -131,30 +160,24 @@ export namespace mods {
 
 }
 
-export namespace service {
+export namespace steam {
 	
-	export class DetectedGame {
-	    id: string;
-	    name: string;
-	    iconKey: string;
-	    detected: boolean;
-	    installDir: string;
-	    documentsDir: string;
-	    needsManualSetup: boolean;
+	export class WorkshopItem {
+	    itemId: string;
+	    title: string;
+	    description: string;
+	    previewUrl: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new DetectedGame(source);
+	        return new WorkshopItem(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.iconKey = source["iconKey"];
-	        this.detected = source["detected"];
-	        this.installDir = source["installDir"];
-	        this.documentsDir = source["documentsDir"];
-	        this.needsManualSetup = source["needsManualSetup"];
+	        this.itemId = source["itemId"];
+	        this.title = source["title"];
+	        this.description = source["description"];
+	        this.previewUrl = source["previewUrl"];
 	    }
 	}
 

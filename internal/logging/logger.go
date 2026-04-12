@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -24,17 +25,17 @@ func parseLevel(raw string) slog.Level {
 }
 
 func Debugf(format string, args ...any) {
-	logger.Debug(format, args...)
+	logger.Debug(fmt.Sprintf(format, args...))
 }
 
 func Infof(format string, args ...any) {
-	logger.Info(format, args...)
+	logger.Info(fmt.Sprintf(format, args...))
 }
 
 func Warnf(format string, args ...any) {
-	logger.Warn(format, args...)
+	logger.Warn(fmt.Sprintf(format, args...))
 }
 
 func Errorf(format string, args ...any) {
-	logger.Error(format, args...)
+	logger.Error(fmt.Sprintf(format, args...))
 }

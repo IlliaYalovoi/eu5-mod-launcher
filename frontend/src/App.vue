@@ -586,6 +586,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 .commandbar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
+  grid-column: 1 / -1;
   align-items: center;
   padding: 0 var(--space-4);
   border-bottom: var(--border-width) solid var(--color-border);

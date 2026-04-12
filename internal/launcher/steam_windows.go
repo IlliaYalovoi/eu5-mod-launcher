@@ -3,6 +3,7 @@
 package launcher
 
 import (
+	"os"
 	"path/filepath"
 
 	"golang.org/x/sys/windows/registry"
@@ -39,4 +40,19 @@ func windowsSteamInstallPath() string {
 	}
 
 	return defaultSteamInstallPath()
+}
+
+func defaultSteamInstallPath() string {
+	fallbacks := []string{
+		filepath.Join(os.Getenv("ProgramFiles(x86)"), "Steam"),
+		filepath.Join(os.Getenv("ProgramFiles"), "Steam"),
+	}
+
+	for _, candidate := range fallbacks {
+		if dirExists(candidate) {
+			return filepath.Clean(candidate)
+		}
+	}
+
+	return ""
 }

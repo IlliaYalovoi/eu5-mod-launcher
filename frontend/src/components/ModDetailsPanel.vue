@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useModsStore } from '../stores/mods'
-import { OpenExternalLink, OpenWorkshopItem } from '../../wailsjs/go/main/App'
+import { OpenExternalLink, OpenWorkshopItem } from '../../wailsjs/go/launcher/App'
 import { renderRichDescriptionHtml, renderSteamDescriptionHtml, toDisplayImageSrc } from '../utils/steamDescription'
 import ConfirmModal from './ui/ConfirmModal.vue'
 

@@ -6,7 +6,7 @@ import { useSettingsStore } from '../stores/settings'
 import { useModsStore } from '../stores/mods'
 import { useLoadOrderStore } from '../stores/loadorder'
 import { useGamesStore } from '../stores/games'
-import { PickFolder, SetGamePaths } from '../../wailsjs/go/main/App'
+import { PickFolder, SetGamePaths } from '../../wailsjs/go/launcher/App'
 
 const props = defineProps<{
   gameID: string
@@ -80,51 +80,66 @@ async function onSave(): Promise<void> {
 </script>
 
 <template>
-<BaseModal :open="open" :slide-over="true" @close="emit('close')">
-  <div class="modal-body">
-    <header class="modal-head">
-      <h2 class="title">Setup Game Paths for {{ gameName }}</h2>
-      <button class="close-button" type="button" aria-label="Close" @click="emit('close')">×</button>
-    </header>
+  <div class="setup-backdrop" @click.self="emit('close')">
+    <div class="setup-modal">
+      <header class="modal-head">
+        <h2 class="title">Setup {{ gameName }}</h2>
+        <button class="close-button" type="button" aria-label="Close" @click="emit('close')">×</button>
+      </header>
 
-    <div class="field">
-      <div class="field-label-row">
-        <label class="label">Install Directory</label>
+      <div class="field">
+        <div class="field-label-row">
+          <label class="label">Install Directory</label>
+        </div>
+        <div class="value-row">
+          <input class="value" type="text" :value="installDir" placeholder="Select game install directory" readonly />
+        </div>
+        <div class="actions">
+          <BaseButton variant="ghost" :disabled="busy" @click="onBrowseInstallDir">Browse...</BaseButton>
+        </div>
       </div>
-      <div class="value-row">
-        <input class="value" type="text" :value="installDir" placeholder="Select game install directory" readonly />
-      </div>
-      <div class="actions">
-        <BaseButton variant="ghost" :disabled="busy" @click="onBrowseInstallDir">Browse...</BaseButton>
-      </div>
-    </div>
 
-    <div class="field">
-      <div class="field-label-row">
-        <label class="label">Documents Directory</label>
+      <div class="field">
+        <div class="field-label-row">
+          <label class="label">Documents Directory</label>
+        </div>
+        <div class="value-row">
+          <input class="value" type="text" :value="documentsDir" placeholder="Select game documents directory" readonly />
+        </div>
+        <div class="actions">
+          <BaseButton variant="ghost" :disabled="busy" @click="onBrowseDocumentsDir">Browse...</BaseButton>
+        </div>
       </div>
-      <div class="value-row">
-        <input class="value" type="text" :value="documentsDir" placeholder="Select game documents directory" readonly />
-      </div>
-      <div class="actions">
-        <BaseButton variant="ghost" :disabled="busy" @click="onBrowseDocumentsDir">Browse...</BaseButton>
-      </div>
-    </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="error" class="error">{{ error }}</p>
 
-    <div class="modal-actions">
-      <BaseButton variant="ghost" :disabled="busy" @click="emit('close')">Cancel</BaseButton>
-      <BaseButton variant="primary" :disabled="busy || !installDir.trim() || !documentsDir.trim()" @click="onSave">
-        Setup Game
-      </BaseButton>
+      <div class="modal-actions">
+        <BaseButton variant="ghost" :disabled="busy" @click="emit('close')">Cancel</BaseButton>
+        <BaseButton variant="primary" :disabled="busy || !installDir.trim() || !documentsDir.trim()" @click="onSave">
+          Setup Game
+        </BaseButton>
+      </div>
     </div>
   </div>
-</BaseModal>
 </template>
 
 <style scoped>
-.modal-body {
+.setup-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-overlay);
+  z-index: 300;
+}
+
+.setup-modal {
+  width: min(32rem, 90vw);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -193,26 +208,6 @@ async function onSave(): Promise<void> {
   color: var(--color-text-primary);
   font-family: var(--font-mono), monospace;
   font-size: 0.8rem;
-}
-
-.copy-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.copy-btn:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
 }
 
 .actions {

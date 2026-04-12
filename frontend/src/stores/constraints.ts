@@ -10,7 +10,7 @@ import {
   RemoveConstraint,
   RemoveLoadFirst,
   RemoveLoadLast,
-} from '../../wailsjs/go/main/App'
+} from '../../wailsjs/go/launcher/App'
 
 export const useConstraintsStore = defineStore('constraints', () => {
   const constraints = ref<Constraint[]>([])

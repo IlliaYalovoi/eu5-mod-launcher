@@ -64,25 +64,31 @@ type App struct {
 }
 
 func (a *App) Startup(ctx context.Context) {
+	logging.Infof("Startup: BEGIN (activeGameID=%q)", a.activeGameID)
 	a.ctx = ctx
 	a.initCoreServices()
+	logging.Debugf("Startup: initCoreServices done")
 	a.initLoadOrder()
+	logging.Debugf("Startup: initLoadOrder done")
 	a.initGamePaths()
+	logging.Debugf("Startup: initGamePaths done (paths: %+v)", a.gamePaths)
 
 	dir := filepath.Dir(a.svc.loadOrderRepo.Path())
 	a.constraintsPath = filepath.Join(dir, constraintsFileName)
 	a.settingsPath = filepath.Join(dir, settingsFileName)
 	a.layoutPath = filepath.Join(dir, launcherLayoutFile)
+	logging.Debugf("Startup: paths set (settings=%q, constraints=%q, layout=%q)", a.settingsPath, a.constraintsPath, a.layoutPath)
 
 	loads := a.loadStartupState()
+	logging.Debugf("Startup: state loaded (settingsErr=%v, constraintsErr=%v, layoutErr=%v)", loads.settingsErr, loads.constraintsErr, loads.layoutErr)
 	a.applyStartupSettings(loads.settings, loads.settingsErr)
 	a.loadStartupPlaysetState()
 	a.applyStartupConstraints(loads.constraints, loads.constraintsErr)
 	a.applyStartupLayout(loads.layout, loads.layoutErr)
 
-	logging.Infof("app startup completed (playsets=%q, localMods=%q, workshopRoots=%d, gameExeAuto=%q, gameExeEffective=%q, gameActive=%d, launcherActive=%d)",
+	logging.Infof("Startup: COMPLETED (playsets=%q, localMods=%q, workshopRoots=%d, gameExeAuto=%q, gameExeEffective=%q, gameActive=%s, gameActiveIdx=%d, launcherIdx=%d)",
 		a.gamePaths.PlaysetsPath, a.effectiveModsDir(), len(a.gamePaths.WorkshopModDirs),
-		a.gamePaths.GameExePath, a.effectiveGameExe(), a.gameActiveIdx, a.launcherIdx)
+		a.gamePaths.GameExePath, a.effectiveGameExe(), a.activeGameID, a.gameActiveIdx, a.launcherIdx)
 }
 
 func (a *App) initCoreServices() {
@@ -141,6 +147,21 @@ func (a *App) initGamePaths() {
 	a.gamePaths, err = a.svc.gameSvc.DiscoverPaths(a.activeGameID)
 	if err != nil {
 		logging.Errorf("startup: auto-discover game paths: %v", err)
+	}
+	// Apply manual overrides (but settingsPath may not be set yet, so use loadOrderRepo path)
+	if a.svc.loadOrderRepo != nil {
+		settingsPath := filepath.Join(filepath.Dir(a.svc.loadOrderRepo.Path()), settingsFileName)
+		if settings, err := a.svc.settingsRepo.Load(settingsPath); err == nil && settings.GamePaths != nil {
+			if override, ok := settings.GamePaths[string(a.activeGameID)]; ok {
+				if override.DocumentsDir != "" {
+					a.gamePaths.LocalModsDir = override.DocumentsDir + "/mod"
+					a.gamePaths.PlaysetsPath = override.DocumentsDir + "/playsets.json"
+				}
+				if override.InstallDir != "" {
+					a.gamePaths.GameExePath = override.InstallDir
+				}
+			}
+		}
 	}
 }
 
@@ -224,23 +245,28 @@ func (a *App) applyStartupSettings(settings repo.AppSettingsData, settingsErr er
 }
 
 func (a *App) loadStartupPlaysetState() {
+	logging.Debugf("loadStartupPlaysetState: BEGIN (PlaysetsPath=%q, activeGameID=%q)", a.gamePaths.PlaysetsPath, a.activeGameID)
 	if a.gamePaths.PlaysetsPath == "" {
+		logging.Debugf("loadStartupPlaysetState: PlaysetsPath is empty, skipping")
 		return
 	}
 	names, idx, err := a.svc.gameSvc.ListModLists(a.activeGameID, a.gamePaths.PlaysetsPath)
 	if err != nil {
-		logging.Warnf("startup: read playset list: %v", err)
+		logging.Warnf("loadStartupPlaysetState: read playset list: %v", err)
 		return
 	}
+	logging.Debugf("loadStartupPlaysetState: found %d playsets, gameActiveIdx=%d", len(names), idx)
 	a.playsetNames = names
 	a.gameActiveIdx = idx
 	a.launcherIdx = a.svc.playsetSvc.ResolveLauncherIndex(len(names), idx, a.settings.LauncherActivePlaysetIndex)
+	logging.Debugf("loadStartupPlaysetState: resolved launcherIdx=%d", a.launcherIdx)
 
 	state, pathByID, loadErr := a.svc.gameSvc.ImportModList(a.activeGameID, a.gamePaths.PlaysetsPath, a.launcherIdx)
 	if loadErr != nil {
-		logging.Warnf("startup: load selected playset state, using fallback: %v", loadErr)
+		logging.Warnf("loadStartupPlaysetState: load selected playset state, using fallback: %v", loadErr)
 		return
 	}
+	logging.Debugf("loadStartupPlaysetState: loaded %d ordered IDs, %d path mappings", len(state.OrderedIDs), len(pathByID))
 	a.loadOrder = state
 	for id, path := range pathByID {
 		a.modPathByID[id] = path

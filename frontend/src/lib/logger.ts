@@ -15,7 +15,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 }
 
-const currentLevel = import.meta.env.DEV ? 'debug' : 'error'
+const currentLevel = 'debug'
 
 function formatLogEntry(entry: LogEntry): string {
   const dataStr = entry.data ? ` ${JSON.stringify(entry.data)}` : ''

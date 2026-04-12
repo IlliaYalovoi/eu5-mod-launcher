@@ -13,7 +13,7 @@ import {
   ResetGameExeToAuto,
   SetGameExe,
   SetModsDir,
-} from '../../wailsjs/go/main/App'
+} from '../../wailsjs/go/launcher/App'
 
 type ModsDirStatus = {
   effectiveDir: string

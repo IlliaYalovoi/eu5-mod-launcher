@@ -3,9 +3,13 @@ package launcher
 import (
 	"fmt"
 	"strings"
+
+	"eu5-mod-launcher/internal/logging"
 )
 
 func (a *App) GetLauncherLayout() LauncherLayout {
+	logging.Debugf("GetLauncherLayout: returning layout with %d categories, %d ungrouped",
+		len(a.launcherLayout.Categories), len(a.launcherLayout.Ungrouped))
 	return a.launcherLayout
 }
 

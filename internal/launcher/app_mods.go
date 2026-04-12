@@ -8,9 +8,13 @@ import (
 )
 
 func (a *App) GetAllMods() ([]mods.Mod, error) {
+	logging.Debugf("GetAllMods: checking readiness")
 	if err := a.mustBeReady(); err != nil {
-		return nil, err
+		logging.Debugf("GetAllMods: not ready yet: %v", err)
+		return []mods.Mod{}, nil
 	}
+	logging.Debugf("GetAllMods: ready, effectiveModsDir=%q, workshopRoots=%d",
+		a.effectiveModsDir(), len(a.gamePaths.WorkshopModDirs))
 	roots := make([]string, 0, 1+len(a.gamePaths.WorkshopModDirs))
 	roots = append(roots, a.effectiveModsDir())
 	roots = append(roots, a.gamePaths.WorkshopModDirs...)
@@ -40,8 +44,10 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 
 func (a *App) GetLoadOrder() []string {
 	if err := a.mustBeReady(); err != nil {
+		logging.Debugf("GetLoadOrder: not ready yet: %v", err)
 		return []string{}
 	}
+	logging.Debugf("GetLoadOrder: returning %d ordered IDs", len(a.loadOrder.OrderedIDs))
 	return append([]string(nil), a.loadOrder.OrderedIDs...)
 }
 
