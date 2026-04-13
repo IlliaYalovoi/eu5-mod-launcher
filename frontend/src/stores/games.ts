@@ -4,7 +4,6 @@ import { logger } from '../lib/logger'
 import {
   ListSupportedGames,
   GetGameExe,
-  SetActiveGame,
 } from '../../wailsjs/go/launcher/App'
 
 export const useGamesStore = defineStore('games', () => {
@@ -32,8 +31,7 @@ export const useGamesStore = defineStore('games', () => {
     }
   }
 
-  async function setActiveGame(gameID: string): Promise<void> {
-    await SetActiveGame(gameID)
+  function setActiveGame(gameID: string): void {
     activeGameID.value = gameID
   }
 

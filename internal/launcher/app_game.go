@@ -45,22 +45,13 @@ func (a *App) GetAutoDetectedModsDir() string { return a.gamePaths.LocalModsDir 
 func (a *App) GetModsDirStatus() ModsDirStatus {
 	autoDir := a.gamePaths.LocalModsDir
 	effectiveDir := a.effectiveModsDir()
-	effectiveExists := dirExists(effectiveDir)
-	if !effectiveExists {
-		for _, wd := range a.gamePaths.WorkshopModDirs {
-			if dirExists(wd) {
-				effectiveExists = true
-				break
-			}
-		}
-	}
 	return ModsDirStatus{
 		EffectiveDir:       effectiveDir,
 		AutoDetectedDir:    autoDir,
 		CustomDir:          a.settings.ModsDir,
 		UsingCustomDir:     strings.TrimSpace(a.settings.ModsDir) != "",
 		AutoDetectedExists: dirExists(autoDir),
-		EffectiveExists:    effectiveExists,
+		EffectiveExists:    dirExists(effectiveDir),
 	}
 }
 
@@ -215,7 +206,6 @@ func (a *App) SetActiveGame(id string) error {
 		return err
 	}
 	parsedID := domain.GameID(id)
-	logging.Infof("SetActiveGame: BEGIN id=%q current=%q", id, a.activeGameID)
 	adapter, err := a.svc.gameSvc.ResolveAdapter(parsedID)
 	if err != nil {
 		return fmt.Errorf("set active game %q: %w", id, err)
@@ -227,39 +217,8 @@ func (a *App) SetActiveGame(id string) error {
 	if err != nil {
 		return err
 	}
-	logging.Infof("SetActiveGame: discovered paths for %q playsets=%q localMods=%q", id, gamePaths.PlaysetsPath, gamePaths.LocalModsDir)
 	a.gamePaths = gamePaths
 	a.modPathByID = make(map[string]string)
-	a.loadOrder = domain.LoadOrder{GameID: parsedID, PlaysetIdx: 0, OrderedIDs: []string{}}
-	a.playsetNames = []string{}
-	a.gameActiveIdx = -1
-	a.launcherIdx = -1
-
-	if a.gamePaths.PlaysetsPath == "" {
-		logging.Infof("SetActiveGame: no playsets path, returning")
-		return nil
-	}
-	names, idx, err := a.svc.gameSvc.ListModLists(a.activeGameID, a.gamePaths.PlaysetsPath)
-	if err != nil {
-		logging.Warnf("SetActiveGame: list mod lists: %v", err)
-		return nil
-	}
-	logging.Infof("SetActiveGame: got %d playsets, idx=%d", len(names), idx)
-	a.playsetNames = names
-	a.gameActiveIdx = idx
-	a.launcherIdx = a.svc.playsetSvc.ResolveLauncherIndex(len(names), idx, a.settings.LauncherActivePlaysetIndex)
-
-	state, pathByID, loadErr := a.svc.gameSvc.ImportModList(a.activeGameID, a.gamePaths.PlaysetsPath, a.launcherIdx)
-	if loadErr != nil {
-		logging.Warnf("SetActiveGame: load playset state: %v", loadErr)
-		return nil
-	}
-	a.loadOrder = state
-	for id, path := range pathByID {
-		a.modPathByID[id] = path
-	}
-	a.launcherLayout = defaultLauncherLayout(state.OrderedIDs)
-	logging.Infof("SetActiveGame: COMPLETE id=%q %d playsets, %d ordered IDs", id, len(names), len(state.OrderedIDs))
 	return nil
 }
 

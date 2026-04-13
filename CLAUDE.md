@@ -1,136 +1,89 @@
-# AI AGENT RULES (MANDATORY)
+# AI Agent Instructions
 
-## CORE BEHAVIOR
-- NO preamble, NO explanations, NO summaries
-- DO NOT describe actions — perform them
-- NO follow-up questions unless BLOCKED by ambiguity
-- OUTPUT ONLY:
-   - file changes
-   - unresolved issues (if any)
-- TERMINATE immediately after output
+## Environment
+- OS: Linux (WSL2) | Shell: Bash | Stack: Go/Wails backend, Vue 3 + TypeScript frontend
+- IDE: IntelliJ IDEA (do not generate IDE config files)
 
-VIOLATION = INVALID RESPONSE
+## Execution behavior
+- No preamble, no post-task summaries, no progress narration
+- Don't explain what you're about to do — just do it
+- Don't ask clarifying questions mid-task unless blocked on something genuinely ambiguous
+- On task completion: output only what changed and any unresolved issues
+- DO NOT use worktrees, even if skills are suggesting it — just edit in place on main branch
+- On failure: state what failed, why, and what you need — don't retry blindly more than twice
 
----
+## Project context
+- ./tasks/README.md: architecture, tech stack, user flows, task descriptions
+- Read this file at session start if context about project goals is needed
 
-## ENVIRONMENT
-- OS: Linux (WSL2) | Shell: Bash
-- Stack: Go (Wails), Vue 3 + TypeScript
+## File reading
+- Files ≤100 lines: read in full once
+- Files >100 lines: read lines 1-50 first for structure, then targeted offset+limit reads
+- Exception: if you need to rewrite a file completely, read it fully first regardless of size
+- Never re-read a file already in context this session unless you have reason to believe it changed
+- Go files: read only the relevant function unless doing a full-file rewrite
+- Vue SFCs: read script/template/style sections separately on large files
 
----
+## Shell tools
+- ripgrep (`rg`) always, never `grep`
+- `fd` always, never `find`
+- Symbol search: `rg -n "Symbol" --type go`
+- File discovery: `fd -e go`, `fd -e vue`
+- Prefer CC native Read/Glob/Edit over Bash when the native tool covers it
+- Bash only for what native tools cannot do
 
-## EXECUTION RULES
-- Edit in-place on main branch (NO worktrees)
-- Plan internally, execute in batches
-- DO NOT interleave planning and execution
-- On failure:
-   - state failure
-   - state cause
-   - state requirement
-   - max 2 retries
+## Tool call discipline
+- Batch all `mkdir` into one `mkdir -p path1 path2 path3` call
+- Never `ls` to verify after write/mkdir — trust it succeeded
+- Never `sed` for code edits — use Edit tool
+- Never grep-then-sed — use Edit with exact old/new strings
+- Write complete files in one Write call
+- Plan all file operations first, then execute in batch
+- One verification pass at the end if needed, never after each step
+- Never use `ls` or `ls -la` to check if files/directories exist before operating on them
+- Never use `ls` to discover what files are in a directory — use Glob tool instead
+- `ls` is banned entirely. Use Glob for directory contents, Read for file existence.
 
----
+## BANNED COMMANDS — never use these under any circumstances
+- `ls` / `ls -la` / `ls -la path/` → use Glob tool
+- `grep` → use `rg`
+- `find` → use `fd`
+- `sed -i` for code edits → use Edit tool
+- Re-reading a file already in context → don't
 
-## FILE ACCESS
-- ≤100 lines → read full
-- >100 lines → read 1–50, then targeted reads
-- Full read REQUIRED before full rewrite
-- NEVER re-read unchanged files
-- Go → read relevant function only (unless rewrite)
-- Vue → read sections separately if large
+Violation of these rules is a task failure.
 
----
+## Parallel tool execution
+- When multiple files need to be read independently, issue all Read calls in parallel in one turn
+- When writing multiple independent files, issue all Write calls in parallel
+- Never sequence tool calls that have no dependency on each other's output
 
-## TOOLING RULES
-- Prefer native tools (Read/Glob/Edit) over Bash
-- Bash only when necessary
+## Go conventions
+- Match idiomatic style of adjacent code in the same file
+- Self-documenting names only — comments only for non-obvious business logic
+- Changes spanning multiple files: resolve all affected files in one pass, no partial states
+- Verify no broken call sites, type contracts, or interface implementations before finishing
+- Import management: check existing imports before adding; use goimports conventions (stdlib → external → internal)
+- After any non-trivial change: run `go build ./...` to verify compilation
+- After interface changes: run `go vet ./...`
+- No new tests unless explicitly requested; existing tests must still pass
 
-### REQUIRED
-- Search: `rg`
-- File discovery: `fd`
+## Vue/TypeScript conventions
+- Composition API only (`<script setup>`) — no Options API
+- Props and emits must be typed explicitly, no `any`
+- No inline styles — use scoped CSS or existing utility classes
+- Wails bindings are in `frontend/wailsjs/` — import from there, never reimplement
+- After frontend changes: verify TypseScript compiles (`tsc --noEmit`)
 
-### BANNED (ABSOLUTE)
-- `ls`
-- `grep`
-- `find`
-- `sed -i` (for code edits)
-- re-reading files in context
+## Package restructure pattern
+1. Output full plan as text before touching any files
+2. Create all directories in one `mkdir -p` call
+3. Move/write all files
+4. Run `go build ./...` to verify
+5. One final `rg` pass only if needed
+   Never interleave planning and execution.
 
-USE:
-- Glob → directory listing
-- Read → existence check
-- Edit → code changes
-
-ANY USE OF BANNED COMMANDS = FAILURE
-
----
-
-## TOOL EXECUTION DISCIPLINE
-- Batch operations:
-   - `mkdir -p a b c`
-   - multiple writes in parallel
-- NEVER verify with `ls`
-- NEVER grep→sed pattern
-- ALWAYS:
-   - plan operations first
-   - execute in batch
-- ONE verification pass at end (if needed)
-- NO step-by-step verification
-
----
-
-## PARALLELISM
-- Independent reads → parallel
-- Independent writes → parallel
-- NO sequential calls without dependency
-
----
-
-## GO RULES
-- Match local code style
-- Self-documenting names (minimal comments)
-- No partial states across files
-- Validate:
-   - call sites
-   - interfaces
-   - types
-- Imports: std → external → internal
-
-AFTER CHANGES:
-- `go build ./...` (required)
-- `go vet ./...` (if interfaces changed)
-
-TESTS:
-- Do NOT add new tests
-- Existing tests must pass
-
----
-
-## VUE / TS RULES
-- Composition API ONLY (`<script setup>`)
-- NO `any`
-- Typed props/emits REQUIRED
-- NO inline styles
-- Use existing styles/utilities
-- Wails bindings: `frontend/wailsjs/` ONLY
-
-AFTER CHANGES:
-- `tsc --noEmit` must pass
-
----
-
-## PACKAGE RESTRUCTURE (STRICT ORDER)
-1. OUTPUT full plan (TEXT ONLY)
-2. `mkdir -p` (single call)
-3. move/write files (batch)
-4. `go build ./...`
-5. optional final `rg`
-
-DO NOT MIX STEPS
-
----
-
-## ERROR HANDLING
-- Build fails → FIX before completion
-- Read additional context if needed
-- NEVER leave broken state
+## Error handling
+- Build fails after your change: fix it before considering the task done
+- If a fix requires understanding more context: read what you need, fix, verify
+- Don't leave the codebase in a broken state between subtasks
