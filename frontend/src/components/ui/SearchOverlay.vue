@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { GetAllMods, GetLoadOrder } from '../../../wailsjs/go/launcher/App'
+import { computed, nextTick, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useModsStore } from '../../stores/mods'
+import { useLoadOrderStore } from '../../stores/loadorder'
 import type { Mod } from '../../types'
 
 const props = defineProps<{ open: boolean }>()
@@ -9,24 +11,23 @@ const emit = defineEmits<{
   (event: 'add-mod', modID: string): void
 }>()
 
-const allMods = ref<Mod[]>([])
-const orderedIDs = ref<string[]>([])
+const modsStore = useModsStore()
+const loadOrderStore = useLoadOrderStore()
+const { allMods } = storeToRefs(modsStore)
+const { orderedIDs } = storeToRefs(loadOrderStore)
+
 const query = ref('')
 const activeIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
 const selectedModIDs = ref<Set<string>>(new Set())
 
-async function load() {
-  const [mods, order] = await Promise.all([GetAllMods(), GetLoadOrder()])
-  allMods.value = mods as Mod[]
-  orderedIDs.value = order
-}
-
 const orderedSet = computed(() => new Set(orderedIDs.value))
 
 const filteredMods = computed(() => {
   const q = query.value.trim().toLowerCase()
-  if (!q) return allMods.value
+  if (!q) {
+    return allMods.value
+  }
   return allMods.value.filter((mod) => {
     if (mod.Name.toLowerCase().includes(q)) return true
     if (mod.Tags.some((t) => t.toLowerCase().includes(q))) return true
@@ -44,21 +45,70 @@ const sortedMods = computed(() => {
   })
 })
 
-watch(() => props.open, (isOpen) => {
-  if (isOpen) { query.value = ''; activeIndex.value = 0; selectedModIDs.value = new Set(); void load(); void nextTick().then(() => inputRef.value?.focus()) }
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      query.value = ''
+      activeIndex.value = 0
+      selectedModIDs.value = new Set()
+      void nextTick().then(() => inputRef.value?.focus())
+    }
+  },
+)
+
+watch(filteredMods, () => {
+  if (activeIndex.value >= sortedMods.value.length) {
+    activeIndex.value = Math.max(0, sortedMods.value.length - 1)
+  }
 })
 
-watch(filteredMods, () => { if (activeIndex.value >= sortedMods.value.length) activeIndex.value = Math.max(0, sortedMods.value.length - 1) })
+function close(): void {
+  emit('close')
+}
 
-function close(): void { emit('close') }
-function onOverlayClick(event: MouseEvent): void { if (event.target === event.currentTarget) close() }
-function toggleMod(modID: string): void { const next = new Set(selectedModIDs.value); next.has(modID) ? next.delete(modID) : next.add(modID); selectedModIDs.value = next }
-function selectMod(mod: Mod): void { emit('add-mod', mod.ID) }
+function onOverlayClick(event: MouseEvent): void {
+  if (event.target === event.currentTarget) {
+    close()
+  }
+}
+
+function toggleMod(modID: string): void {
+  const next = new Set(selectedModIDs.value)
+  if (next.has(modID)) {
+    next.delete(modID)
+  } else {
+    next.add(modID)
+  }
+  selectedModIDs.value = next
+}
+
+function selectMod(mod: Mod): void {
+  emit('add-mod', mod.ID)
+}
+
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') { close(); return }
-  if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex.value = Math.min(activeIndex.value + 1, sortedMods.value.length - 1); return }
-  if (event.key === 'ArrowUp') { event.preventDefault(); activeIndex.value = Math.max(activeIndex.value - 1, 0); return }
-  if (event.key === 'Enter') { const mod = sortedMods.value[activeIndex.value]; if (mod) selectMod(mod); return }
+  if (event.key === 'Escape') {
+    close()
+    return
+  }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    activeIndex.value = Math.min(activeIndex.value + 1, sortedMods.value.length - 1)
+    return
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    activeIndex.value = Math.max(activeIndex.value - 1, 0)
+    return
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    if (sortedMods.value.length > 0) {
+      selectMod(sortedMods.value[activeIndex.value])
+    }
+    return
+  }
 }
 </script>
 

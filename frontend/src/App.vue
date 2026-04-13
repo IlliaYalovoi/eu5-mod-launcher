@@ -1,23 +1,6 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import type { LauncherLayout } from './types'
-import {
-  DisableMod,
-  GetGameActivePlaysetIndex,
-  GetLauncherActivePlaysetIndex,
-  GetLauncherLayout,
-  GetLoadOrder,
-  GetModsDirStatus,
-  ListSupportedGames,
-  SetActiveGame,
-  SetLauncherActivePlaysetIndex,
-  SetLoadOrder,
-  SaveCompiledLoadOrder,
-  UnsubscribeWorkshopMod,
-  IsUnsubscribeEnabled,
-} from './wailsjs/go/launcher/App'
-import { showToast } from './lib/toast'
-import { errorMessage } from './lib/error'
+import { computed, onBeforeUnmount, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import LoadOrderPanel from './components/LoadOrderPanel.vue'
 import ModDetailsPanel from './components/ModDetailsPanel.vue'
 import ConstraintModal from './components/ConstraintModal.vue'
@@ -27,6 +10,10 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import SearchOverlay from './components/ui/SearchOverlay.vue'
 import ToastContainer from './components/ui/ToastContainer.vue'
 import ManualGamePathSetup from './components/ManualGamePathSetup.vue'
+import { useLoadOrderStore } from './stores/loadorder'
+import { useModsStore } from './stores/mods'
+import { useSettingsStore } from './stores/settings'
+import { useGamesStore } from './stores/games'
 
 type MenuItem = {
   id: string
@@ -37,25 +24,14 @@ type MenuItem = {
   children?: MenuItem[]
 }
 
-// Game sidebar state
-const supportedGames = ref<Array<{ id: string; name: string; detected: boolean }>>([])
-const activeGameID = ref('')
-const requiresManualPaths = ref(false)
-
-// Playset state
-const playsetNames = ref<string[]>([])
-const launcherActivePlaysetIndex = ref(-1)
-
-// Load order state (used for context menu)
-const orderedIDs = ref<string[]>([])
-const launcherLayout = ref<LauncherLayout>({ ungrouped: [], categories: [], order: [], collapsed: {} })
-
-// Mod detail state
-const selectedModID = ref('')
-
-// Unsubscribe feature
-const unsubscribeFeatureEnabled = ref(false)
-const unsubscribeLoadingByModID = ref<Record<string, boolean>>({})
+const loadOrderStore = useLoadOrderStore()
+const modsStore = useModsStore()
+const settingsStore = useSettingsStore()
+const gamesStore = useGamesStore()
+const { orderedIDs, launcherLayout, playsetNames, launcherActivePlaysetIndex } = storeToRefs(loadOrderStore)
+const { unsubscribeFeatureEnabled, unsubscribeNotice } = storeToRefs(modsStore)
+const { requiresManualPaths } = storeToRefs(settingsStore)
+const { supportedGames, activeGameID } = storeToRefs(gamesStore)
 
 const ungroupedCategoryID = 'category:ungrouped'
 
@@ -67,72 +43,146 @@ const manualSetupOpen = ref(false)
 const setupGameID = ref<string>('')
 const setupGameName = ref<string>('')
 
-const contextMenu = reactive({ open: false, x: 0, y: 0, targetID: '' })
-const constraintModal = reactive({ open: false, modID: '' })
+const contextMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  targetID: '',
+})
 
-async function load() {
-  try {
-    const [games, gameIdx, layout, order, names, unsubEnabled, dirsStatus] = await Promise.all([
-      ListSupportedGames(),
-      GetGameActivePlaysetIndex(),
-      GetLauncherLayout(),
-      GetLoadOrder(),
-      GetPlaysetNames(),
-      IsUnsubscribeEnabled(),
-      GetModsDirStatus(),
-    ])
-    supportedGames.value = games.map((g: any) => ({ id: g.id, name: g.name, detected: g.detected }))
-    const detected = supportedGames.value.find((g: any) => g.detected)
-    activeGameID.value = detected?.id || supportedGames.value[0]?.id || ''
-    launcherActivePlaysetIndex.value = gameIdx
-    launcherLayout.value = layout as LauncherLayout
-    orderedIDs.value = order
-    playsetNames.value = names
-    unsubscribeFeatureEnabled.value = unsubEnabled
-    requiresManualPaths.value = !(dirsStatus as any).autoDetectedExists && !(dirsStatus as any).effectiveExists
-    if (requiresManualPaths.value) settingsOpen.value = true
-  } catch (err) {
-    showToast({ type: 'error', message: errorMessage(err) })
+const constraintModal = reactive({
+  open: false,
+  modID: '',
+})
+
+let unsubscribeNoticeTimeout: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  requiresManualPaths,
+  (required) => {
+    if (required) {
+      settingsOpen.value = true
+    }
+  },
+  { immediate: true },
+)
+
+watch(unsubscribeNotice, (notice) => {
+  if (unsubscribeNoticeTimeout) {
+    clearTimeout(unsubscribeNoticeTimeout)
+    unsubscribeNoticeTimeout = null
   }
-}
+  if (!notice) {
+    return
+  }
+  unsubscribeNoticeTimeout = setTimeout(() => {
+    modsStore.clearUnsubscribeNotice()
+  }, 3200)
+})
+
+onBeforeUnmount(() => {
+  if (unsubscribeNoticeTimeout) {
+    clearTimeout(unsubscribeNoticeTimeout)
+    unsubscribeNoticeTimeout = null
+  }
+})
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
-    if (searchOpen.value) { searchOpen.value = false; return }
-    if (detailsOpen.value) { detailsOpen.value = false; return }
-    if (settingsOpen.value && !requiresManualPaths.value) { settingsOpen.value = false; return }
+    if (searchOpen.value) {
+      searchOpen.value = false
+      return
+    }
+    if (detailsOpen.value) {
+      detailsOpen.value = false
+      return
+    }
+    if (settingsOpen.value && !requiresManualPaths.value) {
+      settingsOpen.value = false
+      return
+    }
   }
-  if ((event.ctrlKey || event.metaKey) && event.key === 'k') { event.preventDefault(); searchOpen.value = !searchOpen.value; return }
-  if ((event.ctrlKey || event.metaKey) && event.key === 's') { event.preventDefault(); void SaveCompiledLoadOrder(); return }
-  if ((event.ctrlKey || event.metaKey) && event.key === 'f') { event.preventDefault(); searchOpen.value = true; return }
+
+  if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+    event.preventDefault()
+    searchOpen.value = !searchOpen.value
+    return
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+    event.preventDefault()
+    void loadOrderStore.saveCompiled()
+    return
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+    event.preventDefault()
+    searchOpen.value = true
+    return
+  }
 }
 
-onMounted(() => { window.addEventListener('keydown', handleGlobalKeydown); void load() })
-onUnmounted(() => { window.removeEventListener('keydown', handleGlobalKeydown) })
+onMounted(async () => {
+  window.addEventListener('keydown', handleGlobalKeydown)
+  await gamesStore.initialize()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
 
 const contextMenuItems = computed<MenuItem[]>(() => {
   const isCategory = contextMenu.targetID.indexOf('category:') === 0
+
   const currentCategoryForTarget = (() => {
-    for (const cat of launcherLayout.value.categories) {
-      if (cat.modIds.includes(contextMenu.targetID)) return cat.id
+    for (const category of launcherLayout.value.categories) {
+      if (category.modIds.includes(contextMenu.targetID)) {
+        return category.id
+      }
     }
-    if (launcherLayout.value.ungrouped.includes(contextMenu.targetID)) return ungroupedCategoryID
+    if (launcherLayout.value.ungrouped.includes(contextMenu.targetID)) {
+      return ungroupedCategoryID
+    }
     return ''
   })()
 
   const moveToCategoryItems: MenuItem[] = [
-    { id: `move_to_category:${ungroupedCategoryID}`, label: 'Move to category: Ungrouped', icon: '📁', disabled: currentCategoryForTarget === ungroupedCategoryID },
-    ...launcherLayout.value.categories.map((cat) => ({ id: `move_to_category:${cat.id}`, label: `Move to category: ${cat.name}`, icon: '📁', disabled: currentCategoryForTarget === cat.id })),
+    {
+      id: `move_to_category:${ungroupedCategoryID}`,
+      label: 'Move to category: Ungrouped',
+      icon: '📁',
+      disabled: currentCategoryForTarget === ungroupedCategoryID,
+    },
+    ...launcherLayout.value.categories.map((category) => ({
+      id: `move_to_category:${category.id}`,
+      label: `Move to category: ${category.name}`,
+      icon: '📁',
+      disabled: currentCategoryForTarget === category.id,
+    })),
   ]
-  const moveToCategoryMenu: MenuItem = { id: 'move_to_category_menu', label: 'Move to category', icon: '📁', disabled: moveToCategoryItems.every((item) => item.disabled), children: moveToCategoryItems }
 
-  if (isCategory) return [{ id: 'add_constraint', label: 'Add constraint...', icon: '⛓' }, { id: 'view_constraints', label: 'View constraints', icon: '📖' }]
+  const moveToCategoryMenu: MenuItem = {
+    id: 'move_to_category_menu',
+    label: 'Move to category',
+    icon: '📁',
+    disabled: moveToCategoryItems.every((item) => item.disabled),
+    children: moveToCategoryItems,
+  }
+
+  if (isCategory) {
+    return [
+      { id: 'add_constraint', label: 'Add constraint...', icon: '⛓' },
+      { id: 'view_constraints', label: 'View constraints', icon: '📖' },
+    ]
+  }
 
   const index = orderedIDs.value.indexOf(contextMenu.targetID)
   const missing = index < 0
   const atTop = index === 0
   const atBottom = index === orderedIDs.value.length - 1
-  const unsubLoading = unsubscribeLoadingByModID.value[contextMenu.targetID] ?? false
+  const isWorkshopMod = modsStore.isWorkshopMod(contextMenu.targetID)
+  const unsubscribeLoading = modsStore.isUnsubscribeLoading(contextMenu.targetID)
+  const canShowUnsubscribe = unsubscribeFeatureEnabled.value
 
   const items: MenuItem[] = [
     { id: 'add_constraint', label: 'Add constraint...', icon: '⛓' },
@@ -142,86 +192,186 @@ const contextMenuItems = computed<MenuItem[]>(() => {
     { id: 'move_bottom', label: 'Move to bottom', icon: '⬇', disabled: missing || atBottom },
     { id: 'disable_mod', label: 'Remove from load order', icon: '⛔', danger: true, disabled: missing },
   ]
-  if (unsubscribeFeatureEnabled.value) {
-    items.splice(5, 0, { id: 'unsubscribe_workshop', label: unsubLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop...', icon: '🧹', danger: true, disabled: missing || unsubLoading })
+
+  if (canShowUnsubscribe) {
+    items.splice(5, 0, {
+      id: 'unsubscribe_workshop',
+      label: unsubscribeLoading ? 'Unsubscribing...' : 'Unsubscribe from Workshop...',
+      icon: '🧹',
+      danger: true,
+      disabled: missing || !isWorkshopMod || unsubscribeLoading,
+    })
   }
+
   return items
 })
 
 async function moveModToCategory(modID: string, categoryID: string): Promise<void> {
-  const next: LauncherLayout = {
+  const next = {
     ungrouped: [...launcherLayout.value.ungrouped],
-    categories: launcherLayout.value.categories.map((cat) => ({ id: cat.id, name: cat.name, modIds: [...cat.modIds] })),
+    categories: launcherLayout.value.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      modIds: [...category.modIds],
+    })),
     order: launcherLayout.value.order ? [...launcherLayout.value.order] : undefined,
     collapsed: launcherLayout.value.collapsed ? { ...launcherLayout.value.collapsed } : undefined,
   }
+
   next.ungrouped = next.ungrouped.filter((id) => id !== modID)
-  for (const cat of next.categories) cat.modIds = cat.modIds.filter((id) => id !== modID)
-  if (categoryID === ungroupedCategoryID) next.ungrouped.push(modID)
-  else { const t = next.categories.find((cat) => cat.id === categoryID); if (t) t.modIds.push(modID) }
-  try {
-    launcherLayout.value = next
-    orderedIDs.value = [...next.ungrouped, ...next.categories.flatMap((c) => c.modIds)]
-  } catch (err) { showToast({ type: 'error', message: errorMessage(err) }) }
+  for (const category of next.categories) {
+    category.modIds = category.modIds.filter((id) => id !== modID)
+  }
+
+  if (categoryID === ungroupedCategoryID) {
+    next.ungrouped.push(modID)
+  } else {
+    const target = next.categories.find((category) => category.id === categoryID)
+    if (!target) {
+      return
+    }
+    target.modIds.push(modID)
+  }
+
+  await loadOrderStore.persistLauncherLayout(next)
 }
 
-function openContextMenu(event: { modID: string; x: number; y: number }): void { contextMenu.open = true; contextMenu.x = event.x; contextMenu.y = event.y; contextMenu.targetID = event.modID }
-function closeContextMenu(): void { contextMenu.open = false }
-function closeConstraintModal(): void { constraintModal.open = false; constraintModal.modID = '' }
-function openSettings(): void { searchOpen.value = false; detailsOpen.value = false; settingsOpen.value = true }
-function closeSettings(): void { if (!requiresManualPaths.value) settingsOpen.value = false }
-function openConstraintModal(modID: string): void { constraintModal.modID = modID; constraintModal.open = true }
-function openSearch(): void { searchOpen.value = true }
-function closeSearch(): void { searchOpen.value = false }
-function closeDetails(): void { detailsOpen.value = false }
+function openContextMenu(event: { modID: string; x: number; y: number }): void {
+  contextMenu.open = true
+  contextMenu.x = event.x
+  contextMenu.y = event.y
+  contextMenu.targetID = event.modID
+}
 
-async function onLauncherPlaysetChange(event: Event): Promise<void> {
+function closeContextMenu(): void {
+  contextMenu.open = false
+}
+
+function closeConstraintModal(): void {
+  constraintModal.open = false
+  constraintModal.modID = ''
+}
+
+function openSettings(): void {
+  searchOpen.value = false
+  detailsOpen.value = false
+  settingsOpen.value = true
+}
+
+function closeSettings(): void {
+  if (requiresManualPaths.value) {
+    return
+  }
+  settingsOpen.value = false
+}
+
+function openConstraintModal(modID: string): void {
+  constraintModal.modID = modID
+  constraintModal.open = true
+}
+
+function onLauncherPlaysetChange(event: Event): void {
   const target = event.target as HTMLSelectElement
   const index = parseInt(target.value, 10)
-  if (index.toString() !== target.value || index === launcherActivePlaysetIndex.value) return
-  try {
-    await SetLauncherActivePlaysetIndex(index)
-    launcherActivePlaysetIndex.value = index
-  } catch (err) { showToast({ type: 'error', message: errorMessage(err) }) }
+  if (index.toString() !== target.value || index === launcherActivePlaysetIndex.value) {
+    return
+  }
+  void loadOrderStore.setLauncherPlayset(index).then(() => modsStore.fetchAll())
 }
 
 async function onGameClick(game: { id: string; name: string; detected: boolean }): Promise<void> {
-  if (!game.detected) { setupGameID.value = game.id; setupGameName.value = game.name; manualSetupOpen.value = true; return }
-  try {
-    await SetActiveGame(game.id)
-    activeGameID.value = game.id
-  } catch (err) { showToast({ type: 'error', message: errorMessage(err) }) }
+  if (!game.detected) {
+    // Open manual setup for undetected games
+    setupGameID.value = game.id
+    setupGameName.value = game.name
+    manualSetupOpen.value = true
+    return
+  }
+
+  // Switch to detected game
+  await gamesStore.setActiveGame(game.id)
+  // Trigger data refresh for the new game context
+  await Promise.all([
+    settingsStore.fetch(),
+    modsStore.fetchAll(),
+    loadOrderStore.fetch()
+  ])
 }
 
-function onSearchAddMod(modID: string): void { searchOpen.value = false; selectedModID.value = modID; detailsOpen.value = true }
+function openSearch(): void {
+  searchOpen.value = true
+}
+
+function closeSearch(): void {
+  searchOpen.value = false
+}
+
+function onSearchAddMod(modID: string): void {
+  searchOpen.value = false
+  modsStore.selectMod(modID)
+  detailsOpen.value = true
+}
+
 function onModSelect(modID: string): void {
-  if (modID === selectedModID.value && detailsOpen.value) { detailsOpen.value = false; return }
-  searchOpen.value = false; settingsOpen.value = false; selectedModID.value = modID; detailsOpen.value = true
+  if (modID === modsStore.selectedModID && detailsOpen.value) {
+    detailsOpen.value = false
+    return
+  }
+  searchOpen.value = false
+  settingsOpen.value = false
+  modsStore.selectMod(modID)
+  detailsOpen.value = true
+}
+
+function closeDetails(): void {
+  detailsOpen.value = false
 }
 
 async function handleMenuAction(event: { itemID: string; targetID: string }): Promise<void> {
-  const { itemID, targetID } = event
+  const targetID = event.targetID
   const isCategory = targetID.indexOf('category:') === 0
-  if (isCategory && itemID === 'disable_mod') return
+
+  if (isCategory && event.itemID === 'disable_mod') {
+    return
+  }
+
   const current = [...orderedIDs.value]
   const index = current.indexOf(targetID)
 
-  if (itemID === 'disable_mod') {
-    try { await DisableMod(targetID); orderedIDs.value = current.filter((id) => id !== targetID) }
-    catch (err) { showToast({ type: 'error', message: errorMessage(err) }) }
+  if (event.itemID === 'disable_mod') {
+    await modsStore.setEnabled(targetID, false)
     return
   }
-  if (itemID === 'unsubscribe_workshop') {
-    unsubscribeLoadingByModID.value[targetID] = true
-    try { await UnsubscribeWorkshopMod(targetID) }
-    catch (err) { showToast({ type: 'error', message: errorMessage(err) }) }
-    finally { unsubscribeLoadingByModID.value[targetID] = false }
+
+  if (event.itemID === 'unsubscribe_workshop') {
+    await modsStore.unsubscribeWorkshop(targetID)
     return
   }
-  if (itemID.indexOf('move_to_category:') === 0) { await moveModToCategory(targetID, itemID.slice('move_to_category:'.length)); return }
-  if (itemID === 'move_top' && index > 0) { current.splice(index, 1); current.unshift(targetID); try { await SetLoadOrder(current); orderedIDs.value = current } catch (err) { showToast({ type: 'error', message: errorMessage(err) }) } return }
-  if (itemID === 'move_bottom' && index >= 0 && index < current.length - 1) { current.splice(index, 1); current.push(targetID); try { await SetLoadOrder(current); orderedIDs.value = current } catch (err) { showToast({ type: 'error', message: errorMessage(err) }) } return }
-  if (itemID === 'add_constraint' || itemID === 'view_constraints') { openConstraintModal(targetID); return }
+
+  if (event.itemID.indexOf('move_to_category:') === 0) {
+    const categoryID = event.itemID.slice('move_to_category:'.length)
+    await moveModToCategory(targetID, categoryID)
+    return
+  }
+
+  if (event.itemID === 'move_top' && index > 0) {
+    current.splice(index, 1)
+    current.unshift(targetID)
+    await loadOrderStore.persist(current)
+    return
+  }
+
+  if (event.itemID === 'move_bottom' && index >= 0 && index < current.length - 1) {
+    current.splice(index, 1)
+    current.push(targetID)
+    await loadOrderStore.persist(current)
+    return
+  }
+
+  if (event.itemID === 'add_constraint' || event.itemID === 'view_constraints') {
+    openConstraintModal(targetID)
+    return
+  }
 }
 </script>
 
@@ -303,7 +453,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>
-        <ModDetailsPanel :open="detailsOpen" :mod-id="selectedModID" />
+        <ModDetailsPanel />
       </aside>
     </Transition>
 
