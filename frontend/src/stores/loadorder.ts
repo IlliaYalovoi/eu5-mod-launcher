@@ -85,18 +85,6 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
     await fetchLauncherLayout()
   }
 
-  async function renameCategory(categoryID: string, newName: string): Promise<void> {
-    const next = {
-      ungrouped: [...launcherLayout.value.ungrouped],
-      categories: launcherLayout.value.categories.map((cat) =>
-        cat.id === categoryID ? { ...cat, name: newName } : { ...cat },
-      ),
-      order: launcherLayout.value.order ? [...launcherLayout.value.order] : undefined,
-      collapsed: launcherLayout.value.collapsed ? { ...launcherLayout.value.collapsed } : undefined,
-    }
-    await persistLauncherLayout(next)
-  }
-
   async function saveCompiled(): Promise<void> {
     orderedIDs.value = await SaveCompiledLoadOrder()
     await fetchLauncherLayout()
@@ -140,7 +128,6 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
     persistLauncherLayout,
     createCategory,
     deleteCategory,
-    renameCategory,
     saveCompiled,
     autosort,
     clearAutosortError,

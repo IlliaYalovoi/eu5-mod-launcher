@@ -4,7 +4,6 @@ import {main} from '../models';
 import {steam} from '../models';
 import {mods} from '../models';
 import {graph} from '../models';
-import {service} from '../models';
 
 export function AddConstraint(arg1:string,arg2:string):Promise<void>;
 
@@ -58,8 +57,6 @@ export function IsUnsubscribeEnabled():Promise<boolean>;
 
 export function LaunchGame():Promise<void>;
 
-export function ListSupportedGames():Promise<Array<service.DetectedGame>>;
-
 export function OpenConfigFolder():Promise<void>;
 
 export function OpenExternalLink(arg1:string):Promise<void>;
@@ -87,8 +84,6 @@ export function ResetModsDirToAuto():Promise<string>;
 export function SaveCompiledLoadOrder():Promise<Array<string>>;
 
 export function SetGameExe(arg1:string):Promise<void>;
-
-export function SetGamePaths(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SetLauncherActivePlaysetIndex(arg1:number):Promise<void>;
 
