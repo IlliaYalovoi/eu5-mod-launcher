@@ -2,16 +2,14 @@ package loadorder
 
 import (
 	"errors"
+	"eu5-mod-launcher/internal/adapters/eu5"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 )
-
-const steamWorkshopAppID = "3450310"
 
 var errAppDataNotSet = errors.New("APPDATA is not set")
 
@@ -72,7 +70,7 @@ func DiscoverGamePaths() (GamePaths, error) {
 	return GamePaths{
 		PlaysetsPath:    filepath.Join(docsRoot, "playsets.json"),
 		LocalModsDir:    filepath.Join(docsRoot, "mod"),
-		WorkshopModDirs: discoverWorkshopModDirs(steamWorkshopAppID),
+		WorkshopModDirs: discoverWorkshopModDirs(eu5.SteamWorkshopAppID),
 		GameExePath:     discoverGameExePath(),
 	}, nil
 }
@@ -81,6 +79,7 @@ var steamInstallPathFinder func() string
 
 func findSteamInstallPath() string {
 	if steamInstallPathFinder == nil {
+		// Ensure it's initialized for functional discovery in this file
 		return ""
 	}
 	return steamInstallPathFinder()
@@ -126,7 +125,7 @@ func discoverSteamLibraryRoots() []string {
 	out := make([]string, 0, len(libraryRoots))
 
 	for _, root := range libraryRoots {
-		if strings.TrimSpace(root) == "" {
+		if root == "" {
 			continue
 		}
 
@@ -142,41 +141,37 @@ func discoverSteamLibraryRoots() []string {
 }
 
 func parseLibraryFoldersVDF(vdfPath string) []string {
+	// Re-use logic since we are keeping it functional for now
+	// but using common helpers involves too much refactor of internal/adapters
+	// so keep simple copy here until DiscoverGamePaths is gone
 	content, err := os.ReadFile(vdfPath)
 	if err != nil {
 		return nil
 	}
 
-	matches := regexp.MustCompile(`"path"\s*"([^"]+)"`).FindAllStringSubmatch(string(content), -1)
-	if len(matches) == 0 {
-		return nil
-	}
-
-	out := make([]string, 0, len(matches))
-	for _, match := range matches {
-		raw := match[1]
-		raw = strings.ReplaceAll(raw, `\\`, `\`)
-		if strings.TrimSpace(raw) == "" {
-			continue
+	// Simple extraction logic from original code
+	const pathKey = "\"path\""
+	lines := strings.Split(string(content), "\n")
+	var paths []string
+	for _, line := range lines {
+		if strings.Contains(line, pathKey) {
+			parts := strings.Split(line, "\"")
+			if len(parts) >= 4 {
+				p := parts[3]
+				p = strings.ReplaceAll(p, "\\\\", "\\")
+				paths = append(paths, filepath.Clean(p))
+			}
 		}
-		out = append(out, filepath.Clean(raw))
 	}
-
-	return out
+	return paths
 }
 
 func dirExists(dirPath string) bool {
 	info, err := os.Stat(dirPath)
-	if err != nil {
-		return false
-	}
-	return info.IsDir()
+	return err == nil && info.IsDir()
 }
 
 func fileExists(filePath string) bool {
 	info, err := os.Stat(filePath)
-	if err != nil {
-		return false
-	}
-	return !info.IsDir()
+	return err == nil && !info.IsDir()
 }

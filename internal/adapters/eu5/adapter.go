@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	adapterID          = "eu5"
-	steamWorkshopAppID = "3450310"
+	adapterID            = "eu5"
+	SteamWorkshopAppID   = "3450310"
 )
 
 type Adapter struct{}
@@ -52,7 +52,7 @@ func (s *Adapter) DetectInstances() ([]game.Instance, error) {
 		InstallPath:     installPath,
 		UserConfigPath:  userConfigPath,
 		LocalModsDir:    filepath.Join(userConfigPath, "mod"),
-		WorkshopModDirs: discoverWorkshopModDirs(steamWorkshopAppID),
+		WorkshopModDirs: discoverWorkshopModDirs(SteamWorkshopAppID),
 		GameExePath:     exePath,
 	}
 
