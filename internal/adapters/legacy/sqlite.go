@@ -173,5 +173,32 @@ func (s *SqliteAdapter) LoadMods(instance game.Instance) ([]game.ModEntry, error
 }
 
 func (s *SqliteAdapter) SavePlayset(inst game.Instance, p game.Playset) error {
-	return nil
+	db, err := s.getDB(inst)
+	if err != nil {
+		return fmt.Errorf("failed to get database: %w", err)
+	}
+
+	tx, err := db.Beginx()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	_, err = tx.Exec("DELETE FROM playsets_mods WHERE playsetId = ?", p.ID)
+	if err != nil {
+		return fmt.Errorf("failed to clear playset mods: %w", err)
+	}
+
+	for _, entry := range p.Entries {
+		_, err = tx.Exec(`
+			INSERT INTO playsets_mods (playsetId, modId, enabled, position)
+			VALUES (?, ?, ?, ?)`,
+			p.ID, entry.ID, entry.Enabled, entry.Position)
+		if err != nil {
+			return fmt.Errorf("failed to insert mod entry: %w", err)
+		}
+	}
+
+	return tx.Commit()
 }
