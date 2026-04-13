@@ -16,11 +16,11 @@ type GamePathOverride struct {
 }
 
 type AppSettingsData struct {
-	ModsDir                    string                      `json:"modsDir,omitempty"`
-	GameExe                    string                      `json:"gameExe,omitempty"`
-	GameArgs                   []string                    `json:"gameArgs,omitempty"`
-	LauncherActivePlaysetIndex *int                        `json:"launcherActivePlaysetIndex,omitempty"`
-	GamePaths                  map[string]GamePathOverride `json:"gamePaths,omitempty"`
+	ModsDir                    string                       `json:"modsDir,omitempty"`
+	GameExe                    string                       `json:"gameExe,omitempty"`
+	GameArgs                   []string                     `json:"gameArgs,omitempty"`
+	LauncherActivePlaysetIndex *int                         `json:"launcherActivePlaysetIndex,omitempty"`
+	GamePaths                  map[string]GamePathOverride  `json:"gamePaths,omitempty"`
 }
 
 type SettingsRepository interface {

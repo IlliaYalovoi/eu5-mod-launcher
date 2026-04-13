@@ -2,10 +2,11 @@ package launcher
 
 import (
 	"errors"
+	"fmt"
+
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/steam"
-	"fmt"
 )
 
 type startupLoads struct {
@@ -20,7 +21,7 @@ type startupLoads struct {
 const (
 	constraintsFileName = "constraints.json"
 	settingsFileName    = "settings.json"
-	launcherLayoutFile  = "launcher_layout.json"
+	launcherLayoutFile = "launcher_layout.json"
 )
 
 var (
@@ -37,14 +38,14 @@ type workshopMetadataFetcher interface {
 
 func NewApp() *App {
 	return &App{
-		loadOrder:      domain.LoadOrder{OrderedIDs: []string{}},
-		modPathByID:    map[string]string{},
+		loadOrder:     domain.LoadOrder{OrderedIDs: []string{}},
+		modPathByID:   map[string]string{},
 		launcherLayout: LauncherLayout{Ungrouped: []string{}, Categories: []LauncherCategory{}},
-		imageData:      map[string]string{},
-		playsetNames:   []string{},
-		gameActiveIdx:  -1,
-		launcherIdx:    -1,
-		activeGameID:   domain.GameIDEU5,
+		imageData:     map[string]string{},
+		playsetNames:  []string{},
+		gameActiveIdx: -1,
+		launcherIdx:   -1,
+		activeGameID:  domain.GameIDEU5,
 	}
 }
 

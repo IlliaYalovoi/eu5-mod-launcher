@@ -5,11 +5,9 @@ import (
 	"strings"
 )
 
-type (
-	ModID        string
-	CategoryID   string
-	PlaysetIndex int
-)
+type ModID string
+type CategoryID string
+type PlaysetIndex int
 
 const CategoryPrefix = "category:"
 

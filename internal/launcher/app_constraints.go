@@ -155,7 +155,7 @@ func (a *App) reorderLauncherLayoutAfterAutosort(sortedIDs []string) (LauncherLa
 	return layout, nil
 }
 
-func reorderCategoryMods(catModIDs []string, seen, enabledSet map[string]struct{}) []string {
+func reorderCategoryMods(catModIDs []string, seen map[string]struct{}, enabledSet map[string]struct{}) []string {
 	result := make([]string, 0, len(catModIDs))
 	for _, id := range catModIDs {
 		if _, ok := enabledSet[id]; !ok {

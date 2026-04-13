@@ -2,6 +2,10 @@ package launcher
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
+	"sync"
+
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
 	"eu5-mod-launcher/internal/loadorder"
@@ -9,9 +13,6 @@ import (
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/service"
 	"eu5-mod-launcher/internal/steam"
-	"path/filepath"
-	"strings"
-	"sync"
 )
 
 type appServices struct {

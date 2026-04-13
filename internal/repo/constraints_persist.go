@@ -2,11 +2,12 @@ package repo
 
 import (
 	"encoding/json"
-	"eu5-mod-launcher/internal/domain"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"eu5-mod-launcher/internal/domain"
 )
 
 func SaveConstraints(path string, g *domain.Graph) error {

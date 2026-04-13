@@ -1,15 +1,16 @@
 package launcher
 
 import (
-	"eu5-mod-launcher/internal/domain"
-	"eu5-mod-launcher/internal/game"
-	"eu5-mod-launcher/internal/repo"
-	"eu5-mod-launcher/internal/steam"
 	"fmt"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
+
+	"eu5-mod-launcher/internal/domain"
+	"eu5-mod-launcher/internal/game"
+	"eu5-mod-launcher/internal/repo"
+	"eu5-mod-launcher/internal/steam"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )

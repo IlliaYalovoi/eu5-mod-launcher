@@ -11,10 +11,10 @@ import (
 type Dependencies struct {
 	SettingsRepo    repo.SettingsRepository
 	ConstraintsRepo repo.ConstraintsRepository
-	LayoutRepo      repo.LayoutRepository
-	PlaysetRepo     repo.PlaysetRepository
-	LoadOrderRepo   repo.LoadOrderRepo
-	SteamClient     *steam.Client
+	LayoutRepo     repo.LayoutRepository
+	PlaysetRepo    repo.PlaysetRepository
+	LoadOrderRepo  repo.LoadOrderRepo
+	SteamClient    *steam.Client
 }
 
 func NewLauncher(deps Dependencies) *App {
