@@ -10,8 +10,8 @@ import (
 )
 
 func (a *App) OpenWorkshopItem(itemID string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("open workshop item %q: %w", itemID, err)
 	}
 	normalizedID, err := normalizeWorkshopItemID(itemID)
 	if err != nil {
@@ -25,8 +25,8 @@ func (a *App) OpenWorkshopItem(itemID string) error {
 }
 
 func (a *App) UnsubscribeWorkshopMod(itemID string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("unsubscribe workshop mod %q: %w", itemID, err)
 	}
 	if !a.IsUnsubscribeEnabled() {
 		return fmt.Errorf("unsubscribe workshop mod %q: %w", itemID, errUnsubscribeDisabled)
@@ -48,8 +48,8 @@ func (a *App) UnsubscribeWorkshopMod(itemID string) error {
 func (*App) IsUnsubscribeEnabled() bool { return compileEnableUnsubscribe }
 
 func (a *App) OpenExternalLink(rawURL string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("open external link %q: %w", rawURL, err)
 	}
 	normalizedURL, linkErr := normalizeExternalLink(rawURL)
 	if linkErr != nil {

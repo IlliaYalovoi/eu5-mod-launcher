@@ -7,15 +7,16 @@ import (
 )
 
 func (a *App) GetConstraints() []domain.Constraint {
-	if err := a.mustBeReady(); err != nil {
+	if err := a.ensureReady(); err != nil {
+		logging.Errorf("GetConstraints called before initialization: %v", err)
 		return []domain.Constraint{}
 	}
 	return a.svc.conService.All()
 }
 
 func (a *App) AddConstraint(from, target string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
 	}
 	if err := a.svc.conService.AddConstraint(from, target); err != nil {
 		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
@@ -24,8 +25,8 @@ func (a *App) AddConstraint(from, target string) error {
 }
 
 func (a *App) AddLoadFirst(modID string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("add load-first %q: %w", modID, err)
 	}
 	if err := a.svc.conService.AddLoadFirst(modID); err != nil {
 		return fmt.Errorf("add load-first %q: %w", modID, err)
@@ -34,8 +35,8 @@ func (a *App) AddLoadFirst(modID string) error {
 }
 
 func (a *App) AddLoadLast(modID string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("add load-last %q: %w", modID, err)
 	}
 	if err := a.svc.conService.AddLoadLast(modID); err != nil {
 		return fmt.Errorf("add load-last %q: %w", modID, err)
@@ -44,8 +45,8 @@ func (a *App) AddLoadLast(modID string) error {
 }
 
 func (a *App) RemoveConstraint(from, target string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("remove constraint %q -> %q: %w", from, target, err)
 	}
 	if err := a.svc.conService.RemoveConstraint(from, target); err != nil {
 		return fmt.Errorf("remove constraint %q -> %q: %w", from, target, err)
@@ -54,8 +55,8 @@ func (a *App) RemoveConstraint(from, target string) error {
 }
 
 func (a *App) RemoveLoadFirst(modID string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("remove load-first %q: %w", modID, err)
 	}
 	if err := a.svc.conService.RemoveLoadFirst(modID); err != nil {
 		return fmt.Errorf("remove load-first %q: %w", modID, err)
@@ -64,8 +65,8 @@ func (a *App) RemoveLoadFirst(modID string) error {
 }
 
 func (a *App) RemoveLoadLast(modID string) error {
-	if err := a.mustBeReady(); err != nil {
-		return err
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("remove load-last %q: %w", modID, err)
 	}
 	if err := a.svc.conService.RemoveLoadLast(modID); err != nil {
 		return fmt.Errorf("remove load-last %q: %w", modID, err)
@@ -74,8 +75,8 @@ func (a *App) RemoveLoadLast(modID string) error {
 }
 
 func (a *App) Autosort() ([]string, error) {
-	if err := a.mustBeReady(); err != nil {
-		return nil, err
+	if err := a.ensureReady(); err != nil {
+		return nil, fmt.Errorf("autosort: %w", err)
 	}
 	prevOrder := append([]string(nil), a.loadOrder.OrderedIDs...)
 	prevLayout := a.launcherLayout
