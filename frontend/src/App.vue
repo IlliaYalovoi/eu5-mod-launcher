@@ -197,6 +197,7 @@ async function onGameClick(game: { id: string; name: string; detected: boolean }
 
 function onModSelect(modID: string): void {
   selectedMod.value = allMods.value.find(m => m.id === modID) || null
+  detailsOpen.value = true
 }
 
 function refreshPanels() {
@@ -302,8 +303,11 @@ function closeSettings() {
       </div>
     </main>
 
-    <aside class="inspector-right" :class="{ 'inspector-right--open': !!selectedMod }">
-      <ModDetailsPanel :mod="selectedMod" />
+    <aside class="inspector-right" :class="{ 'inspector-right--open': detailsOpen && selectedMod }">
+      <ModDetailsPanel v-if="selectedMod" :mod="selectedMod" @close="closeDetails" />
+      <div v-else class="inspector-empty">
+        <p>Select a mod to view details</p>
+      </div>
     </aside>
 
     <!-- Manage Groups Modal -->
@@ -522,7 +526,7 @@ function closeSettings() {
 
 /* Inspector Right */
 .inspector-right {
-  width: 320px;
+  width: 0;
   background: var(--inspector-bg, var(--bg-panel));
   border-left: 1px solid var(--border);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -531,7 +535,7 @@ function closeSettings() {
 }
 
 .inspector-right--open {
-  width: 420px;
+  width: 400px;
 }
 
 .inspector-empty {
