@@ -1,38 +1,67 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { subscribeToasts, type Toast } from '../../lib/toast'
+import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useModsStore } from '../../stores/mods'
 
-const toasts = ref<Toast[]>([])
-const timers = new Map<string, ReturnType<typeof setTimeout>>()
-
-function addToast(toast: Toast) {
-  toasts.value.push(toast)
-  if (toasts.value.length > 3) {
-    const oldest = toasts.value.shift()
-    if (oldest) {
-      const t = timers.get(oldest.id)
-      if (t) { clearTimeout(t); timers.delete(oldest.id) }
-    }
-  }
-  if (toast.type !== 'error') {
-    timers.set(toast.id, setTimeout(() => removeToast(toast.id), 3200))
-  }
+type Toast = {
+  id: number
+  type: 'success' | 'error' | 'info' | 'warning'
+  message: string
 }
 
-function removeToast(id: string) {
-  const t = timers.get(id)
-  if (t) { clearTimeout(t); timers.delete(id) }
-  const idx = toasts.value.findIndex((toast) => toast.id === id)
-  if (idx >= 0) toasts.value.splice(idx, 1)
+const modsStore = useModsStore()
+const { unsubscribeNotice } = storeToRefs(modsStore)
+
+const toasts = ref<Toast[]>([])
+let nextID = 0
+let dismissTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+watch(unsubscribeNotice, (notice) => {
+  if (!notice) {
+    return
+  }
+  addToast(notice.type, notice.message)
+})
+
+function addToast(type: Toast['type'], message: string): void {
+  const id = nextID++
+  toasts.value.push({ id, type, message })
+
+  if (toasts.value.length > 3) {
+    const oldest = toasts.value.shift()
+    if (oldest !== undefined) {
+      const timer = dismissTimers.get(oldest.id)
+      if (timer !== undefined) {
+        clearTimeout(timer)
+        dismissTimers.delete(oldest.id)
+      }
+    }
+  }
+
+  if (type === 'error') {
+    return
+  }
+
+  const timer = setTimeout(() => {
+    removeToast(id)
+  }, 3200)
+  dismissTimers.set(id, timer)
+}
+
+function removeToast(id: number): void {
+  const timer = dismissTimers.get(id)
+  if (timer !== undefined) {
+    clearTimeout(timer)
+    dismissTimers.delete(id)
+  }
+  const idx = toasts.value.findIndex((t) => t.id === id)
+  if (idx >= 0) {
+    toasts.value.splice(idx, 1)
+  }
 }
 
 const overflowCount = computed(() => Math.max(0, toasts.value.length - 3))
 const visibleToasts = computed(() => toasts.value.slice(0, 3))
-
-let unsubscribe: (() => void) | null = null
-
-onMounted(() => { unsubscribe = subscribeToasts(addToast) })
-onUnmounted(() => { if (unsubscribe) unsubscribe(); timers.forEach(t => clearTimeout(t)) })
 </script>
 
 <template>
