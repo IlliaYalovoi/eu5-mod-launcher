@@ -94,8 +94,6 @@ Tasks are designed to be **maximally independent**. Each one has a clear input, 
 | 29 | `29-fe-manual-game-path-setup.md` | Frontend: popup workflow for manual install/documents paths |
 | 30 | `30-fe-game-themes.md` | Frontend: per-game theme tokens and runtime theme switch |
 | 31 | `31-go-fe-last-selected-game-persistence.md` | Go+Frontend: persist/restore last selected game |
-| 32 | `32-go-vic3-playsets.md` | Go: Vic3 SQLite playset repository |
-| 33 | `33-go-mod-game-version-check.md` | Go+Frontend: mod/game version compatibility check |
 ---
 
 ## Conventions to keep consistent across tasks

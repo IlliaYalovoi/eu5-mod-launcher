@@ -4,7 +4,6 @@ import (
 	"context"
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
-	gamevic3 "eu5-mod-launcher/internal/game/vic3"
 	"eu5-mod-launcher/internal/loadorder"
 	"eu5-mod-launcher/internal/logging"
 	"eu5-mod-launcher/internal/repo"
@@ -99,10 +98,7 @@ func (a *App) initCoreServices() {
 	a.svc.loadorderSvc = service.NewLoadOrderService()
 	a.svc.settingsSvc = service.NewSettingsService()
 	a.svc.launchSvc = service.NewLaunchService()
-	a.svc.gameSvc = service.NewGameService(
-		game.NewEU5Adapter(nil),
-		gamevic3.NewVic3Adapter(),
-	)
+	a.svc.gameSvc = service.NewGameService()
 	a.svc.constraintsRepo = repo.NewFileConstraintsRepository()
 	a.svc.gameDetection = game.NewDetector(a.svc.settingsRepo)
 	a.svc.playsetRepo = repo.NewFilePlaysetRepo()
