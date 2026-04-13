@@ -309,27 +309,27 @@ func applyConstraintSnapshot(constraintGraph *domain.Graph, snapshot []domain.Co
 func removeConstraint(constraintGraph *domain.Graph, constraint domain.Constraint) {
 	switch normalizeConstraintType(string(constraint.Type)) {
 	case string(domain.ConstraintFirst):
-		constraintGraph.RemoveFirst(constraint.FromID)
+		constraintGraph.RemoveFirst(constraint.ModID)
 	case string(domain.ConstraintLast):
-		constraintGraph.RemoveLast(constraint.FromID)
+		constraintGraph.RemoveLast(constraint.ModID)
 	default:
-		constraintGraph.Remove(constraint.FromID, constraint.ToID)
+		constraintGraph.Remove(constraint.From, constraint.To)
 	}
 }
 
 func addConstraint(constraintGraph *domain.Graph, constraint domain.Constraint) {
 	switch normalizeConstraintType(string(constraint.Type)) {
 	case string(domain.ConstraintFirst):
-		if constraint.FromID != "" {
-			constraintGraph.AddFirst(constraint.FromID)
+		if constraint.ModID != "" {
+			constraintGraph.AddFirst(constraint.ModID)
 		}
 	case string(domain.ConstraintLast):
-		if constraint.FromID != "" {
-			constraintGraph.AddLast(constraint.FromID)
+		if constraint.ModID != "" {
+			constraintGraph.AddLast(constraint.ModID)
 		}
 	default:
-		if constraint.FromID != "" && constraint.ToID != "" {
-			constraintGraph.Add(constraint.FromID, constraint.ToID)
+		if constraint.From != "" && constraint.To != "" {
+			constraintGraph.Add(constraint.From, constraint.To)
 		}
 	}
 }

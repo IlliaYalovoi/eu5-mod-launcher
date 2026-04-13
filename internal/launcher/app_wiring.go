@@ -140,7 +140,7 @@ func (a *App) initLoadOrder() {
 	state, err := a.svc.loadOrderRepo.Load()
 	if err != nil {
 		logging.Warnf("startup: load fallback loadorder state, using empty: %v", err)
-		a.loadOrder = domain.LoadOrder{ActiveModIDs: []string{}}
+		a.loadOrder = domain.LoadOrder{OrderedIDs: []string{}}
 	} else {
 		a.loadOrder = state
 	}
@@ -183,8 +183,8 @@ func (a *App) ensureReady() error {
 	if a.svc.conGraph == nil {
 		a.svc.conGraph = domain.NewGraph()
 	}
-	if a.loadOrder.ActiveModIDs == nil {
-		a.loadOrder.ActiveModIDs = []string{}
+	if a.loadOrder.OrderedIDs == nil {
+		a.loadOrder.OrderedIDs = []string{}
 	}
 	if a.modPathByID == nil {
 		a.modPathByID = map[string]string{}
@@ -270,7 +270,7 @@ func (a *App) loadStartupPlaysetState() {
 		logging.Warnf("loadStartupPlaysetState: load selected playset state, using fallback: %v", loadErr)
 		return
 	}
-	logging.Debugf("loadStartupPlaysetState: loaded %d ordered IDs, %d path mappings", len(state.ActiveModIDs), len(pathByID))
+	logging.Debugf("loadStartupPlaysetState: loaded %d ordered IDs, %d path mappings", len(state.OrderedIDs), len(pathByID))
 	a.loadOrder = state
 	for id, path := range pathByID {
 		a.modPathByID[id] = path
@@ -294,10 +294,10 @@ func (a *App) applyStartupConstraints(g *domain.Graph, err error) {
 func (a *App) applyStartupLayout(layout repo.LauncherLayoutData, err error) {
 	if err != nil {
 		logging.Warnf("startup: load launcher layout, using defaults: %v", err)
-		layout = toRepoLayout(defaultLauncherLayout(a.loadOrder.ActiveModIDs))
+		layout = toRepoLayout(defaultLauncherLayout(a.loadOrder.OrderedIDs))
 	}
 	next := fromRepoLayout(layout)
-	layoutErr := a.svc.layoutSvc.Persist(&next, a.loadOrder.ActiveModIDs)
+	layoutErr := a.svc.layoutSvc.Persist(&next, a.loadOrder.OrderedIDs)
 	a.launcherLayout = next
 	if layoutErr != nil {
 		logging.Warnf("startup: persist normalized launcher layout: %v", layoutErr)

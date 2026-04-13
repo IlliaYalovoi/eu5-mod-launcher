@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"eu5-mod-launcher/internal/domain"
 )
 
 type LauncherCategoryData struct {
@@ -18,12 +16,10 @@ type LauncherCategoryData struct {
 }
 
 type LauncherLayoutData struct {
-	Groups      []LauncherCategoryData `json:"groups"`
-	Constraints []domain.Constraint    `json:"constraints"` // Group-to-Group rules
-	Ungrouped   []string               `json:"ungrouped"`
-	Categories  []LauncherCategoryData `json:"categories"`
-	Order       []string               `json:"order,omitempty"`
-	Collapsed   map[string]bool        `json:"collapsed,omitempty"`
+	Ungrouped  []string               `json:"ungrouped"`
+	Categories []LauncherCategoryData `json:"categories"`
+	Order      []string               `json:"order,omitempty"`
+	Collapsed  map[string]bool        `json:"collapsed,omitempty"`
 }
 
 type LayoutRepository interface {
@@ -53,12 +49,6 @@ func (*FileLayoutRepository) Load(path string) (LauncherLayoutData, error) {
 	if err := json.Unmarshal(content, &layout); err != nil {
 		return LauncherLayoutData{}, fmt.Errorf("decode launcher layout %q: %w", path, err)
 	}
-	if layout.Groups == nil {
-		layout.Groups = []LauncherCategoryData{}
-	}
-	if layout.Constraints == nil {
-		layout.Constraints = []domain.Constraint{}
-	}
 	if layout.Ungrouped == nil {
 		layout.Ungrouped = []string{}
 	}
@@ -76,21 +66,10 @@ func (*FileLayoutRepository) Load(path string) (LauncherLayoutData, error) {
 			layout.Categories[i].ModIDs = []string{}
 		}
 	}
-	for i := range layout.Groups {
-		if layout.Groups[i].ModIDs == nil {
-			layout.Groups[i].ModIDs = []string{}
-		}
-	}
 	return layout, nil
 }
 
 func (*FileLayoutRepository) Save(path string, layout LauncherLayoutData) error {
-	if layout.Groups == nil {
-		layout.Groups = []LauncherCategoryData{}
-	}
-	if layout.Constraints == nil {
-		layout.Constraints = []domain.Constraint{}
-	}
 	if layout.Ungrouped == nil {
 		layout.Ungrouped = []string{}
 	}

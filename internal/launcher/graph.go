@@ -67,14 +67,14 @@ func buildAdjacency(
 			continue
 		}
 
-		_, fromInInput := present[c.FromID]
-		_, toInInput := present[c.ToID]
+		_, fromInInput := present[c.From]
+		_, toInInput := present[c.To]
 		if !fromInInput || !toInInput {
 			continue
 		}
 
-		adj[c.ToID] = append(adj[c.ToID], c.FromID)
-		indegree[c.FromID]++
+		adj[c.To] = append(adj[c.To], c.From)
+		indegree[c.From]++
 	}
 
 	return adj, indegree
@@ -228,13 +228,7 @@ func decodeConstraints(content []byte, path string) ([]domain.Constraint, error)
 		constraints = make([]domain.Constraint, 0, len(legacy))
 		for i := range legacy {
 			item := legacy[i]
-			constraints = append(constraints, domain.Constraint{
-				Type:     domain.ConstraintAfter,
-				FromID:   item.From,
-				FromType: domain.TargetMod,
-				ToID:     item.To,
-				ToType:   domain.TargetMod,
-			})
+			constraints = append(constraints, domain.Constraint{Type: domain.ConstraintAfter, From: item.From, To: item.To})
 		}
 	}
 
@@ -250,16 +244,16 @@ func applyConstraints(constraintGraph *domain.Graph, constraints []domain.Constr
 		}
 		switch typ {
 		case domain.ConstraintFirst:
-			if constraint.FromID != "" {
-				constraintGraph.AddFirst(constraint.FromID)
+			if constraint.ModID != "" {
+				constraintGraph.AddFirst(constraint.ModID)
 			}
 		case domain.ConstraintLast:
-			if constraint.FromID != "" {
-				constraintGraph.AddLast(constraint.FromID)
+			if constraint.ModID != "" {
+				constraintGraph.AddLast(constraint.ModID)
 			}
 		default:
-			if constraint.FromID != "" && constraint.ToID != "" {
-				constraintGraph.Add(constraint.FromID, constraint.ToID)
+			if constraint.From != "" && constraint.To != "" {
+				constraintGraph.Add(constraint.From, constraint.To)
 			}
 		}
 	}

@@ -230,7 +230,7 @@ func (a *App) SetActiveGame(id string) error {
 	logging.Infof("SetActiveGame: discovered paths for %q playsets=%q localMods=%q", id, gamePaths.PlaysetsPath, gamePaths.LocalModsDir)
 	a.gamePaths = gamePaths
 	a.modPathByID = make(map[string]string)
-	a.loadOrder = domain.LoadOrder{GameID: parsedID, PlaysetIdx: 0, ActiveModIDs: []string{}}
+	a.loadOrder = domain.LoadOrder{GameID: parsedID, PlaysetIdx: 0, OrderedIDs: []string{}}
 	a.playsetNames = []string{}
 	a.gameActiveIdx = -1
 	a.launcherIdx = -1
@@ -258,8 +258,8 @@ func (a *App) SetActiveGame(id string) error {
 	for id, path := range pathByID {
 		a.modPathByID[id] = path
 	}
-	a.launcherLayout = defaultLauncherLayout(state.ActiveModIDs)
-	logging.Infof("SetActiveGame: COMPLETE id=%q %d playsets, %d ordered IDs", id, len(names), len(state.ActiveModIDs))
+	a.launcherLayout = defaultLauncherLayout(state.OrderedIDs)
+	logging.Infof("SetActiveGame: COMPLETE id=%q %d playsets, %d ordered IDs", id, len(names), len(state.OrderedIDs))
 	return nil
 }
 

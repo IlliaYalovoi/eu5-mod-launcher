@@ -18,7 +18,7 @@ func (a *App) SetLauncherLayout(layout LauncherLayout) error {
 		return err
 	}
 	next := layout
-	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.ActiveModIDs); err != nil {
+	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.OrderedIDs); err != nil {
 		return fmt.Errorf("save launcher layout: %w", err)
 	}
 	a.launcherLayout = next
@@ -36,7 +36,7 @@ func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
 	created := LauncherCategory{ID: generateCategoryID(trimmed), Name: trimmed, ModIDs: []string{}}
 	a.launcherLayout.Categories = append(a.launcherLayout.Categories, created)
 	next := a.launcherLayout
-	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.ActiveModIDs); err != nil {
+	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.OrderedIDs); err != nil {
 		return LauncherCategory{}, fmt.Errorf("save launcher layout after category create: %w", err)
 	}
 	a.launcherLayout = next
@@ -66,7 +66,7 @@ func (a *App) DeleteLauncherCategory(categoryID string) error {
 	newCategories := append(a.launcherLayout.Categories[:found], a.launcherLayout.Categories[found+1:]...)
 	a.launcherLayout.Categories = newCategories
 	next := a.launcherLayout
-	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.ActiveModIDs); err != nil {
+	if err := a.svc.layoutSvc.Persist(&next, a.loadOrder.OrderedIDs); err != nil {
 		return fmt.Errorf("save launcher layout after category delete: %w", err)
 	}
 	a.launcherLayout = next
@@ -78,11 +78,11 @@ func (a *App) SaveCompiledLoadOrder() ([]string, error) {
 		return nil, err
 	}
 	next := a.launcherLayout
-	a.svc.layoutSvc.Normalize(&next, a.loadOrder.ActiveModIDs)
+	a.svc.layoutSvc.Normalize(&next, a.loadOrder.OrderedIDs)
 	a.launcherLayout = next
 	compiled := compileLauncherLayout(a.launcherLayout)
 	if err := a.SetLoadOrder(compiled); err != nil {
 		return nil, fmt.Errorf("persist compiled load order: %w", err)
 	}
-	return append([]string(nil), a.loadOrder.ActiveModIDs...), nil
+	return append([]string(nil), a.loadOrder.OrderedIDs...), nil
 }
