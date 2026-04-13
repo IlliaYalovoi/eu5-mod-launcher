@@ -8,11 +8,9 @@ import (
 	"strings"
 
 	"github.com/adrg/xdg"
-
-	"eu5-mod-launcher/internal/steam"
 )
 
-const steamWorkshopAppID = steam.SteamAppID
+const steamWorkshopAppID = "3450310"
 
 type GamePaths struct {
 	PlaysetsPath    string

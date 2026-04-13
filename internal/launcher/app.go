@@ -22,6 +22,7 @@ const (
 	constraintsFileName = "constraints.json"
 	settingsFileName    = "settings.json"
 	launcherLayoutFile = "launcher_layout.json"
+	eu5SteamAppID      = "3450310"
 )
 
 var (

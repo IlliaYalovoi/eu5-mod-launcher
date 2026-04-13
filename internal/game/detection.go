@@ -74,7 +74,7 @@ func NewDetector(settingsRepo repo.SettingsRepository) *Detector {
 				id:        domain.GameIDEU5,
 				name:      "Europa Universalis V",
 				iconKey:   "eu5",
-				appID:     steam.SteamAppID,
+				appID:     "3450310",
 				documents: eu5DocumentsDir,
 				installDirs: func() []string {
 					return discoverEU5InstallDirs()
