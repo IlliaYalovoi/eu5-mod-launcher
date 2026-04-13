@@ -1,47 +1,50 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { GetConfigPath, OpenConfigFolder } from '../../wailsjs/go/launcher/App'
-import { showToast } from '../lib/toast'
-import { errorMessage } from '../lib/error'
+import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import BaseButton from './ui/BaseButton.vue'
+import { useSettingsStore } from '../stores/settings'
 
 const props = defineProps<{ required?: boolean }>()
-const emit = defineEmits<{ (e: 'close'): void }>()
+const emit = defineEmits<{ (event: 'close'): void }>()
 
-const configPath = ref('')
+const settingsStore = useSettingsStore()
+const { configPath } = storeToRefs(settingsStore)
+
 const error = ref<string | null>(null)
 const busy = ref(false)
 const copiedField = ref<string | null>(null)
 
-async function load() {
-  try {
-    configPath.value = await GetConfigPath()
-  } catch (err) {
-    showToast({ type: 'error', message: errorMessage(err) })
-  }
-}
-
 async function withBusy(action: () => Promise<void>): Promise<void> {
   error.value = null
   busy.value = true
-  try { await action() }
-  catch (err) { error.value = errorMessage(err) }
-  finally { busy.value = false }
+  try {
+    await action()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
 }
 
 function onOpenConfigFolder(): void {
-  void withBusy(async () => { await OpenConfigFolder() })
+  void withBusy(async () => {
+    await settingsStore.openConfigFolder()
+  })
 }
 
 async function copyToClipboard(text: string, field: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text)
     copiedField.value = field
-    setTimeout(() => { if (copiedField.value === field) copiedField.value = null }, 1500)
-  } catch { /* clipboard not available */ }
+    setTimeout(() => {
+      if (copiedField.value === field) {
+        copiedField.value = null
+      }
+    }, 1500)
+  } catch {
+    // clipboard not available
+  }
 }
-
-onMounted(load)
 </script>
 
 <template>

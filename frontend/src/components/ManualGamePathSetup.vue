@@ -1,12 +1,24 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { PickFolder, SetGamePaths, SetActiveGame } from '../../wailsjs/go/launcher/App'
-import { showToast } from '../lib/toast'
-import { errorMessage } from '../lib/error'
+import { storeToRefs } from 'pinia'
 import BaseButton from './ui/BaseButton.vue'
+import { useSettingsStore } from '../stores/settings'
+import { useModsStore } from '../stores/mods'
+import { useLoadOrderStore } from '../stores/loadorder'
+import { useGamesStore } from '../stores/games'
+import { PickFolder, SetGamePaths } from '../../wailsjs/go/launcher/App'
 
-const props = defineProps<{ gameID: string; gameName: string; open: boolean }>()
-const emit = defineEmits<{ (e: 'close'): void }>()
+const props = defineProps<{
+  gameID: string
+  gameName: string
+  open: boolean
+}>()
+const emit = defineEmits<{ (event: 'close'): void }>()
+
+const settingsStore = useSettingsStore()
+const modsStore = useModsStore()
+const loadOrderStore = useLoadOrderStore()
+const gamesStore = useGamesStore()
 
 const installDir = ref<string>('')
 const documentsDir = ref<string>('')
@@ -16,22 +28,30 @@ const busy = ref(false)
 async function withBusy(action: () => Promise<void>): Promise<void> {
   error.value = null
   busy.value = true
-  try { await action() }
-  catch (err) { error.value = errorMessage(err) }
-  finally { busy.value = false }
+  try {
+    await action()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
 }
 
 async function onBrowseInstallDir(): Promise<void> {
   await withBusy(async () => {
     const picked = await PickFolder()
-    if (picked) installDir.value = picked
+    if (picked) {
+      installDir.value = picked
+    }
   })
 }
 
 async function onBrowseDocumentsDir(): Promise<void> {
   await withBusy(async () => {
     const picked = await PickFolder()
-    if (picked) documentsDir.value = picked
+    if (picked) {
+      documentsDir.value = picked
+    }
   })
 }
 
@@ -41,8 +61,19 @@ async function onSave(): Promise<void> {
       error.value = 'Both install and documents directories are required.'
       return
     }
+
     await SetGamePaths(props.gameID, installDir.value.trim(), documentsDir.value.trim())
-    await SetActiveGame(props.gameID)
+
+    // Set this game as active since it's now configured
+    gamesStore.setActiveGame(props.gameID)
+
+    // Refresh game detection and mod list
+    await Promise.all([
+      settingsStore.fetch(),
+      modsStore.fetchAll(),
+      loadOrderStore.fetch()
+    ])
+
     emit('close')
   })
 }
