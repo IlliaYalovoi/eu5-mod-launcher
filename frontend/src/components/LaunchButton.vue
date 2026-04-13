@@ -1,49 +1,46 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { LaunchGame } from '../../wailsjs/go/launcher/App'
-import { showToast } from '../lib/toast'
-import { errorMessage } from '../lib/error'
+import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useSettingsStore } from '../stores/settings'
+import { useLoadOrderStore } from '../stores/loadorder'
 
-const props = defineProps<{
-  playsetNames: string[]
-  gameActivePlaysetIndex: number
-}>()
+const settingsStore = useSettingsStore()
+const loadOrderStore = useLoadOrderStore()
+const { isLaunching, launchError, lastLaunchAt } = storeToRefs(settingsStore)
+const { gameActivePlaysetIndex, playsetNames } = storeToRefs(loadOrderStore)
 
-const isLaunching = ref(false)
-const launchError = ref<string>('')
+const isSuccessFlash = ref(false)
+let successTimer: number | null = null
+
+watch(lastLaunchAt, (value) => {
+  if (!value) {
+    return
+  }
+  isSuccessFlash.value = true
+  if (successTimer !== null) {
+    window.clearTimeout(successTimer)
+  }
+  successTimer = window.setTimeout(() => {
+    isSuccessFlash.value = false
+    successTimer = null
+  }, 1500)
+})
 
 const gameLabel = computed(() => {
-  const idx = props.gameActivePlaysetIndex
-  if (idx >= 0 && idx < props.playsetNames.length) {
-    return `Launch ${props.playsetNames[idx]}`
+  const idx = gameActivePlaysetIndex.value
+  if (idx >= 0 && idx < playsetNames.value.length) {
+    return `Launch ${playsetNames.value[idx]}`
   }
   return 'Launch Game'
 })
 
-const isSuccessFlash = ref(false)
-let successTimer: ReturnType<typeof setTimeout> | null = null
-
-async function onLaunch() {
-  if (isLaunching.value) return
-  isLaunching.value = true
-  launchError.value = ''
-  try {
-    await LaunchGame()
-    isSuccessFlash.value = true
-    if (successTimer !== null) clearTimeout(successTimer)
-    successTimer = setTimeout(() => { isSuccessFlash.value = false; successTimer = null }, 1500)
-  } catch (err) {
-    const msg = errorMessage(err)
-    launchError.value = msg
-    showToast({ type: 'error', message: msg })
-  } finally {
-    isLaunching.value = false
-  }
+function onLaunch(): void {
+  void settingsStore.launchGame()
 }
 
-function onDismissError(event: MouseEvent) {
+function onDismissError(event: MouseEvent): void {
   event.stopPropagation()
-  launchError.value = ''
+  settingsStore.clearLaunchError()
 }
 </script>
 
