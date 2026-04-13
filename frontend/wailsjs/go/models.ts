@@ -160,3 +160,26 @@ export namespace service {
 
 }
 
+export namespace steam {
+	
+	export class WorkshopItem {
+	    itemId: string;
+	    title: string;
+	    description: string;
+	    previewUrl: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorkshopItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.itemId = source["itemId"];
+	        this.title = source["title"];
+	        this.description = source["description"];
+	        this.previewUrl = source["previewUrl"];
+	    }
+	}
+
+}
+

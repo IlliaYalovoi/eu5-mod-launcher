@@ -34,6 +34,14 @@ export function EnableMod(arg1) {
   return window['go']['main']['App']['EnableMod'](arg1);
 }
 
+export function FetchWorkshopMetadataBatch(arg1) {
+  return window['go']['main']['App']['FetchWorkshopMetadataBatch'](arg1);
+}
+
+export function FetchWorkshopMetadataForMod(arg1) {
+  return window['go']['main']['App']['FetchWorkshopMetadataForMod'](arg1);
+}
+
 export function GetAllMods() {
   return window['go']['main']['App']['GetAllMods']();
 }
@@ -122,8 +130,12 @@ export function PickFolder() {
   return window['go']['main']['App']['PickFolder']();
 }
 
-export function RefreshGamePaths() {
-  return window['go']['main']['App']['RefreshGamePaths']();
+export function RefreshWorkshopMetadataBatch(arg1) {
+  return window['go']['main']['App']['RefreshWorkshopMetadataBatch'](arg1);
+}
+
+export function RefreshWorkshopMetadataForMod(arg1) {
+  return window['go']['main']['App']['RefreshWorkshopMetadataForMod'](arg1);
 }
 
 export function RemoveConstraint(arg1, arg2) {

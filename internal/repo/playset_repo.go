@@ -1,31 +1,34 @@
 package repo
 
 import (
-	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/loadorder"
 )
 
-type FilePlaysetRepo struct{}
-
-func NewFilePlaysetRepo() *FilePlaysetRepo { return &FilePlaysetRepo{} }
-
-func (*FilePlaysetRepo) ListPlaysets(path string) ([]string, domain.PlaysetIndex, error) {
-	names, idx, err := loadorder.ListPlaysets(path)
-	return names, domain.PlaysetIndex(idx), err
+type PlaysetRepository interface {
+	ListPlaysets(path string) ([]string, int, error)
+	LoadState(path string, index int) (loadorder.State, map[string]string, error)
+	SaveState(path string, index int, state loadorder.State, modPathByID map[string]string) error
 }
 
-func (*FilePlaysetRepo) LoadState(path string, idx domain.PlaysetIndex) (domain.LoadOrder, map[string]string, error) {
-	state, paths, err := loadorder.LoadStateFromPlaysets(path, int(idx))
-	if err != nil {
-		return domain.LoadOrder{}, nil, err
-	}
-	return domain.LoadOrder{GameID: domain.GameIDEU5, PlaysetIdx: idx, OrderedIDs: state.OrderedIDs}, paths, nil
+type FilePlaysetRepository struct{}
+
+func NewFilePlaysetRepository() *FilePlaysetRepository {
+	return &FilePlaysetRepository{}
 }
 
-func (*FilePlaysetRepo) SaveState(path string, idx domain.PlaysetIndex, order domain.LoadOrder, modPathByID map[string]string) error {
-	return loadorder.SaveStateToPlaysets(path, int(idx), loadorder.State{OrderedIDs: order.OrderedIDs}, modPathByID)
+func (*FilePlaysetRepository) ListPlaysets(path string) ([]string, int, error) {
+	return loadorder.ListPlaysets(path)
 }
 
-// Backward compat aliases
-type PlaysetRepository = PlaysetRepo
-var NewFilePlaysetRepository = NewFilePlaysetRepo
+func (*FilePlaysetRepository) LoadState(path string, index int) (loadorder.State, map[string]string, error) {
+	return loadorder.LoadStateFromPlaysets(path, index)
+}
+
+func (*FilePlaysetRepository) SaveState(
+	path string,
+	index int,
+	state loadorder.State,
+	modPathByID map[string]string,
+) error {
+	return loadorder.SaveStateToPlaysets(path, index, state, modPathByID)
+}

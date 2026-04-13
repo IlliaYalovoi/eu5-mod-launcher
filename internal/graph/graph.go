@@ -21,12 +21,14 @@ type Constraint struct {
 	ModID string `json:"modId,omitempty"`
 }
 
+// Graph stores constraints for load ordering.
 type Graph struct {
 	edges map[string]map[string]struct{}
 	first map[string]struct{}
 	last  map[string]struct{}
 }
 
+// New creates an empty graph.
 func New() *Graph {
 	return &Graph{
 		edges: make(map[string]map[string]struct{}),
@@ -35,6 +37,7 @@ func New() *Graph {
 	}
 }
 
+// Add adds a loads-after constraint: from will be placed after to.
 func (g *Graph) Add(from, to string) {
 	if g.edges[from] == nil {
 		g.edges[from] = make(map[string]struct{})
@@ -42,14 +45,17 @@ func (g *Graph) Add(from, to string) {
 	g.edges[from][to] = struct{}{}
 }
 
+// AddFirst marks modID as load-first.
 func (g *Graph) AddFirst(modID string) {
 	g.first[modID] = struct{}{}
 }
 
+// AddLast marks modID as load-last.
 func (g *Graph) AddLast(modID string) {
 	g.last[modID] = struct{}{}
 }
 
+// Remove removes a specific loads-after constraint.
 func (g *Graph) Remove(from, to string) {
 	neighbors, ok := g.edges[from]
 	if !ok {
@@ -62,19 +68,23 @@ func (g *Graph) Remove(from, to string) {
 	}
 }
 
+// RemoveFirst removes a load-first marker.
 func (g *Graph) RemoveFirst(modID string) {
 	delete(g.first, modID)
 }
 
+// RemoveLast removes a load-last marker.
 func (g *Graph) RemoveLast(modID string) {
 	delete(g.last, modID)
 }
 
+// HasFirst reports whether modID is marked load-first.
 func (g *Graph) HasFirst(modID string) bool {
 	_, ok := g.first[modID]
 	return ok
 }
 
+// HasLast reports whether modID is marked load-last.
 func (g *Graph) HasLast(modID string) bool {
 	_, ok := g.last[modID]
 	return ok

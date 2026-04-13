@@ -2,9 +2,9 @@ package service
 
 import (
 	"errors"
-	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
 	gameeu5 "eu5-mod-launcher/internal/game/eu5"
+	"eu5-mod-launcher/internal/loadorder"
 	"fmt"
 	"strings"
 )
@@ -15,11 +15,11 @@ var (
 )
 
 type GameService struct {
-	adapters map[domain.GameID]game.Adapter
+	adapters map[game.GameID]game.ModListAdapter
 }
 
-func NewGameService(adapters ...game.Adapter) *GameService {
-	registered := make(map[domain.GameID]game.Adapter)
+func NewGameService(adapters ...game.ModListAdapter) *GameService {
+	registered := make(map[game.GameID]game.ModListAdapter)
 	if len(adapters) == 0 {
 		defaultAdapter := gameeu5.NewAdapter(nil)
 		registered[defaultAdapter.GameID()] = defaultAdapter
@@ -34,7 +34,7 @@ func NewGameService(adapters ...game.Adapter) *GameService {
 	return &GameService{adapters: registered}
 }
 
-func (s *GameService) ResolveAdapter(id domain.GameID) (game.Adapter, error) {
+func (s *GameService) ResolveAdapter(id game.GameID) (game.ModListAdapter, error) {
 	adapter, ok := s.adapters[id]
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrUnsupportedGame, id)
@@ -42,22 +42,22 @@ func (s *GameService) ResolveAdapter(id domain.GameID) (game.Adapter, error) {
 	return adapter, nil
 }
 
-func (s *GameService) DiscoverPaths(id domain.GameID) (domain.GamePaths, error) {
+func (s *GameService) DiscoverPaths(id game.GameID) (loadorder.GamePaths, error) {
 	adapter, err := s.ResolveAdapter(id)
 	if err != nil {
-		return domain.GamePaths{}, err
+		return loadorder.GamePaths{}, err
 	}
 	paths, err := adapter.DiscoverPaths()
 	if err != nil {
-		return domain.GamePaths{}, err
+		return loadorder.GamePaths{}, err
 	}
 	if strings.TrimSpace(paths.PlaysetsPath) == "" {
-		return domain.GamePaths{}, fmt.Errorf("%w: %s playsets path", ErrGamePathsMissing, id)
+		return loadorder.GamePaths{}, fmt.Errorf("%w: %s playsets path", ErrGamePathsMissing, id)
 	}
 	return paths, nil
 }
 
-func (s *GameService) ListModLists(id domain.GameID, playsetsPath string) ([]string, int, error) {
+func (s *GameService) ListModLists(id game.GameID, playsetsPath string) ([]string, int, error) {
 	adapter, err := s.ResolveAdapter(id)
 	if err != nil {
 		return nil, -1, err
@@ -65,30 +65,29 @@ func (s *GameService) ListModLists(id domain.GameID, playsetsPath string) ([]str
 	if strings.TrimSpace(playsetsPath) == "" {
 		return nil, -1, fmt.Errorf("%w: %s playsets path", ErrGamePathsMissing, id)
 	}
-	names, idx, err := adapter.PlaysetRepo().ListPlaysets(playsetsPath)
-	return names, int(idx), err
+	return adapter.ListModLists(playsetsPath)
 }
 
 func (s *GameService) ImportModList(
-	id domain.GameID,
+	id game.GameID,
 	playsetsPath string,
 	listIndex int,
-) (domain.LoadOrder, map[string]string, error) {
+) (loadorder.State, map[string]string, error) {
 	adapter, err := s.ResolveAdapter(id)
 	if err != nil {
-		return domain.LoadOrder{}, nil, err
+		return loadorder.State{}, nil, err
 	}
 	if strings.TrimSpace(playsetsPath) == "" {
-		return domain.LoadOrder{}, nil, fmt.Errorf("%w: %s playsets path", ErrGamePathsMissing, id)
+		return loadorder.State{}, nil, fmt.Errorf("%w: %s playsets path", ErrGamePathsMissing, id)
 	}
-	return adapter.PlaysetRepo().LoadState(playsetsPath, domain.PlaysetIndex(listIndex))
+	return adapter.ImportModList(playsetsPath, listIndex)
 }
 
 func (s *GameService) ExportModList(
-	id domain.GameID,
+	id game.GameID,
 	playsetsPath string,
 	listIndex int,
-	order domain.LoadOrder,
+	state loadorder.State,
 	modPathByID map[string]string,
 ) error {
 	adapter, err := s.ResolveAdapter(id)
@@ -98,5 +97,6 @@ func (s *GameService) ExportModList(
 	if strings.TrimSpace(playsetsPath) == "" {
 		return fmt.Errorf("%w: %s playsets path", ErrGamePathsMissing, id)
 	}
-	return adapter.PlaysetRepo().SaveState(playsetsPath, domain.PlaysetIndex(listIndex), order, modPathByID)
+	return adapter.ExportModList(playsetsPath, listIndex, state, modPathByID)
 }
+

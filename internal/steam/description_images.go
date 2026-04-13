@@ -25,6 +25,7 @@ var (
 	errDescriptionImageURLInvalid     = errors.New("description image url scheme is unsupported")
 )
 
+// DescriptionImageCache stores images referenced by workshop descriptions.
 type DescriptionImageCache struct {
 	dirPath    string
 	maxEntries int
@@ -93,7 +94,7 @@ func (c *DescriptionImageCache) EnsureStored(itemID, imageURL string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("store description image for %q: %w", normalizedID, err)
 	}
-	if err = guardImage(data); err != nil {
+	if err := guardImage(data); err != nil {
 		return "", fmt.Errorf("store description image for %q: %w", normalizedID, err)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// EncodeImageFileAsDataURL reads an image file and returns a data URL usable by WebView.
 func EncodeImageFileAsDataURL(path string) (string, error) {
 	trimmedPath := strings.TrimSpace(path)
 	if trimmedPath == "" {
