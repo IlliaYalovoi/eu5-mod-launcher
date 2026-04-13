@@ -1,23 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
+import { storeToRefs } from 'pinia'
 import type { LauncherLayout, Mod } from '../types'
-import {
-  CreateLauncherCategory,
-  DeleteLauncherCategory,
-  GetAllMods,
-  GetGameActivePlaysetIndex,
-  GetLauncherActivePlaysetIndex,
-  GetLauncherLayout,
-  GetPlaysetNames,
-  SaveCompiledLoadOrder,
-  SetLauncherLayout,
-} from '../../wailsjs/go/launcher/App'
-import { showToast } from '../lib/toast'
-import { errorMessage } from '../lib/error'
 import AutosortButton from './AutosortButton.vue'
 import CycleErrorPanel from './CycleErrorPanel.vue'
 import LaunchButton from './LaunchButton.vue'
+import { useLoadOrderStore } from '../stores/loadorder'
+import { useModsStore } from '../stores/mods'
 import BaseButton from './ui/BaseButton.vue'
 
 type EditableBlock = {
@@ -34,14 +24,13 @@ const emit = defineEmits<{
   (event: 'contextmenu', payload: { modID: string; x: number; y: number }): void
   (event: 'open-constraints', modID: string): void
   (event: 'select-mod', modID: string): void
-  (event: 'game-changed'): void
 }>()
 
-// State owned by this panel
-const launcherLayout = ref<LauncherLayout>({ ungrouped: [], categories: [], order: [], collapsed: {} })
-const allMods = ref<Mod[]>([])
-const playsetNames = ref<string[]>([])
-const gameActivePlaysetIndex = ref(-1)
+const loadOrderStore = useLoadOrderStore()
+const modsStore = useModsStore()
+
+const { launcherLayout } = storeToRefs(loadOrderStore)
+const { allMods } = storeToRefs(modsStore)
 
 const blocks = ref<EditableBlock[]>([])
 const persistError = ref<string | null>(null)
@@ -69,7 +58,9 @@ const compiledOrder = computed(() => {
   const seen: Record<string, boolean> = {}
   for (const block of blocks.value) {
     for (const id of block.modIds) {
-      if (seen[id]) continue
+      if (seen[id]) {
+        continue
+      }
       seen[id] = true
       out.push(id)
     }
@@ -88,7 +79,9 @@ const numberByModID = computed(() => {
 const localNumberByModID = computed(() => {
   const out: Record<string, number> = {}
   for (const block of blocks.value) {
-    if (block.isUngrouped) continue
+    if (block.isUngrouped) {
+      continue
+    }
     for (let i = 0; i < block.modIds.length; i += 1) {
       out[block.modIds[i]] = i + 1
     }
@@ -108,58 +101,86 @@ const blockByModID = computed(() => {
 
 const activeCountLabel = computed(() => `${compiledOrder.value.length} mods active`)
 
-async function load() {
-  try {
-    const [layout, mods, names, gameIdx] = await Promise.all([
-      GetLauncherLayout(),
-      GetAllMods(),
-      GetPlaysetNames(),
-      GetGameActivePlaysetIndex(),
-    ])
-    launcherLayout.value = layout as LauncherLayout
-    allMods.value = mods as Mod[]
-    playsetNames.value = names
-    gameActivePlaysetIndex.value = gameIdx
-  } catch (err) {
-    showToast({ type: 'error', message: errorMessage(err) })
-  }
-}
-
-function syncBlocksFromLayout() {
-  const value = launcherLayout.value
-  const collapsed = value.collapsed || {}
-  const categoryByID: Record<string, { id: string; name: string; modIds: string[] }> = {}
-  for (const category of value.categories) {
-    categoryByID[category.id] = { id: category.id, name: category.name, modIds: [...category.modIds] }
-  }
-  const order = value.order && value.order.length > 0 ? [...value.order] : [ungroupedID, ...value.categories.map((c) => c.id)]
-  const next: EditableBlock[] = []
-  const seen: Record<string, boolean> = {}
-
-  for (const id of order) {
-    if (seen[id]) continue
-    seen[id] = true
-    if (id === ungroupedID) {
-      next.push({ id: ungroupedID, name: 'Ungrouped', modIds: [...value.ungrouped], isUngrouped: true, collapsed: !!collapsed[ungroupedID] })
-      continue
+watch(
+  launcherLayout,
+  (value) => {
+    const collapsed = value.collapsed || {}
+    const categoryByID: Record<string, { id: string; name: string; modIds: string[] }> = {}
+    for (const category of value.categories) {
+      categoryByID[category.id] = {
+        id: category.id,
+        name: category.name,
+        modIds: [...category.modIds],
+      }
     }
-    const category = categoryByID[id]
-    if (!category) continue
-    next.push({ id: category.id, name: category.name, modIds: [...category.modIds], isUngrouped: false, collapsed: !!collapsed[category.id] })
-  }
-  if (!seen[ungroupedID]) {
-    next.unshift({ id: ungroupedID, name: 'Ungrouped', modIds: [...value.ungrouped], isUngrouped: true, collapsed: !!collapsed[ungroupedID] })
-  }
-  for (const category of value.categories) {
-    if (seen[category.id]) continue
-    next.push({ id: category.id, name: category.name, modIds: [...category.modIds], isUngrouped: false, collapsed: !!collapsed[category.id] })
-  }
-  blocks.value = next
-}
 
-watch(launcherLayout, syncBlocksFromLayout, { immediate: true })
+    const order = value.order && value.order.length > 0 ? [...value.order] : [ungroupedID, ...value.categories.map((c) => c.id)]
+    const next: EditableBlock[] = []
+    const seen: Record<string, boolean> = {}
 
-onMounted(load)
+    for (const id of order) {
+      if (seen[id]) {
+        continue
+      }
+      seen[id] = true
+
+      if (id === ungroupedID) {
+        next.push({
+          id: ungroupedID,
+          name: 'Ungrouped',
+          modIds: [...value.ungrouped],
+          isUngrouped: true,
+          collapsed: !!collapsed[ungroupedID],
+        })
+        continue
+      }
+
+      const category = categoryByID[id]
+      if (!category) {
+        continue
+      }
+      next.push({
+        id: category.id,
+        name: category.name,
+        modIds: [...category.modIds],
+        isUngrouped: false,
+        collapsed: !!collapsed[category.id],
+      })
+    }
+
+    if (!seen[ungroupedID]) {
+      next.unshift({
+        id: ungroupedID,
+        name: 'Ungrouped',
+        modIds: [...value.ungrouped],
+        isUngrouped: true,
+        collapsed: !!collapsed[ungroupedID],
+      })
+    }
+
+    for (const category of value.categories) {
+      if (seen[category.id]) {
+        continue
+      }
+      next.push({
+        id: category.id,
+        name: category.name,
+        modIds: [...category.modIds],
+        isUngrouped: false,
+        collapsed: !!collapsed[category.id],
+      })
+    }
+
+    blocks.value = next
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  if (launcherLayout.value.ungrouped.length === 0 && launcherLayout.value.categories.length === 0) {
+    void loadOrderStore.fetch()
+  }
+})
 
 function getMod(id: string): Mod | null {
   return modsByID.value[id] || null
@@ -197,12 +218,7 @@ function toLayout(): LauncherLayout {
 
 async function persistLayoutAsync(): Promise<void> {
   persistError.value = null
-  try {
-    await SetLauncherLayout(toLayout() as any)
-  } catch (err) {
-    persistError.value = errorMessage(err)
-    throw err
-  }
+  await loadOrderStore.persistLauncherLayout(toLayout())
 }
 
 function persistLayout(): void {
@@ -221,15 +237,14 @@ function onModClick(modID: string): void {
 
 function onCreateCategory(): void {
   const name = categoryName.value.trim()
-  if (!name) return
+  if (!name) {
+    return
+  }
   persistError.value = null
-  void CreateLauncherCategory(name)
+  void loadOrderStore
+    .createCategory(name)
     .then(() => {
       categoryName.value = ''
-      return GetLauncherLayout()
-    })
-    .then((layout) => {
-      launcherLayout.value = layout as LauncherLayout
     })
     .catch((err: unknown) => {
       persistError.value = err instanceof Error ? err.message : String(err)
@@ -238,10 +253,9 @@ function onCreateCategory(): void {
 
 function onDeleteCategory(categoryID: string): void {
   persistError.value = null
-  void DeleteLauncherCategory(categoryID)
-    .then(() => GetLauncherLayout())
-    .then((layout) => { launcherLayout.value = layout as LauncherLayout })
-    .catch((err: unknown) => { persistError.value = err instanceof Error ? err.message : String(err) })
+  void loadOrderStore.deleteCategory(categoryID).catch((err: unknown) => {
+    persistError.value = err instanceof Error ? err.message : String(err)
+  })
 }
 
 function onToggleCollapse(blockID: string): void {
@@ -300,21 +314,23 @@ function cancelCategoryEdit(): void {
 }
 
 function confirmCategoryEdit(): void {
-  if (!editingCategoryID.value) return
-  const trimmed = editingCategoryName.value.trim()
-  if (!trimmed) { editingCategoryID.value = ''; return }
-  const next = {
-    ungrouped: [...launcherLayout.value.ungrouped],
-    categories: launcherLayout.value.categories.map((cat) =>
-      cat.id === editingCategoryID.value ? { ...cat, name: trimmed } : { ...cat },
-    ),
-    order: launcherLayout.value.order ? [...launcherLayout.value.order] : undefined,
-    collapsed: launcherLayout.value.collapsed ? { ...launcherLayout.value.collapsed } : undefined,
+  if (!editingCategoryID.value) {
+    return
   }
-  void SetLauncherLayout(next as any)
-    .then(() => GetLauncherLayout())
-    .then((layout) => { launcherLayout.value = layout as LauncherLayout; editingCategoryID.value = '' })
-    .catch((err: unknown) => { persistError.value = err instanceof Error ? err.message : String(err); editingCategoryID.value = '' })
+  const trimmed = editingCategoryName.value.trim()
+  if (!trimmed) {
+    editingCategoryID.value = ''
+    return
+  }
+  void loadOrderStore
+    .renameCategory(editingCategoryID.value, trimmed)
+    .then(() => {
+      editingCategoryID.value = ''
+    })
+    .catch((err: unknown) => {
+      persistError.value = err instanceof Error ? err.message : String(err)
+      editingCategoryID.value = ''
+    })
 }
 
 function moveModByGlobalIndex(modID: string, desiredOneBased: number): void {
@@ -390,9 +406,13 @@ function onSaveCompiled(): void {
   saveError.value = null
   isSavingCompiled.value = true
   void persistLayoutAsync()
-    .then(() => SaveCompiledLoadOrder())
-    .catch((err: unknown) => { saveError.value = err instanceof Error ? err.message : String(err) })
-    .finally(() => { isSavingCompiled.value = false })
+    .then(() => loadOrderStore.saveCompiled())
+    .catch((err: unknown) => {
+      saveError.value = err instanceof Error ? err.message : String(err)
+    })
+    .finally(() => {
+      isSavingCompiled.value = false
+    })
 }
 </script>
 
@@ -404,8 +424,8 @@ function onSaveCompiled(): void {
         <p class="count">{{ activeCountLabel }}</p>
       </div>
       <div class="head-actions">
-        <LaunchButton :playset-names="playsetNames" :game-active-playset-index="gameActivePlaysetIndex" />
-        <AutosortButton @sorted="load" />
+        <LaunchButton />
+        <AutosortButton />
         <BaseButton :loading="isSavingCompiled" @click="onSaveCompiled">Save to Game</BaseButton>
       </div>
     </header>
