@@ -2,10 +2,8 @@ package main
 
 import (
 	"embed"
-	"fmt"
-
-	"eu5-mod-launcher/internal/launcher"
 	"eu5-mod-launcher/internal/logging"
+	"fmt"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -16,7 +14,8 @@ import (
 var assets embed.FS
 
 func main() {
-	app := launcher.NewApp()
+	// Create an instance of the app structure
+	app := NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -27,7 +26,7 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.Startup,
+		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
 		},

@@ -1,4 +1,4 @@
-package repo
+package graph
 
 import (
 	"encoding/json"
@@ -6,11 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"eu5-mod-launcher/internal/domain"
 )
 
-func SaveConstraints(path string, g *domain.Graph) error {
+// SaveConstraints stores constraints as a JSON array of Constraint structs.
+func SaveConstraints(path string, g *Graph) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create constraints directory for %q: %w", path, err)
 	}
@@ -28,17 +27,18 @@ func SaveConstraints(path string, g *domain.Graph) error {
 	return nil
 }
 
-func LoadConstraints(path string) (*domain.Graph, error) {
+// LoadConstraints loads constraints from a JSON array and returns a graph.
+func LoadConstraints(path string) (*Graph, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return domain.NewGraph(), nil
+			return New(), nil
 		}
 		return nil, fmt.Errorf("read constraints file %q: %w", path, err)
 	}
 
 	if strings.TrimSpace(string(content)) == "" {
-		return domain.NewGraph(), nil
+		return New(), nil
 	}
 
 	constraints, err := decodeConstraints(content, path)
@@ -46,14 +46,14 @@ func LoadConstraints(path string) (*domain.Graph, error) {
 		return nil, err
 	}
 
-	constraintGraph := domain.NewGraph()
+	constraintGraph := New()
 	applyConstraints(constraintGraph, constraints)
 
 	return constraintGraph, nil
 }
 
-func decodeConstraints(content []byte, path string) ([]domain.Constraint, error) {
-	var constraints []domain.Constraint
+func decodeConstraints(content []byte, path string) ([]Constraint, error) {
+	var constraints []Constraint
 	if err := json.Unmarshal(content, &constraints); err != nil {
 		var legacy []struct {
 			From string `json:"from"`
@@ -63,29 +63,29 @@ func decodeConstraints(content []byte, path string) ([]domain.Constraint, error)
 			return nil, fmt.Errorf("decode constraints file %q: %w", path, err)
 		}
 
-		constraints = make([]domain.Constraint, 0, len(legacy))
+		constraints = make([]Constraint, 0, len(legacy))
 		for i := range legacy {
 			item := legacy[i]
-			constraints = append(constraints, domain.Constraint{Type: domain.ConstraintAfter, From: item.From, To: item.To})
+			constraints = append(constraints, Constraint{Type: ConstraintTypeAfter, From: item.From, To: item.To})
 		}
 	}
 
 	return constraints, nil
 }
 
-func applyConstraints(constraintGraph *domain.Graph, constraints []domain.Constraint) {
+func applyConstraints(constraintGraph *Graph, constraints []Constraint) {
 	for i := range constraints {
 		constraint := constraints[i]
-		typ := string(constraint.Type)
+		typ := constraint.Type
 		if typ == "" {
-			typ = string(domain.ConstraintAfter)
+			typ = ConstraintTypeAfter
 		}
 		switch typ {
-		case string(domain.ConstraintFirst):
+		case ConstraintTypeFirst:
 			if constraint.ModID != "" {
 				constraintGraph.AddFirst(constraint.ModID)
 			}
-		case string(domain.ConstraintLast):
+		case ConstraintTypeLast:
 			if constraint.ModID != "" {
 				constraintGraph.AddLast(constraint.ModID)
 			}

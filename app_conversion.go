@@ -1,4 +1,4 @@
-package launcher
+package main
 
 import "eu5-mod-launcher/internal/repo"
 

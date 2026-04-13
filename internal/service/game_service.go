@@ -4,6 +4,7 @@ import (
 	"errors"
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
+	gameeu5 "eu5-mod-launcher/internal/game/eu5"
 	"fmt"
 	"strings"
 )
@@ -20,7 +21,7 @@ type GameService struct {
 func NewGameService(adapters ...game.Adapter) *GameService {
 	registered := make(map[domain.GameID]game.Adapter)
 	if len(adapters) == 0 {
-		defaultAdapter := game.NewEU5Adapter(nil)
+		defaultAdapter := gameeu5.NewAdapter(nil)
 		registered[defaultAdapter.GameID()] = defaultAdapter
 	} else {
 		for _, adapter := range adapters {

@@ -1,4 +1,4 @@
-package launcher
+package main
 
 type ModsDirStatus struct {
 	EffectiveDir       string `json:"effectiveDir"`

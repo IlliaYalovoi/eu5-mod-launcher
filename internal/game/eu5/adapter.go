@@ -1,30 +1,30 @@
-package game
+package eu5
 
 import (
 	"eu5-mod-launcher/internal/domain"
+	"eu5-mod-launcher/internal/loadorder"
 	"eu5-mod-launcher/internal/repo"
-	"eu5-mod-launcher/internal/steam"
 )
 
-type EU5Adapter struct {
+type Adapter struct {
 	playsets repo.PlaysetRepo
 }
 
-func NewEU5Adapter(playsets repo.PlaysetRepo) *EU5Adapter {
+func NewAdapter(playsets repo.PlaysetRepo) *Adapter {
 	if playsets == nil {
 		playsets = repo.NewFilePlaysetRepo()
 	}
-	return &EU5Adapter{playsets: playsets}
+	return &Adapter{playsets: playsets}
 }
 
-func (*EU5Adapter) GameID() domain.GameID { return domain.GameIDEU5 }
+func (*Adapter) GameID() domain.GameID { return domain.GameIDEU5 }
 
-func (*EU5Adapter) Descriptor() domain.GameDescriptor {
+func (*Adapter) Descriptor() domain.GameDescriptor {
 	return domain.GameDescriptor{ID: domain.GameIDEU5, DisplayName: "Europa Universalis V"}
 }
 
-func (*EU5Adapter) DiscoverPaths() (domain.GamePaths, error) {
-	paths, err := steam.DiscoverGamePaths()
+func (*Adapter) DiscoverPaths() (domain.GamePaths, error) {
+	paths, err := loadorder.DiscoverGamePaths()
 	if err != nil {
 		return domain.GamePaths{}, err
 	}
@@ -36,4 +36,4 @@ func (*EU5Adapter) DiscoverPaths() (domain.GamePaths, error) {
 	}, nil
 }
 
-func (a *EU5Adapter) PlaysetRepo() repo.PlaysetRepo { return a.playsets }
+func (a *Adapter) PlaysetRepo() repo.PlaysetRepo { return a.playsets }

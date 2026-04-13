@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"eu5-mod-launcher/internal/domain"
+	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/repo"
 	"fmt"
 	"strings"
@@ -27,7 +28,7 @@ var (
 const errTypeMismatchMsg = "categories can only constrain categories, and mods can only constrain mods"
 
 type ConstraintsService struct {
-	graph      *domain.Graph
+	graph      *graph.Graph
 	repo       repo.ConstraintsRepository
 	path       string
 	expand     func(string) []string
@@ -35,7 +36,7 @@ type ConstraintsService struct {
 }
 
 func NewConstraintsService(
-	constraintGraph *domain.Graph,
+	constraintGraph *graph.Graph,
 	constraintsPath string,
 	repository repo.ConstraintsRepository,
 	expand func(string) []string,
@@ -59,9 +60,9 @@ func NewConstraintsService(
 	}
 }
 
-func (s *ConstraintsService) All() []domain.Constraint {
+func (s *ConstraintsService) All() []graph.Constraint {
 	if s == nil || s.graph == nil {
-		return []domain.Constraint{}
+		return []graph.Constraint{}
 	}
 	return s.graph.All()
 }
@@ -288,42 +289,42 @@ func (s *ConstraintsService) applyWithRollback(mutate func() error, saveFormat s
 	return nil
 }
 
-func (s *ConstraintsService) restoreFrom(snapshot []domain.Constraint) {
+func (s *ConstraintsService) restoreFrom(snapshot []graph.Constraint) {
 	clearConstraintGraph(s.graph)
 	applyConstraintSnapshot(s.graph, snapshot)
 }
 
-func clearConstraintGraph(constraintGraph *domain.Graph) {
+func clearConstraintGraph(constraintGraph *graph.Graph) {
 	current := constraintGraph.All()
 	for i := range current {
 		removeConstraint(constraintGraph, current[i])
 	}
 }
 
-func applyConstraintSnapshot(constraintGraph *domain.Graph, snapshot []domain.Constraint) {
+func applyConstraintSnapshot(constraintGraph *graph.Graph, snapshot []graph.Constraint) {
 	for i := range snapshot {
 		addConstraint(constraintGraph, snapshot[i])
 	}
 }
 
-func removeConstraint(constraintGraph *domain.Graph, constraint domain.Constraint) {
-	switch normalizeConstraintType(string(constraint.Type)) {
-	case string(domain.ConstraintFirst):
+func removeConstraint(constraintGraph *graph.Graph, constraint graph.Constraint) {
+	switch normalizeConstraintType(constraint.Type) {
+	case graph.ConstraintTypeFirst:
 		constraintGraph.RemoveFirst(constraint.ModID)
-	case string(domain.ConstraintLast):
+	case graph.ConstraintTypeLast:
 		constraintGraph.RemoveLast(constraint.ModID)
 	default:
 		constraintGraph.Remove(constraint.From, constraint.To)
 	}
 }
 
-func addConstraint(constraintGraph *domain.Graph, constraint domain.Constraint) {
-	switch normalizeConstraintType(string(constraint.Type)) {
-	case string(domain.ConstraintFirst):
+func addConstraint(constraintGraph *graph.Graph, constraint graph.Constraint) {
+	switch normalizeConstraintType(constraint.Type) {
+	case graph.ConstraintTypeFirst:
 		if constraint.ModID != "" {
 			constraintGraph.AddFirst(constraint.ModID)
 		}
-	case string(domain.ConstraintLast):
+	case graph.ConstraintTypeLast:
 		if constraint.ModID != "" {
 			constraintGraph.AddLast(constraint.ModID)
 		}
@@ -336,7 +337,7 @@ func addConstraint(constraintGraph *domain.Graph, constraint domain.Constraint) 
 
 func normalizeConstraintType(constraintType string) string {
 	if constraintType == "" {
-		return string(domain.ConstraintAfter)
+		return graph.ConstraintTypeAfter
 	}
 
 	return constraintType

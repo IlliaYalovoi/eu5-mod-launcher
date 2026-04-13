@@ -1,18 +1,18 @@
-package launcher
+package main
 
 import (
 	"context"
-	"path/filepath"
-	"strings"
-	"sync"
-
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
+	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/loadorder"
 	"eu5-mod-launcher/internal/logging"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/service"
 	"eu5-mod-launcher/internal/steam"
+	"path/filepath"
+	"strings"
+	"sync"
 )
 
 type appServices struct {
@@ -28,9 +28,9 @@ type appServices struct {
 	settingsRepo    repo.SettingsRepository
 	layoutRepo      repo.LayoutRepository
 	loadOrderRepo   repo.LoadOrderRepo
-	conGraph        *domain.Graph
+	conGraph        *graph.Graph
 	conService      *service.ConstraintsService
-	gameDetection   *game.Detector
+	gameDetection   *service.GameDetectionService
 	steamClient     workshopMetadataFetcher
 	steamMeta       *steam.MetadataCache
 	steamImage      *steam.ImageCache
@@ -64,7 +64,7 @@ type App struct {
 	activeGameID    domain.GameID
 }
 
-func (a *App) Startup(ctx context.Context) {
+func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.initCoreServices()
 	a.initLoadOrder()
@@ -95,11 +95,11 @@ func (a *App) initCoreServices() {
 	a.svc.launchSvc = service.NewLaunchService()
 	a.svc.gameSvc = service.NewGameService()
 	a.svc.constraintsRepo = repo.NewFileConstraintsRepository()
-	a.svc.gameDetection = game.NewDetector(a.svc.settingsRepo)
+	a.svc.gameDetection = service.NewGameDetectionService(a.svc.settingsRepo)
 	a.svc.playsetRepo = repo.NewFilePlaysetRepo()
 	a.svc.playsetSvc = service.NewPlaysetService(a.svc.playsetRepo)
 	a.svc.steamClient = steam.NewClient()
-	a.svc.conGraph = domain.NewGraph()
+	a.svc.conGraph = graph.New()
 	a.openURL = a.svc.launchSvc.OpenURL
 	a.openInAppURL = a.openURLInApp
 
@@ -157,7 +157,7 @@ func (a *App) ensureReady() error {
 		return errAppStorageNotInitialized
 	}
 	if a.svc.conGraph == nil {
-		a.svc.conGraph = domain.NewGraph()
+		a.svc.conGraph = graph.New()
 	}
 	if a.loadOrder.OrderedIDs == nil {
 		a.loadOrder.OrderedIDs = []string{}
@@ -196,7 +196,7 @@ func (a *App) loadStartupState() startupLoads {
 	wg.Add(3)
 	var settings repo.AppSettingsData
 	var settingsErr error
-	var constraints *domain.Graph
+	var constraints *graph.Graph
 	var constraintsErr error
 	var layout repo.LauncherLayoutData
 	var layoutErr error
@@ -248,15 +248,15 @@ func (a *App) loadStartupPlaysetState() {
 	}
 }
 
-func (a *App) applyStartupConstraints(g *domain.Graph, err error) {
+func (a *App) applyStartupConstraints(g *graph.Graph, err error) {
 	if err != nil {
 		logging.Warnf("startup: load constraints, using empty: %v", err)
-		a.svc.conGraph = domain.NewGraph()
+		a.svc.conGraph = graph.New()
 		a.initConstraintsService()
 		return
 	}
 	if g == nil {
-		g = domain.NewGraph()
+		g = graph.New()
 	}
 	a.svc.conGraph = g
 	a.initConstraintsService()
