@@ -132,14 +132,14 @@ export namespace launcher {
 export namespace mods {
 	
 	export class Mod {
-	    id: string;
+	    ID: string;
 	    name: string;
-	    version: string;
-	    tags: string[];
-	    description: string;
-	    thumbnailPath: string;
-	    dirPath: string;
-	    enabled: boolean;
+	    Version: string;
+	    Tags: string[];
+	    Description: string;
+	    ThumbnailPath: string;
+	    DirPath: string;
+	    Enabled: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Mod(source);
@@ -147,14 +147,14 @@ export namespace mods {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.version = source["version"];
-	        this.tags = source["tags"];
-	        this.description = source["description"];
-	        this.thumbnailPath = source["thumbnailPath"];
-	        this.dirPath = source["dirPath"];
-	        this.enabled = source["enabled"];
+	        this.ID = source["ID"];
+	        this.name = source["Name"];
+	        this.Version = source["Version"];
+	        this.Tags = source["Tags"];
+	        this.Description = source["Description"];
+	        this.ThumbnailPath = source["ThumbnailPath"];
+	        this.DirPath = source["DirPath"];
+	        this.Enabled = source["Enabled"];
 	    }
 	}
 
