@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { OpenExternalLink, OpenWorkshopItem, FetchWorkshopMetadataForMod, IsUnsubscribeEnabled, UnsubscribeWorkshopMod } from '../../wailsjs/go/launcher/App'
+import { OpenExternalLink, OpenWorkshopItem, FetchWorkshopMetadataForMod, IsUnsubscribeEnabled } from '../../wailsjs/go/launcher/App'
 import { renderRichDescriptionHtml, renderSteamDescriptionHtml, toDisplayImageSrc } from '../utils/steamDescription'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
@@ -32,7 +32,7 @@ async function loadModDetails() {
       unsubscribeEnabled.value = await IsUnsubscribeEnabled()
       unsubscribeFeatureLoaded.value = true
     }
-    const ws = await FetchWorkshopMetadataForMod(props.mod?.ID || '')
+    const ws = await FetchWorkshopMetadataForMod(props.modID)
     steamMetadata.value = ws as WorkshopItem
   } catch (err) {
     steamError.value = errorMessage(err)
@@ -85,7 +85,8 @@ async function confirmUnsubscribe(): Promise<void> {
   if (!props.mod?.ID) return
   unsubscribeLoading.value = true
   try {
-    await UnsubscribeWorkshopMod(props.mod?.ID || '')
+    const { UnsubscribeWorkshopMod } = await import('../../wailsjs/go/launcher/App')
+    await UnsubscribeWorkshopMod(props.mod.ID)
     showToast({ type: 'success', message: 'Unsubscribed successfully' })
   } catch (err) {
     unsubscribeError.value = errorMessage(err)

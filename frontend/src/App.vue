@@ -9,7 +9,6 @@ import {
   GetLoadOrder,
   GetAllMods,
   GetModsDirStatus,
-  GetPlaysetNames,
   ListSupportedGames,
   SetActiveGame,
   SetLauncherActivePlaysetIndex,
