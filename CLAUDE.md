@@ -2,6 +2,7 @@
 
 ## CORE BEHAVIOR
 - NO preamble, NO explanations, NO summaries
+- Using `caveman` skill is MANDATORY for all tasks
 - DO NOT describe actions — perform them
 - NO follow-up questions unless BLOCKED by ambiguity
 - OUTPUT ONLY:
