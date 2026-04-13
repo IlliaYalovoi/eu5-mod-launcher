@@ -149,6 +149,7 @@ func (a *App) initCoreServices() {
 	a.gameService.Register(game.Adapter(legacy.NewSqliteAdapter("hoi4", "Hearts of Iron IV", "394360")))
 	a.gameService.Register(game.Adapter(legacy.NewSqliteAdapter("ck3", "Crusader Kings III", "1158310")))
 	a.gameService.Register(game.Adapter(legacy.NewSqliteAdapter("stellaris", "Stellaris", "281990")))
+	a.gameService.Register(game.Adapter(legacy.NewSqliteAdapter("vic3", "Victoria 3", "529340")))
 
 	a.setActiveGameOnStartup()
 
@@ -214,11 +215,24 @@ func (a *App) refreshState() {
 		a.loState = state
 	}
 
-	if a.gamePaths.PlaysetsPath == "" {
-		var err error
-		a.gamePaths, err = loadorder.DiscoverGamePaths()
-		if err != nil {
-			logging.Errorf("refreshState: auto-discover game paths: %v", err)
+	if a.gameService == nil {
+		return
+	}
+	inst, err := a.gameService.GetActiveInstance()
+	if err != nil {
+		logging.Warnf("refreshState: no active game instance, skipping paths refresh")
+	} else {
+		a.gamePaths = loadorder.GamePaths{
+			PlaysetsPath:    filepath.Join(inst.UserConfigPath, "playsets.json"),
+			LocalModsDir:    inst.LocalModsDir,
+			WorkshopModDirs: inst.WorkshopModDirs,
+			GameExePath:     inst.GameExePath,
+		}
+		// Special case for legacy SQLite games
+		adapter := a.gameService.GetAdapter(inst.GameID)
+		if _, ok := adapter.(repo.LegacyAdapter); ok && inst.GameID != "eu5" {
+			a.gamePaths.PlaysetsPath = filepath.Join(inst.UserConfigPath, "launcher-v2.sqlite")
+			// Already corrected in adapter to check .db too
 		}
 	}
 
@@ -678,13 +692,21 @@ func (a *App) GetModsDirStatus() ModsDirStatus {
 	if config, ok := a.settings.Games[gameID]; ok {
 		customDir = config.ModsDir
 	}
+	autoDetectedExists := dirExists(autoDir)
+	if !autoDetectedExists {
+		// Fallback for legacy games: check if the parent Documents folder exists
+		if inst, err := a.gameService.GetActiveInstance(); err == nil && dirExists(inst.UserConfigPath) {
+			autoDetectedExists = true
+		}
+	}
+
 	return ModsDirStatus{
 		EffectiveDir:       effectiveDir,
 		AutoDetectedDir:    autoDir,
 		CustomDir:          strings.TrimSpace(customDir),
 		UsingCustomDir:     strings.TrimSpace(customDir) != "",
-		AutoDetectedExists: dirExists(autoDir),
-		EffectiveExists:    dirExists(effectiveDir),
+		AutoDetectedExists: autoDetectedExists,
+		EffectiveExists:    dirExists(effectiveDir) || autoDetectedExists,
 	}
 }
 
@@ -950,21 +972,9 @@ func (a *App) SetActiveGame(gameID string) error {
 }
 
 func (a *App) setActiveGameOnStartup() {
-	// Default to EU5 for now
-	if err := a.gameService.SetActiveGame("eu5", 0); err != nil {
-		logging.Errorf("failed to set active game eu5: %v", err)
-	}
-
-	inst, err := a.gameService.GetActiveInstance()
-	if err == nil {
-		a.gamePaths = loadorder.GamePaths{
-			PlaysetsPath:    filepath.Join(inst.UserConfigPath, "playsets.json"),
-			LocalModsDir:    inst.LocalModsDir,
-			WorkshopModDirs: inst.WorkshopModDirs,
-			GameExePath:     inst.GameExePath,
-		}
-		a.playsetRepo = repo.NewFilePlaysetRepository()
-		a.playsetSvc = service.NewPlaysetService(a.playsetRepo)
+	// Default to EU5 on startup
+	if err := a.SetActiveGame("eu5"); err != nil {
+		logging.Errorf("failed to set active game eu5 on startup: %v", err)
 	}
 }
 
@@ -1054,6 +1064,7 @@ func (a *App) ensureSteamCaches() error {
 	a.steamMetaCache = metaCache
 	a.steamImageCache = imageCache
 	a.steamDescCache = descCache
+	a.thumbSync = steam.NewThumbnailSync(a.steamClient.(*steam.Client), a.steamMetaCache, a.steamImageCache, 10)
 	return nil
 }
 
@@ -1593,6 +1604,14 @@ func (a *App) UnsubscribeWorkshopMod(itemID string) error {
 // IsUnsubscribeEnabled reports whether workshop unsubscribe is enabled.
 func (*App) IsUnsubscribeEnabled() bool {
 	return compileEnableUnsubscribe
+}
+
+// HasNewThumbnails reports whether new thumbnails were recently synced.
+func (a *App) HasNewThumbnails() bool {
+	if a.thumbSync == nil {
+		return false
+	}
+	return a.thumbSync.HasNewThumbnails()
 }
 
 // OpenExternalLink opens any external URL with priority rules:

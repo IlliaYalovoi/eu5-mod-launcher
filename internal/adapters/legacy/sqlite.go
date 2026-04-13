@@ -11,6 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
+	"eu5-mod-launcher/internal/logging"
 )
 
 type SqliteAdapter struct {
@@ -86,7 +87,10 @@ func (s *SqliteAdapter) getDB(instance game.Instance) (*sqlx.DB, error) {
 	}
 
 	if s.db != nil {
-		s.db.Close()
+		if err := s.db.Close(); err != nil {
+			logging.Warnf("failed to close database at %s, err: %e", dbPath, err)
+		}
+
 	}
 
 	db, err := sqlx.Open("sqlite", dbPath)
@@ -108,6 +112,12 @@ type dbModEntry struct {
 	ModID    string `db:"modId"`
 	Enabled  bool   `db:"enabled"`
 	Position int    `db:"position"`
+}
+
+type dbMod struct {
+	ID          string `db:"id"`
+	DisplayName string `db:"displayName"`
+	DirPath     string `db:"dirPath"`
 }
 
 func (s *SqliteAdapter) LoadPlaysets(instance game.Instance) ([]game.Playset, error) {
@@ -159,17 +169,38 @@ func (s *SqliteAdapter) LoadMods(instance game.Instance) ([]game.ModEntry, error
 		return nil, nil
 	}
 
-	var ids []string
-	err = db.Select(&ids, "SELECT id FROM mods WHERE isRemoved = 0")
+	var dbMods []dbMod
+	err = db.Select(&dbMods, "SELECT id, displayName, dirPath FROM mods WHERE isRemoved = 0")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query mods: %w", err)
 	}
 
-	entries := make([]game.ModEntry, len(ids))
-	for i, id := range ids {
-		entries[i] = game.ModEntry{ID: id}
+	entries := make([]game.ModEntry, len(dbMods))
+	for i, m := range dbMods {
+		entries[i] = game.ModEntry{
+			ID:   m.ID,
+			Path: m.DirPath,
+		}
 	}
 	return entries, nil
+}
+
+// GetModNames returns a map of mod ID to display name.
+func (s *SqliteAdapter) GetModNames(instance game.Instance) (map[string]string, error) {
+	db, err := s.getDB(instance)
+	if err != nil {
+		return nil, err
+	}
+	var dbMods []dbMod
+	err = db.Select(&dbMods, "SELECT id, displayName FROM mods WHERE isRemoved = 0")
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string)
+	for _, dm := range dbMods {
+		m[dm.ID] = dm.DisplayName
+	}
+	return m, nil
 }
 
 func (s *SqliteAdapter) SavePlayset(inst game.Instance, p game.Playset) error {

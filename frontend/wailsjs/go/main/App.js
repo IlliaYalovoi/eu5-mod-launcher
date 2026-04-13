@@ -106,6 +106,10 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function HasNewThumbnails() {
+  return window['go']['main']['App']['HasNewThumbnails']();
+}
+
 export function IsUnsubscribeEnabled() {
   return window['go']['main']['App']['IsUnsubscribeEnabled']();
 }

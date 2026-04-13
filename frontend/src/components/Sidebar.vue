@@ -10,6 +10,15 @@ const gameIcons: Record<string, string> = {
   hoi4: '⚔️',
   ck3: '👑',
   stellaris: '🚀',
+  vic3: '📜',
+}
+
+const gameNames: Record<string, string> = {
+  eu5: 'Europa Universalis V',
+  hoi4: 'Hearts of Iron IV',
+  ck3: 'Crusader Kings III',
+  stellaris: 'Stellaris',
+  vic3: 'Victoria 3',
 }
 
 const gameSettingsModal = ref({
@@ -21,7 +30,8 @@ function selectGame(id: string) {
   settingsStore.setGame(id)
 }
 
-function openGameSettings(id: string) {
+async function openGameSettings(id: string) {
+  await settingsStore.setGame(id)
   gameSettingsModal.value = {
     open: true,
     gameID: id,
@@ -40,7 +50,7 @@ function closeGameSettings() {
       :key="gameID"
       class="game-icon"
       :class="{ active: settingsStore.activeGameID === gameID }"
-      :title="gameID.toUpperCase() + ' (Right click for settings)'"
+      :title="(gameNames[gameID] || gameID.toUpperCase()) + ' (Right click for settings)'"
       @click="selectGame(gameID)"
       @contextmenu.prevent="openGameSettings(gameID)"
     >

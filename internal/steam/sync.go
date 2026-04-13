@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"eu5-mod-launcher/internal/logging"
@@ -14,6 +15,7 @@ type ThumbnailSync struct {
 	metadataCache *MetadataCache
 	imageCache    *ImageCache
 	semaphore     chan struct{}
+	isDirty       atomic.Bool
 }
 
 // NewThumbnailSync creates a new sync service with a worker limit.
@@ -100,12 +102,19 @@ func (s *ThumbnailSync) SyncAll(ctx context.Context, modIDs []string) {
 
 			if _, err := s.imageCache.EnsureStored(it); err != nil {
 				logging.Errorf("Failed to sync thumbnail for %s: %v", it.ItemID, err)
+			} else {
+				s.isDirty.Store(true)
 			}
 		}(item)
 	}
 
 	wg.Wait()
 	logging.Infof("Completed background thumbnail sync")
+}
+
+// HasNewThumbnails returns true if new thumbnails were downloaded since last call.
+func (s *ThumbnailSync) HasNewThumbnails() bool {
+	return s.isDirty.Swap(false)
 }
 
 func getMapKeys(m map[string]WorkshopItem) []string {

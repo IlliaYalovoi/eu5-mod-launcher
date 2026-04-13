@@ -36,6 +36,7 @@ func (r *FilePlaysetRepository) SaveState(
 
 type LegacyAdapter interface {
 	LoadPlaysets(inst game.Instance) ([]game.Playset, error)
+	GetModNames(inst game.Instance) (map[string]string, error)
 	ID() string
 }
 
@@ -69,13 +70,14 @@ func (r *SqlitePlaysetRepository) LoadState(path string, index int) (loadorder.S
 	if index < 0 || index >= len(playsets) {
 		return loadorder.State{}, nil, nil
 	}
+
+	namesMap, _ := r.adapter.GetModNames(r.inst)
 	p := playsets[index]
 	ids := make([]string, len(p.Entries))
 	for i, e := range p.Entries {
 		ids[i] = e.ID
 	}
-	// Fix: Load entries returns enabled mods
-	return loadorder.State{OrderedIDs: ids}, map[string]string{}, nil
+	return loadorder.State{OrderedIDs: ids}, namesMap, nil
 }
 
 func (r *SqlitePlaysetRepository) SaveState(path string, index int, state loadorder.State, modPathByID map[string]string) error {

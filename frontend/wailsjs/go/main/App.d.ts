@@ -57,6 +57,8 @@ export function GetPlaysetNames():Promise<Array<string>>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function HasNewThumbnails():Promise<boolean>;
+
 export function IsUnsubscribeEnabled():Promise<boolean>;
 
 export function LaunchGame():Promise<void>;

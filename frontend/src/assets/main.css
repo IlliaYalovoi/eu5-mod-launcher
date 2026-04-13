@@ -91,6 +91,11 @@
   --color-accent-hover: #8ef7eb;
 }
 
+.theme-vic3 {
+  --color-accent: #d4af37;
+  --color-accent-hover: #e5c158;
+}
+
 :root[data-theme='light'] {
   --color-bg-base: #f2f4f7;
   --color-bg-panel: #ffffff;

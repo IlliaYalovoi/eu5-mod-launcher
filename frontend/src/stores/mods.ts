@@ -10,6 +10,7 @@ import {
   GetAllMods,
   IsUnsubscribeEnabled,
   UnsubscribeWorkshopMod,
+  HasNewThumbnails,
 } from '../../wailsjs/go/main/App'
 
 type UnsubscribeNotice = {
@@ -230,6 +231,19 @@ export const useModsStore = defineStore('mods', () => {
     }
   }
 
+  function startPolling(): void {
+    const timer = setInterval(async () => {
+      try {
+        const available = await HasNewThumbnails()
+        if (available && !isLoading.value) {
+          await fetchAll()
+        }
+      } catch (err) {
+        // Silently ignore polling errors
+      }
+    }, 1000)
+  }
+
   const enabledMods = computed(() => allMods.value.filter((m) => m.Enabled))
   const selectedMod = computed<Mod | null>(() => allMods.value.find((mod) => mod.ID === selectedModID.value) || null)
   const selectedSteamMetadata = computed<WorkshopItem | null>(() => {
@@ -280,5 +294,6 @@ export const useModsStore = defineStore('mods', () => {
     setWorkshopOpenError,
     clearWorkshopOpenError,
     clearUnsubscribeNotice,
+    startPolling,
   }
 })

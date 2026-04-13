@@ -25,6 +25,7 @@ type MenuItem = {
 const loadOrderStore = useLoadOrderStore()
 const modsStore = useModsStore()
 const settingsStore = useSettingsStore()
+modsStore.startPolling()
 const { orderedIDs, launcherLayout } = storeToRefs(loadOrderStore)
 const { unsubscribeFeatureEnabled, unsubscribeNotice } = storeToRefs(modsStore)
 const { requiresManualPaths } = storeToRefs(settingsStore)
@@ -205,9 +206,6 @@ function openSettings(): void {
 }
 
 function closeSettings(): void {
-  if (requiresManualPaths.value) {
-    return
-  }
   settingsOpen.value = false
 }
 
