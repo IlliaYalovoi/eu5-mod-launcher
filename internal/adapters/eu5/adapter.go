@@ -1,6 +1,7 @@
 package eu5
 
 import (
+	"encoding/json"
 	"eu5-mod-launcher/internal/game"
 	"fmt"
 	"os"
@@ -68,7 +69,22 @@ func (s *Adapter) LoadPlaysets(inst game.Instance) ([]game.Playset, error) {
 }
 
 func (s *Adapter) SavePlayset(inst game.Instance, p game.Playset) error {
-	return nil // Task 2 focus on discovery
+	playsetsDir := filepath.Join(inst.UserConfigPath, "playsets")
+	if err := os.MkdirAll(playsetsDir, 0755); err != nil {
+		return fmt.Errorf("create playsets directory: %w", err)
+	}
+
+	playsetPath := filepath.Join(playsetsDir, fmt.Sprintf("%s.json", p.ID))
+	content, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal playset: %w", err)
+	}
+
+	if err := os.WriteFile(playsetPath, content, 0644); err != nil {
+		return fmt.Errorf("write playset file: %w", err)
+	}
+
+	return nil
 }
 
 // Helpers moved from paths.go
