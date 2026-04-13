@@ -1,6 +1,5 @@
 /* frontend/src/assets/main.css */
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Nunito:wght@400;600;700&family=JetBrains+Mono&display=swap');
-@import '../styles/tokens.css';
 
 :root {
   /* Default Theme */
