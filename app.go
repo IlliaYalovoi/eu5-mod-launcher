@@ -95,6 +95,7 @@ type App struct {
 	playsetRepo     repo.PlaysetRepository
 	settingsRepo    repo.SettingsRepository
 	layoutRepo      repo.LayoutRepository
+	thumbSync       *steam.ThumbnailSync
 	loStore         *loadorder.Store
 	loState         loadorder.State
 	conGraph        *graph.Graph
@@ -170,6 +171,19 @@ func (a *App) initCoreServices() {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.refreshState()
+
+	if err := a.ensureSteamCaches(); err == nil {
+		a.thumbSync.StartPeriodicCleanup(a.ctx, 15*time.Minute, 30*24*time.Hour)
+		if mods, err := a.GetAllMods(); err == nil {
+			modIDs := make([]string, 0, len(mods))
+			for _, m := range mods {
+				if itemID := a.workshopItemIDForMod(m.ID); itemID != "" {
+					modIDs = append(modIDs, itemID)
+				}
+			}
+			go a.thumbSync.SyncAll(a.ctx, modIDs)
+		}
+	}
 }
 
 func (a *App) refreshState() {

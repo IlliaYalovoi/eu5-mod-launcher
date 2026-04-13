@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"sync"
+	"time"
 
 	"eu5-mod-launcher/internal/logging"
 )
@@ -26,6 +27,24 @@ func NewThumbnailSync(client *Client, metadataCache *MetadataCache, imageCache *
 		imageCache:    imageCache,
 		semaphore:     make(chan struct{}, maxWorkers),
 	}
+}
+
+// StartPeriodicCleanup starts a background ticker for cache maintenance.
+func (s *ThumbnailSync) StartPeriodicCleanup(ctx context.Context, interval, ttl time.Duration) {
+	ticker := time.NewTicker(interval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				logging.Infof("Starting periodic image cache cleanup (TTL: %v)", ttl)
+				s.imageCache.CleanupOlderThan(ttl)
+				logging.Infof("Completed periodic image cache cleanup")
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // SyncAll resolve metadata and downloads missing thumbnails for the given workshop IDs.

@@ -347,6 +347,31 @@ func (c *ImageCache) removeItemVariantsLocked(itemID string) error {
 	return nil
 }
 
+// CleanupOlderThan removes files older than TTL from the cache directory.
+func (c *ImageCache) CleanupOlderThan(ttl time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	entries, err := os.ReadDir(c.dirPath)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if now.Sub(info.ModTime()) > ttl {
+			_ = os.Remove(filepath.Join(c.dirPath, entry.Name()))
+		}
+	}
+}
+
 func (c *ImageCache) cleanupLocked() {
 	entries, err := os.ReadDir(c.dirPath)
 	if err != nil {
