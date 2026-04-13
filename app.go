@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"eu5-mod-launcher/internal/domain"
-	"eu5-mod-launcher/internal/game"
 	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/loadorder"
 	"eu5-mod-launcher/internal/logging"
@@ -72,7 +71,6 @@ type App struct {
 	settingsSvc     *service.SettingsService
 	layoutSvc       *service.LayoutService[LauncherLayout]
 	launchSvc       *service.LaunchService
-	gameSvc         *service.GameService
 	playsetSvc      *service.PlaysetService
 	steamClient     workshopMetadataFetcher
 	steamMetaCache  *steam.MetadataCache
@@ -93,7 +91,6 @@ type App struct {
 	constraintsPath string
 	settingsPath    string
 	layoutPath      string
-	activeGameID    game.GameID
 }
 
 type ModsDirStatus struct {
@@ -125,7 +122,6 @@ func NewApp() *App {
 		playsetNames:    []string{},
 		gameActiveIndex: -1,
 		launcherIndex:   -1,
-		activeGameID:    game.GameIDEU5,
 	}
 	app.initCoreServices()
 	return app
@@ -141,7 +137,6 @@ func (a *App) initCoreServices() {
 	a.loadorderSvc = service.NewLoadOrderService()
 	a.settingsSvc = service.NewSettingsService()
 	a.launchSvc = service.NewLaunchService()
-	a.gameSvc = service.NewGameService()
 	a.playsetSvc = service.NewPlaysetService(a.playsetRepo)
 	a.steamClient = steam.NewClient()
 	a.openURL = a.launchSvc.OpenURL
@@ -180,7 +175,7 @@ func (a *App) startup(ctx context.Context) {
 		a.loState = state
 	}
 
-	a.gamePaths, err = a.gameSvc.DiscoverPaths(a.activeGameID)
+	a.gamePaths, err = loadorder.DiscoverGamePaths()
 	if err != nil {
 		logging.Errorf("startup: auto-discover game paths: %v", err)
 	}
@@ -243,7 +238,7 @@ func (a *App) loadStartupPlaysetState() {
 		return
 	}
 
-	playsetNames, gameActiveIndex, err := a.gameSvc.ListModLists(a.activeGameID, a.gamePaths.PlaysetsPath)
+	playsetNames, gameActiveIndex, err := a.playsetSvc.List(a.gamePaths.PlaysetsPath)
 	if err != nil {
 		logging.Warnf("startup: read playset list: %v", err)
 		return
@@ -257,7 +252,7 @@ func (a *App) loadStartupPlaysetState() {
 		a.settings.LauncherActivePlaysetIndex,
 	)
 
-	playsetState, pathByID, loadErr := a.gameSvc.ImportModList(a.activeGameID, a.gamePaths.PlaysetsPath, a.launcherIndex)
+	playsetState, pathByID, loadErr := a.playsetSvc.Load(a.gamePaths.PlaysetsPath, a.launcherIndex)
 	if loadErr != nil {
 		logging.Warnf("startup: load selected playset state, using fallback state: %v", loadErr)
 		return
@@ -358,8 +353,7 @@ func (a *App) SetLoadOrder(ids []string) error {
 	}
 
 	if a.gamePaths.PlaysetsPath != "" {
-		saveErr := a.gameSvc.ExportModList(
-			a.activeGameID,
+		saveErr := a.playsetSvc.Save(
 			a.gamePaths.PlaysetsPath,
 			a.launcherIndex,
 			newState,
@@ -808,7 +802,7 @@ func (a *App) SetLauncherActivePlaysetIndex(index int) error {
 		return fmt.Errorf("set launcher active playset index %d: %w", index, err)
 	}
 
-	playsetState, pathByID, err := a.gameSvc.ImportModList(a.activeGameID, a.gamePaths.PlaysetsPath, index)
+	playsetState, pathByID, err := a.playsetSvc.Load(a.gamePaths.PlaysetsPath, index)
 	if err != nil {
 		return fmt.Errorf("load playset at index %d: %w", index, err)
 	}
@@ -932,7 +926,6 @@ func (a *App) coreServicesMissing() bool {
 	return a.modsService == nil ||
 		a.loadorderSvc == nil ||
 		a.settingsSvc == nil ||
-		a.gameSvc == nil ||
 		a.layoutSvc == nil ||
 		a.steamClient == nil
 }
