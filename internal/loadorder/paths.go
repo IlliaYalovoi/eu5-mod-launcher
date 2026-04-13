@@ -77,23 +77,13 @@ func DiscoverGamePaths() (GamePaths, error) {
 	}, nil
 }
 
+var steamInstallPathFinder func() string
+
 func findSteamInstallPath() string {
+	if steamInstallPathFinder == nil {
+		return ""
+	}
 	return steamInstallPathFinder()
-}
-
-func defaultSteamInstallPath() string {
-	fallbacks := []string{
-		filepath.Join(os.Getenv("ProgramFiles(x86)"), "Steam"),
-		filepath.Join(os.Getenv("ProgramFiles"), "Steam"),
-	}
-
-	for _, candidate := range fallbacks {
-		if dirExists(candidate) {
-			return filepath.Clean(candidate)
-		}
-	}
-
-	return ""
 }
 
 func discoverWorkshopModDirs(appID string) []string {
