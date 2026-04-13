@@ -1,6 +1,6 @@
 //go:build windows
 
-package game
+package service
 
 import (
 	"os/exec"
@@ -13,7 +13,5 @@ const (
 )
 
 func applyDetachedProcessAttributes(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		CreationFlags: windowsCreateNewProcessGroup | windowsDetachedProcess,
-	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windowsCreateNewProcessGroup | windowsDetachedProcess}
 }

@@ -1,6 +1,6 @@
 //go:build !windows
 
-package game
+package service
 
 import (
 	"os/exec"
