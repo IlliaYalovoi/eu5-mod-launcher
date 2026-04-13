@@ -17,7 +17,7 @@ const activeIndex = ref(0)
 
 const selectedMod = computed(() => {
   for (const mod of props.mods) {
-    if (mod.id === props.modelValue) {
+    if (mod.ID === props.modelValue) {
       return mod
     }
   }
@@ -29,14 +29,14 @@ const filteredMods = computed(() => {
   if (!term) {
     return props.mods
   }
-  return props.mods.filter((mod) => mod.name.toLowerCase().indexOf(term) >= 0)
+  return props.mods.filter((mod) => mod.Name.toLowerCase().indexOf(term) >= 0)
 })
 
 watch(
   () => props.modelValue,
   () => {
     if (!isOpen.value) {
-      query.value = selectedMod.value ? selectedMod.value.name : ''
+      query.value = selectedMod.value ? selectedMod.value.Name : ''
     }
   },
   { immediate: true },
@@ -60,13 +60,13 @@ function openList(): void {
 function closeList(): void {
   isOpen.value = false
   if (!query.value.trim() && selectedMod.value) {
-    query.value = selectedMod.value.name
+    query.value = selectedMod.value.Name
   }
 }
 
 function selectMod(mod: Mod): void {
-  emit('update:modelValue', mod.id)
-  query.value = mod.name
+  emit('update:modelValue', mod.ID)
+  query.value = mod.Name
   isOpen.value = false
 }
 
@@ -128,13 +128,13 @@ function onKeydown(event: KeyboardEvent): void {
     <div v-if="isOpen" class="dropdown" role="listbox">
       <button
         v-for="(mod, index) in filteredMods"
-        :key="mod.id"
+        :key="mod.ID"
         class="option"
         :class="{ 'option--active': index === activeIndex }"
         type="button"
         @mousedown.prevent="selectMod(mod)"
       >
-          {{ mod.name }}
+        {{ mod.Name }}
       </button>
       <p v-if="filteredMods.length === 0" class="empty">No matching mods</p>
     </div>

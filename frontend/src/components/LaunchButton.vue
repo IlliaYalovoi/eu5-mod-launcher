@@ -13,7 +13,11 @@ const isLaunching = ref(false)
 const launchError = ref<string>('')
 
 const gameLabel = computed(() => {
-  return 'ENTER GAME'
+  const idx = props.gameActivePlaysetIndex
+  if (idx >= 0 && idx < props.playsetNames.length) {
+    return `Launch ${props.playsetNames[idx]}`
+  }
+  return 'Launch Game'
 })
 
 const isSuccessFlash = ref(false)
@@ -74,58 +78,52 @@ function onDismissError(event: MouseEvent) {
 
 <style scoped>
 .launch-button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: 14px;
-  background: var(--accent);
-  color: var(--bg-body);
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  font-family: var(--font-display);
+  gap: var(--space-2);
+  min-height: 2.25rem;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  transition: all var(--transition-fast);
   cursor: pointer;
-  box-shadow: 0 4px 0 var(--border-strong);
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
 }
 
 .launch-button:hover:not(:disabled) {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 5px 0 var(--border-strong);
+  background: var(--color-bg-elevated);
 }
 
-.launch-button:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 var(--border-strong);
+.launch-button:focus-visible {
+  outline: none;
+  border-color: var(--color-border-strong);
 }
 
 .launch-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  opacity: 0.75;
+  cursor: wait;
 }
 
 .launch-button--success {
-  border-color: #22c55e;
-  color: #22c55e;
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 .launch-button--error {
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .spinner {
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid currentColor;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: var(--border-width) solid currentColor;
   border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  border-radius: var(--radius-pill);
+  animation: spin var(--duration-spinner) linear infinite;
 }
 
 .dismiss {

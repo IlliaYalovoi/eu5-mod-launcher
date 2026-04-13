@@ -250,12 +250,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-width: 13rem;
   padding: var(--space-2);
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--bg-panel);
-  opacity: 0.95;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  background: var(--color-bg-elevated);
 }
 
 .menu-item {
@@ -267,7 +264,7 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text);
+  color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
 }
@@ -312,11 +309,9 @@ onBeforeUnmount(() => {
   max-height: min(22rem, calc(100vh - 1rem));
   overflow: auto;
   padding: var(--space-2);
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--bg-panel);
-  opacity: 0.95;
-  backdrop-filter: blur(8px);
+  background: var(--color-bg-elevated);
 }
 
 .menu-node:hover .submenu,
@@ -326,23 +321,23 @@ onBeforeUnmount(() => {
 
 .submenu-arrow {
   margin-left: var(--space-3);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .menu-item:hover:not(:disabled) {
-  background: var(--bg-elevated);
+  background: var(--color-bg-panel);
 }
 
 .menu-item:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--border-width) solid var(--color-border-strong);
 }
 
 .menu-item--danger {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .menu-item--disabled {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .menu-item:disabled {

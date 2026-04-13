@@ -13,7 +13,7 @@ const emit = defineEmits<{
 function onContextMenu(event: MouseEvent): void {
   event.preventDefault()
   emit('contextmenu', {
-    modID: props.mod.id,
+    modID: props.mod.ID,
     x: event.clientX,
     y: event.clientY,
   })
@@ -26,7 +26,7 @@ function onContextMenu(event: MouseEvent): void {
       ☰
     </button>
     <span class="index">{{ index + 1 }}</span>
-    <span class="name">{{ mod.name }}</span>
+    <span class="name">{{ mod.Name }}</span>
   </article>
 </template>
 

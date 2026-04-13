@@ -11,7 +11,7 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 	logging.Debugf("GetAllMods: checking readiness")
 	if err := a.mustBeReady(); err != nil {
 		logging.Debugf("GetAllMods: not ready yet: %v", err)
-		return nil, fmt.Errorf("launcher not ready: %w", err)
+		return []mods.Mod{}, nil
 	}
 	logging.Debugf("GetAllMods: ready, effectiveModsDir=%q, workshopRoots=%d",
 		a.effectiveModsDir(), len(a.gamePaths.WorkshopModDirs))
@@ -27,7 +27,6 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 	a.modPathByID = nextPaths
 
 	for i := range allMods {
-		fmt.Println(allMods[i].Name)
 		itemID := a.workshopItemIDForMod(allMods[i].ID)
 		if itemID == "" || a.svc.steamImage == nil {
 			continue

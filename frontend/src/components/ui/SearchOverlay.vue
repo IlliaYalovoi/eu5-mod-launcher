@@ -18,7 +18,7 @@ const selectedModIDs = ref<Set<string>>(new Set())
 
 async function load() {
   const [mods, order] = await Promise.all([GetAllMods(), GetLoadOrder()])
-  allMods.value = mods as unknown as Mod[]
+  allMods.value = mods as Mod[]
   orderedIDs.value = order
 }
 
@@ -28,19 +28,19 @@ const filteredMods = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return allMods.value
   return allMods.value.filter((mod) => {
-    if (mod.name.toLowerCase().includes(q)) return true
-    if (mod.tags.some((t) => t.toLowerCase().includes(q))) return true
+    if (mod.Name.toLowerCase().includes(q)) return true
+    if (mod.Tags.some((t) => t.toLowerCase().includes(q))) return true
     return false
   })
 })
 
 const sortedMods = computed(() => {
   return [...filteredMods.value].sort((a, b) => {
-    const aIn = orderedSet.value.has(a.id)
-    const bIn = orderedSet.value.has(b.id)
+    const aIn = orderedSet.value.has(a.ID)
+    const bIn = orderedSet.value.has(b.ID)
     if (aIn && !bIn) return -1
     if (!aIn && bIn) return 1
-    return a.name.localeCompare(b.name)
+    return a.Name.localeCompare(b.Name)
   })
 })
 
@@ -53,7 +53,7 @@ watch(filteredMods, () => { if (activeIndex.value >= sortedMods.value.length) ac
 function close(): void { emit('close') }
 function onOverlayClick(event: MouseEvent): void { if (event.target === event.currentTarget) close() }
 function toggleMod(modID: string): void { const next = new Set(selectedModIDs.value); next.has(modID) ? next.delete(modID) : next.add(modID); selectedModIDs.value = next }
-function selectMod(mod: Mod): void { emit('add-mod', mod.id) }
+function selectMod(mod: Mod): void { emit('add-mod', mod.ID) }
 function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') { close(); return }
   if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex.value = Math.min(activeIndex.value + 1, sortedMods.value.length - 1); return }
@@ -89,19 +89,19 @@ function onKeydown(event: KeyboardEvent): void {
           </div>
           <button
             v-for="(mod, index) in sortedMods"
-            :key="mod.id"
+            :key="mod.ID"
             class="result-row"
             :class="{
               'result-row--active': index === activeIndex,
-              'result-row--in-load-order': orderedSet.has(mod.id),
+              'result-row--in-load-order': orderedSet.has(mod.ID),
             }"
             type="button"
             @click="selectMod(mod)"
             @mouseenter="activeIndex = index"
           >
-            <span class="result-name">{{ mod.name }}</span>
-            <span v-if="orderedSet.has(mod.id)" class="result-badge">in load order</span>
-            <span v-if="mod.tags.length > 0" class="result-tags">{{ mod.tags.slice(0, 2).join(', ') }}</span>
+            <span class="result-name">{{ mod.Name }}</span>
+            <span v-if="orderedSet.has(mod.ID)" class="result-badge">in load order</span>
+            <span v-if="mod.Tags.length > 0" class="result-tags">{{ mod.Tags.slice(0, 2).join(', ') }}</span>
           </button>
         </div>
 

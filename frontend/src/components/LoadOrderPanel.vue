@@ -6,13 +6,18 @@ import {
   CreateLauncherCategory,
   DeleteLauncherCategory,
   GetAllMods,
+  GetGameActivePlaysetIndex,
+  GetLauncherActivePlaysetIndex,
   GetLauncherLayout,
+  GetPlaysetNames,
   SaveCompiledLoadOrder,
   SetLauncherLayout,
-  DisableMod,
 } from '../wailsjs/go/launcher/App'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
+import AutosortButton from './AutosortButton.vue'
+import LaunchButton from './LaunchButton.vue'
+import BaseButton from './ui/BaseButton.vue'
 
 type EditableBlock = {
   id: string
@@ -28,24 +33,98 @@ const emit = defineEmits<{
   (event: 'contextmenu', payload: { modID: string; x: number; y: number }): void
   (event: 'open-constraints', modID: string): void
   (event: 'select-mod', modID: string): void
-  (event: 'load-order-changed'): void
-  (event: 'manage-groups'): void
-  (event: 'autosort'): void
+  (event: 'game-changed'): void
 }>()
 
 // State owned by this panel
 const launcherLayout = ref<LauncherLayout>({ ungrouped: [], categories: [], order: [], collapsed: {} })
 const allMods = ref<Mod[]>([])
+const playsetNames = ref<string[]>([])
+const gameActivePlaysetIndex = ref(-1)
+
+const blocks = ref<EditableBlock[]>([])
 const persistError = ref<string | null>(null)
 const categoryName = ref('')
+const saveError = ref<string | null>(null)
+const isSavingCompiled = ref(false)
+
+const globalEditModID = ref('')
+const globalEditValue = ref('')
+const localEditModID = ref('')
+const localEditValue = ref('')
+const editingCategoryID = ref('')
+const editingCategoryName = ref('')
 
 const modsByID = computed(() => {
   const byID: Record<string, Mod> = {}
-  for (const mod of allMods.value) byID[mod.id] = mod
+  for (const mod of allMods.value) {
+    byID[mod.ID] = mod
+  }
   return byID
 })
 
-const blocks = computed(() => {
+const compiledOrder = computed(() => {
+  const out: string[] = []
+  const seen: Record<string, boolean> = {}
+  for (const block of blocks.value) {
+    for (const id of block.modIds) {
+      if (seen[id]) continue
+      seen[id] = true
+      out.push(id)
+    }
+  }
+  return out
+})
+
+const numberByModID = computed(() => {
+  const out: Record<string, number> = {}
+  for (let i = 0; i < compiledOrder.value.length; i += 1) {
+    out[compiledOrder.value[i]] = i + 1
+  }
+  return out
+})
+
+const localNumberByModID = computed(() => {
+  const out: Record<string, number> = {}
+  for (const block of blocks.value) {
+    if (block.isUngrouped) continue
+    for (let i = 0; i < block.modIds.length; i += 1) {
+      out[block.modIds[i]] = i + 1
+    }
+  }
+  return out
+})
+
+const blockByModID = computed(() => {
+  const out: Record<string, EditableBlock> = {}
+  for (const block of blocks.value) {
+    for (const id of block.modIds) {
+      out[id] = block
+    }
+  }
+  return out
+})
+
+const activeCountLabel = computed(() => `${compiledOrder.value.length} mods active`)
+
+async function load() {
+  try {
+    const [layout, mods, names, gameIdx] = await Promise.all([
+      GetLauncherLayout(),
+      GetAllMods(),
+      GetPlaysetNames(),
+      GetGameActivePlaysetIndex(),
+    ])
+    launcherLayout.value = layout as LauncherLayout
+    allMods.value = mods as Mod[]
+    playsetNames.value = names
+    gameActivePlaysetIndex.value = gameIdx
+  } catch (err) {
+    showToast({ type: 'error', message: errorMessage(err) })
+  }
+}
+
+function syncBlocksFromLayout() {
   const value = launcherLayout.value
   const collapsed = value.collapsed || {}
   const categoryByID: Record<string, { id: string; name: string; modIds: string[] }> = {}
@@ -74,83 +153,19 @@ const blocks = computed(() => {
     if (seen[category.id]) continue
     next.push({ id: category.id, name: category.name, modIds: [...category.modIds], isUngrouped: false, collapsed: !!collapsed[category.id] })
   }
-  return next
-})
-
-const blocksModel = computed({
-  get: () => blocks.value,
-  set: (val) => persistLayoutAsync(val)
-})
-
-async function load() {
-  try {
-    const [layout, mods] = await Promise.all([
-      GetLauncherLayout(),
-      GetAllMods(),
-    ])
-    // The layout might be cached or lagging if we rely on a computed 'blocksModel'
-    // setter to handle changes elsewhere. Explicitly reset.
-    launcherLayout.value = layout as any as LauncherLayout
-    allMods.value = mods as any as Mod[]
-  } catch (err) {
-    showToast({ type: 'error', message: errorMessage(err) })
-  }
+  blocks.value = next
 }
+
+watch(launcherLayout, syncBlocksFromLayout, { immediate: true })
 
 onMounted(load)
 
-async function persistLayoutAsync(newBlocks: EditableBlock[]): Promise<void> {
-  persistError.value = null
-  const layout: LauncherLayout = {
-    ungrouped: [],
-    categories: [],
-    order: [],
-    collapsed: {}
-  }
-
-  for (const block of newBlocks) {
-    if (layout.order) layout.order.push(block.id)
-    if (block.collapsed) {
-      if (!layout.collapsed) layout.collapsed = {}
-      layout.collapsed[block.id] = true
-    }
-    if (block.isUngrouped) layout.ungrouped = [...block.modIds]
-    else layout.categories.push({ id: block.id, name: block.name, modIds: [...block.modIds] })
-  }
-
-  try {
-    await SetLauncherLayout(layout as any)
-    emit('load-order-changed')
-  } catch (err) {
-    persistError.value = errorMessage(err)
-    throw err
-  }
+function getMod(id: string): Mod | null {
+  return modsByID.value[id] || null
 }
 
-async function handleDisable(modID: string) {
-  try {
-    await DisableMod(modID)
-    await load()
-    emit('load-order-changed')
-  } catch (err) {
-    showToast({ type: 'error', message: errorMessage(err) })
-  }
-}
-
-function handleDragEnd() {
-  void persistLayoutAsync(blocks.value)
-}
-
-function onCategoryCreate() {
-  // Logic moved to Parent or Modal via manage-groups event
-}
-
-function onCategoryDelete(categoryID: string) {
-  void DeleteLauncherCategory(categoryID)
-    .then(() => load())
-    .catch((err: unknown) => {
-      showToast({ type: 'error', message: errorMessage(err) })
-    })
+function modItemKey(value: string): string {
+  return value
 }
 
 function onItemContextMenu(event: MouseEvent, targetID: string): void {
@@ -158,274 +173,607 @@ function onItemContextMenu(event: MouseEvent, targetID: string): void {
   emit('contextmenu', { modID: targetID, x: event.clientX, y: event.clientY })
 }
 
-defineExpose({ load, launcherLayout })
+function toLayout(): LauncherLayout {
+  const collapsed: Record<string, boolean> = {}
+  const order: string[] = []
+  const categories: { id: string; name: string; modIds: string[] }[] = []
+  let ungrouped: string[] = []
+
+  for (const block of blocks.value) {
+    order.push(block.id)
+    if (block.collapsed) {
+      collapsed[block.id] = true
+    }
+    if (block.isUngrouped) {
+      ungrouped = [...block.modIds]
+      continue
+    }
+    categories.push({ id: block.id, name: block.name, modIds: [...block.modIds] })
+  }
+
+  return { ungrouped, categories, order, collapsed }
+}
+
+async function persistLayoutAsync(): Promise<void> {
+  persistError.value = null
+  try {
+    await SetLauncherLayout(toLayout() as any)
+  } catch (err) {
+    persistError.value = errorMessage(err)
+    throw err
+  }
+}
+
+function persistLayout(): void {
+  void persistLayoutAsync().catch((err: unknown) => {
+    persistError.value = err instanceof Error ? err.message : String(err)
+  })
+}
+
+
+function onModClick(modID: string): void {
+  emit('select-mod', modID)
+}
+
+function onCreateCategory(): void {
+  const name = categoryName.value.trim()
+  if (!name) return
+  persistError.value = null
+  void CreateLauncherCategory(name)
+    .then(() => {
+      categoryName.value = ''
+      return GetLauncherLayout()
+    })
+    .then((layout) => {
+      launcherLayout.value = layout as LauncherLayout
+    })
+    .catch((err: unknown) => {
+      persistError.value = err instanceof Error ? err.message : String(err)
+    })
+}
+
+function onDeleteCategory(categoryID: string): void {
+  persistError.value = null
+  void DeleteLauncherCategory(categoryID)
+    .then(() => GetLauncherLayout())
+    .then((layout) => { launcherLayout.value = layout as LauncherLayout })
+    .catch((err: unknown) => { persistError.value = err instanceof Error ? err.message : String(err) })
+}
+
+function onToggleCollapse(blockID: string): void {
+  const block = blocks.value.find((item) => item.id === blockID)
+  if (!block) {
+    return
+  }
+  block.collapsed = !block.collapsed
+  persistLayout()
+}
+
+function beginGlobalEdit(modID: string): void {
+  globalEditModID.value = modID
+  globalEditValue.value = String(numberByModID.value[modID] || 1)
+  void nextTick().then(() => {
+    const input = document.querySelector<HTMLInputElement>(`[data-global-edit="${modID}"]`)
+    input?.focus()
+    input?.select()
+  })
+}
+
+function beginLocalEdit(modID: string): void {
+  localEditModID.value = modID
+  localEditValue.value = String(localNumberByModID.value[modID] || 1)
+  void nextTick().then(() => {
+    const input = document.querySelector<HTMLInputElement>(`[data-local-edit="${modID}"]`)
+    input?.focus()
+    input?.select()
+  })
+}
+
+function cancelGlobalEdit(): void {
+  globalEditModID.value = ''
+}
+
+function cancelLocalEdit(): void {
+  localEditModID.value = ''
+}
+
+function beginCategoryEdit(block: EditableBlock): void {
+  if (block.isUngrouped) {
+    return
+  }
+  editingCategoryID.value = block.id
+  editingCategoryName.value = block.name
+  void nextTick().then(() => {
+    const input = document.querySelector<HTMLInputElement>(`[data-category-edit="${block.id}"]`)
+    input?.focus()
+    input?.select()
+  })
+}
+
+function cancelCategoryEdit(): void {
+  editingCategoryID.value = ''
+  editingCategoryName.value = ''
+}
+
+function confirmCategoryEdit(): void {
+  if (!editingCategoryID.value) return
+  const trimmed = editingCategoryName.value.trim()
+  if (!trimmed) { editingCategoryID.value = ''; return }
+  const next = {
+    ungrouped: [...launcherLayout.value.ungrouped],
+    categories: launcherLayout.value.categories.map((cat) =>
+      cat.id === editingCategoryID.value ? { ...cat, name: trimmed } : { ...cat },
+    ),
+    order: launcherLayout.value.order ? [...launcherLayout.value.order] : undefined,
+    collapsed: launcherLayout.value.collapsed ? { ...launcherLayout.value.collapsed } : undefined,
+  }
+  void SetLauncherLayout(next as any)
+    .then(() => GetLauncherLayout())
+    .then((layout) => { launcherLayout.value = layout as LauncherLayout; editingCategoryID.value = '' })
+    .catch((err: unknown) => { persistError.value = err instanceof Error ? err.message : String(err); editingCategoryID.value = '' })
+}
+
+function moveModByGlobalIndex(modID: string, desiredOneBased: number): void {
+  if (blocks.value.length === 0) {
+    return
+  }
+
+  for (const block of blocks.value) {
+    const idx = block.modIds.indexOf(modID)
+    if (idx >= 0) {
+      block.modIds.splice(idx, 1)
+    }
+  }
+
+  const positions: Array<{ blockIndex: number; localIndex: number; modID: string }> = []
+  for (let b = 0; b < blocks.value.length; b += 1) {
+    const mods = blocks.value[b].modIds
+    for (let i = 0; i < mods.length; i += 1) {
+      positions.push({ blockIndex: b, localIndex: i, modID: mods[i] })
+    }
+  }
+
+  const target = Math.max(1, Math.min(desiredOneBased, positions.length + 1))
+  if (target === positions.length + 1) {
+    blocks.value[blocks.value.length - 1].modIds.push(modID)
+    return
+  }
+
+  const anchor = positions[target - 1]
+  blocks.value[anchor.blockIndex].modIds.splice(anchor.localIndex, 0, modID)
+}
+
+function confirmGlobalEdit(modID: string): void {
+  const parsed = Number.parseInt(globalEditValue.value, 10)
+  if (Number.isNaN(parsed)) {
+    globalEditModID.value = ''
+    return
+  }
+
+  moveModByGlobalIndex(modID, parsed)
+  globalEditModID.value = ''
+  persistLayout()
+}
+
+function confirmLocalEdit(modID: string): void {
+  const parsed = Number.parseInt(localEditValue.value, 10)
+  if (Number.isNaN(parsed)) {
+    localEditModID.value = ''
+    return
+  }
+
+  const block = blockByModID.value[modID]
+  if (!block) {
+    localEditModID.value = ''
+    return
+  }
+
+  const currentIndex = block.modIds.indexOf(modID)
+  if (currentIndex < 0) {
+    localEditModID.value = ''
+    return
+  }
+
+  block.modIds.splice(currentIndex, 1)
+  const target = Math.max(1, Math.min(parsed, block.modIds.length + 1))
+  block.modIds.splice(target - 1, 0, modID)
+
+  localEditModID.value = ''
+  persistLayout()
+}
+
+function onSaveCompiled(): void {
+  saveError.value = null
+  isSavingCompiled.value = true
+  void persistLayoutAsync()
+    .then(() => SaveCompiledLoadOrder())
+    .catch((err: unknown) => { saveError.value = err instanceof Error ? err.message : String(err) })
+    .finally(() => { isSavingCompiled.value = false })
+}
 </script>
 
 <template>
-  <div class="load-order-panel">
-    <header class="panel-header">
-      <div class="panel-header-left">
-        <h2 class="panel-title">Load Order</h2>
+  <section class="load-order-panel" aria-label="Load order panel">
+    <header class="head">
+      <div>
+        <h2 class="title">Load Order</h2>
+        <p class="count">{{ activeCountLabel }}</p>
       </div>
-      <div class="panel-header-right">
-        <button class="header-btn" @click="emit('manage-groups')">MANAGE GROUPS</button>
-        <button class="header-btn" @click="emit('autosort')">AUTOSORT</button>
+      <div class="head-actions">
+        <LaunchButton :playset-names="playsetNames" :game-active-playset-index="gameActivePlaysetIndex" />
+        <AutosortButton @sorted="load" />
+        <BaseButton :loading="isSavingCompiled" @click="onSaveCompiled">Save to Game</BaseButton>
       </div>
     </header>
 
-    <div class="load-order-list">
-      <draggable v-model="blocksModel" item-key="id" handle=".group-handle" :animation="150">
-        <template #item="{ element: block }">
-          <section class="group-block" v-if="block.modIds.length > 0 || block.isUngrouped">
-              <header class="group-header" @contextmenu="onItemContextMenu($event, block.id)">
-                <span class="group-handle">⠿</span>
-                <h3 class="group-name">{{ block.name }}</h3>
-                <span class="group-count">{{ block.modIds.length }}</span>
-                <button v-if="!block.isUngrouped" class="group-delete" @click="onCategoryDelete(block.id)">×</button>
-              </header>
+    <div class="category-create">
+      <input
+        v-model="categoryName"
+        class="category-input"
+        type="text"
+        placeholder="New category name..."
+        @keydown.enter.prevent="onCreateCategory"
+      />
+      <BaseButton variant="ghost" @click="onCreateCategory">+ Category</BaseButton>
+    </div>
 
-              <draggable
-                :model-value="block.modIds"
-                @update:model-value="val => { persistLayoutAsync(blocks.map(b => b.id === block.id ? { ...b, modIds: val } : b)) }"
-                item-key="id"
-                group="mods"
-                handle=".mod-handle"
-                :animation="150"
-                class="mods-list"
-              >
-                <template #item="{ element: modID }">
-                  <article
-                    class="mod-row"
-                    @click="emit('select-mod', modID)"
-                    @contextmenu.stop.prevent="onItemContextMenu($event, modID)"
-                  >
-                  <div class="mod-info">
-                    <span class="mod-name">{{ modsByID[modID]?.name || modID }}</span>
-                    <span class="mod-id">{{ modsByID[modID]?.tags?.join(', ') || modID }}</span>
+    <p v-if="persistError" class="alert">{{ persistError }}</p>
+    <p v-else-if="saveError" class="alert">{{ saveError }}</p>
+
+    <div class="list-wrap">
+      <draggable v-model="blocks" item-key="id" handle=".category-handle" :animation="150" @end="persistLayout">
+        <template #item="{ element: block }">
+          <section
+            v-if="block.modIds.length > 0 || block.isUngrouped"
+            class="bucket category-block"
+            @contextmenu="onItemContextMenu($event, block.id)"
+          >
+            <div class="category-head">
+              <button class="category-handle" type="button" aria-label="Drag category">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                  <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                  <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+                </svg>
+              </button>
+              <span class="category-dot" aria-hidden="true" />
+
+              <template v-if="editingCategoryID === block.id">
+                <input
+                  v-model="editingCategoryName"
+                  :data-category-edit="block.id"
+                  class="category-name-input"
+                  type="text"
+                  @keydown.enter.prevent="confirmCategoryEdit"
+                  @keydown.esc.prevent="cancelCategoryEdit"
+                />
+                <button class="confirm" type="button" @click="confirmCategoryEdit">✓</button>
+              </template>
+              <template v-else>
+                <button class="category-name-btn" type="button" @click="beginCategoryEdit(block)">
+                  <h3 class="bucket-title">{{ block.name }}</h3>
+                </button>
+              </template>
+
+              <span class="category-count">{{ block.modIds.length }}</span>
+              <button class="fold" type="button" @click="onToggleCollapse(block.id)">{{ block.collapsed ? '+' : '-' }}</button>
+              <button v-if="!block.isUngrouped" class="delete-category" type="button" @click="onDeleteCategory(block.id)" aria-label="Delete category">×</button>
+            </div>
+
+            <draggable
+              v-if="!block.collapsed"
+              v-model="block.modIds"
+              :item-key="modItemKey"
+              :group="{ name: 'mods' }"
+              handle=".mod-handle"
+              :animation="150"
+              @end="persistLayout"
+            >
+              <template #item="{ element: modID }">
+                <article class="mod-row" @contextmenu.stop.prevent="onItemContextMenu($event, modID)" @click="onModClick(modID)">
+                  <button class="mod-handle" type="button" aria-label="Drag mod">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                      <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                      <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+                    </svg>
+                  </button>
+
+                  <div class="mod-number-cell">
+                    <template v-if="globalEditModID === modID">
+                      <input
+                        v-model="globalEditValue"
+                        :data-global-edit="modID"
+                        class="number-input"
+                        type="number"
+                        min="1"
+                        @keydown.enter.prevent="confirmGlobalEdit(modID)"
+                        @keydown.esc.prevent="cancelGlobalEdit"
+                      />
+                      <button class="confirm" type="button" @click="confirmGlobalEdit(modID)">✓</button>
+                    </template>
+                    <button v-else class="number-btn" type="button" @click.stop="beginGlobalEdit(modID)">{{ numberByModID[modID] }}</button>
                   </div>
-                  <div
-                    class="toggle"
-                    :class="{ on: true }"
-                    @click.stop="handleDisable(modID)"
-                  ></div>
+
+                  <div class="mod-local-number-cell">
+                    <template v-if="!block.isUngrouped">
+                      <template v-if="localEditModID === modID">
+                        <input
+                          v-model="localEditValue"
+                          :data-local-edit="modID"
+                          class="number-input secondary"
+                          type="number"
+                          min="1"
+                          @keydown.enter.prevent="confirmLocalEdit(modID)"
+                          @keydown.esc.prevent="cancelLocalEdit"
+                        />
+                        <button class="confirm" type="button" @click="confirmLocalEdit(modID)">✓</button>
+                      </template>
+                      <button v-else class="number-btn secondary" type="button" @click.stop="beginLocalEdit(modID)">
+                        {{ localNumberByModID[modID] }}
+                      </button>
+                    </template>
+                  </div>
+
+                  <span class="mod-name">{{ getMod(modID)?.Name || modID }}</span>
                 </article>
               </template>
             </draggable>
+
+            <div v-if="!block.collapsed && block.modIds.length === 0" class="empty-hint">
+              Drop mods here
+            </div>
           </section>
         </template>
       </draggable>
     </div>
-  </div>
+
+  </section>
 </template>
 
 <style scoped>
 .load-order-panel {
   display: flex;
   flex-direction: column;
+  gap: var(--space-4);
   height: 100%;
-  padding: var(--space-5);
-  gap: var(--space-5);
   min-height: 0;
-  overflow: hidden;
 }
 
-.panel-header {
+.head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
 }
 
-.panel-title {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  color: var(--text);
+.head-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.title {
+  font-family: var(--font-display), serif;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
-.category-creator {
+.count {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.category-create {
   display: flex;
   gap: var(--space-2);
 }
 
 .category-input {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  flex: 1;
+  min-height: 2.25rem;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-3);
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+}
+
+.alert {
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-danger);
   font-size: 0.85rem;
 }
 
-.add-btn {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  width: 2rem;
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.load-order-list {
+.list-wrap {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-3);
+  padding-right: var(--space-1);
 }
 
-.group-block {
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
+.bucket {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
 }
 
-.toggle {
-  width: 36px;
-  height: 18px;
-  background: #444;
-  border-radius: 10px;
-  position: relative;
-  cursor: pointer;
+.bucket-title {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cat-1);
   flex-shrink: 0;
 }
 
-.toggle.on {
-  background: var(--success, #5c7c51);
+.category-count {
+  margin-left: auto;
+  margin-right: var(--space-2);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-base);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-family: var(--font-mono), monospace;
 }
 
-.toggle::after {
-  content: '';
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  background: white;
-  border-radius: 50%;
-  top: 2px;
-  left: 2px;
-  transition: 0.2s;
-}
-
-.toggle.on::after {
-  left: 20px;
-}
-
-.panel-header-right {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.header-btn {
-  background: transparent;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  padding: 5px 15px;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-family: var(--font-body);
-}
-
-.header-btn:hover {
-  background: var(--accent);
-  color: var(--bg-body);
-}
-
-.group-header {
+.category-head {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  background: rgba(255, 255, 255, 0.03);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-2);
 }
 
-.group-handle {
+.fold {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  cursor: pointer;
+}
+
+.delete-category {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-danger);
+  cursor: pointer;
+}
+
+.category-handle,
+.mod-handle {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
   cursor: grab;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-
-.group-name {
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent);
-  flex: 1;
-}
-
-.group-count {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.group-delete {
-  color: #ef4444;
-  font-size: 1.2rem;
-  line-height: 1;
-}
-
-.mods-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-height: 2rem;
 }
 
 .mod-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.5rem 3.2rem 3.2rem 1fr;
+  gap: var(--space-2);
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-panel);
-  border-radius: var(--radius-md);
-  border: 1px solid transparent;
+  min-height: 2rem;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  border-left: 3px solid transparent;
 }
 
 .mod-row:hover {
-  border-color: var(--accent);
-  background: var(--bg-elevated);
+  border-color: var(--color-border);
+  border-left-color: var(--color-accent);
+  background: var(--color-bg-base);
 }
 
-.mod-handle {
-  cursor: grab;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+.mod-number {
+  font-family: var(--font-mono), monospace;
+  color: var(--color-text-muted);
+  text-align: right;
 }
 
-.mod-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.mod-number-cell,
+.mod-local-number-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
 }
 
-.mod-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.number-btn {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono), monospace;
+  cursor: pointer;
 }
 
-.mod-id {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
+.number-btn.secondary {
+  opacity: 0.65;
 }
 
-.disable-btn {
-  color: var(--text-muted);
-  font-size: 1.2rem;
+.number-input {
+  width: 2.6rem;
+  min-height: 1.6rem;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+  text-align: center;
   padding: 0 var(--space-1);
 }
 
-.disable-btn:hover {
-  color: #ef4444;
+.number-input.secondary {
+  opacity: 0.8;
+}
+
+.confirm {
+  border: 0;
+  background: transparent;
+  color: var(--color-success);
+  cursor: pointer;
+}
+
+.category-name-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.category-name-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 1.5rem;
+  padding: 0.1rem var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.empty-hint {
+  padding: var(--space-3);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  border: var(--border-width) dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.mod-name {
+  color: var(--color-text-primary);
 }
 </style>
+
+

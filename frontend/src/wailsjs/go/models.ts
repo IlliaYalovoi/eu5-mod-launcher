@@ -133,7 +133,7 @@ export namespace mods {
 	
 	export class Mod {
 	    ID: string;
-	    name: string;
+	    Name: string;
 	    Version: string;
 	    Tags: string[];
 	    Description: string;
@@ -148,7 +148,7 @@ export namespace mods {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ID = source["ID"];
-	        this.name = source["Name"];
+	        this.Name = source["Name"];
 	        this.Version = source["Version"];
 	        this.Tags = source["Tags"];
 	        this.Description = source["Description"];

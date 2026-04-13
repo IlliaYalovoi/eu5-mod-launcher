@@ -7,13 +7,10 @@ import { errorMessage } from '../lib/error'
 import type { Mod, WorkshopItem } from '../types'
 import ConfirmModal from './ui/ConfirmModal.vue'
 
-const props = defineProps<{ mod: Mod | null }>()
-
-const emit = defineEmits<{
-  (event: 'close'): void
-}>()
+const props = defineProps<{ open: boolean; mod: Mod | null }>()
 
 const mod = ref<Mod | null>(null)
+watch(() => props.mod, (m) => { mod.value = m })
 const steamMetadata = ref<WorkshopItem | null>(null)
 const steamLoading = ref(false)
 const steamError = ref<string>('')
@@ -27,7 +24,7 @@ const unsubscribeFeatureLoaded = ref(false)
 const fallbackThumbnail = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='67' viewBox='0 0 120 67'%3E%3Crect width='120' height='67' rx='8' fill='%23222a35'/%3E%3Cg fill='none' stroke='%23b9b09b' stroke-width='2'%3E%3Cpath d='M20 46l20-20 17 17 8-8 12 17'/%3E%3Crect x='20' y='14' width='80' height='40' rx='5'/%3E%3C/g%3E%3C/svg%3E"
 
 async function loadModDetails() {
-  if (!props.mod?.id) return
+  if (!props.mod?.ID || !props.open) return
   steamLoading.value = true
   steamError.value = ''
   try {
@@ -35,7 +32,7 @@ async function loadModDetails() {
       unsubscribeEnabled.value = await IsUnsubscribeEnabled()
       unsubscribeFeatureLoaded.value = true
     }
-    const ws = await FetchWorkshopMetadataForMod(props.mod.id)
+    const ws = await FetchWorkshopMetadataForMod(props.mod?.ID || '')
     steamMetadata.value = ws as WorkshopItem
   } catch (err) {
     steamError.value = errorMessage(err)
@@ -44,22 +41,19 @@ async function loadModDetails() {
   }
 }
 
-watch(() => props.mod, (m) => {
-  mod.value = m
-  if (m) void loadModDetails()
-}, { immediate: true })
+watch(() => props.open, (isOpen) => { if (isOpen && props.mod) void loadModDetails() })
 
 const workshopURL = computed(() => {
   const itemID = steamMetadata.value?.itemId || ''
   return itemID ? `https://steamcommunity.com/sharedfiles/filedetails/?id=${itemID}` : ''
 })
-const canUnsubscribe = computed(() => !!props.mod?.id && unsubscribeEnabled.value)
+const canUnsubscribe = computed(() => !!props.mod?.ID && unsubscribeEnabled.value)
 
 const steamThumbnail = computed(() =>
-  toDisplayImageSrc(mod.value?.thumbnailPath || '') ||
+  toDisplayImageSrc(mod.value?.ThumbnailPath || '') ||
   toDisplayImageSrc(steamMetadata.value?.previewUrl || '') ||
   fallbackThumbnail)
-const localDescriptionHtml = computed(() => renderRichDescriptionHtml(mod.value?.description || ''))
+const localDescriptionHtml = computed(() => renderRichDescriptionHtml(mod.value?.Description || ''))
 const steamDescriptionHtml = computed(() => renderSteamDescriptionHtml(steamMetadata.value?.description || ''))
 
 function retry(): void { void loadModDetails() }
@@ -88,10 +82,10 @@ function openUnsubscribeConfirm(): void { unsubscribeConfirmOpen.value = true }
 function closeUnsubscribeConfirm(): void { unsubscribeConfirmOpen.value = false }
 async function confirmUnsubscribe(): Promise<void> {
   unsubscribeConfirmOpen.value = false
-  if (!props.mod?.id) return
+  if (!props.mod?.ID) return
   unsubscribeLoading.value = true
   try {
-    await UnsubscribeWorkshopMod(props.mod.id)
+    await UnsubscribeWorkshopMod(props.mod?.ID || '')
     showToast({ type: 'success', message: 'Unsubscribed successfully' })
   } catch (err) {
     unsubscribeError.value = errorMessage(err)
@@ -107,11 +101,11 @@ async function confirmUnsubscribe(): Promise<void> {
 
     <template v-else>
       <header class="header">
-        <h2 class="name">{{ mod.name }}</h2>
-        <p class="subtitle">Version {{ mod.version || 'Unknown' }} · {{ mod.enabled ? 'Enabled' : 'Disabled' }}</p>
+        <h2 class="name">{{ mod.Name }}</h2>
+        <p class="subtitle">Version {{ mod.Version || 'Unknown' }} · {{ mod.Enabled ? 'Enabled' : 'Disabled' }}</p>
       </header>
 
-      <img class="preview" :src="steamThumbnail" :alt="`${mod.name} preview`" loading="lazy" />
+      <img class="preview" :src="steamThumbnail" :alt="`${mod.Name} preview`" loading="lazy" />
 
       <div class="section">
         <h3 class="section-title">Local details</h3>
@@ -128,7 +122,7 @@ async function confirmUnsubscribe(): Promise<void> {
           <button class="retry" type="button" @click="retry">Retry</button>
         </p>
         <div v-else-if="steamMetadata && steamMetadata.itemId" class="steam-content">
-          <p class="steam-title">{{ steamMetadata.title || mod.name }}</p>
+          <p class="steam-title">{{ steamMetadata.title || mod.Name }}</p>
           <div v-if="steamDescriptionHtml" class="body steam-html" @click="onSteamContentClick" v-html="steamDescriptionHtml" />
           <p v-else class="body">No workshop description provided.</p>
           <button v-if="workshopURL" class="workshop-link" type="button" @click="openWorkshop">
@@ -171,6 +165,7 @@ async function confirmUnsubscribe(): Promise<void> {
   gap: var(--space-5);
   height: 100%;
   min-height: 0;
+  overflow: auto;
 }
 
 .header {
@@ -180,25 +175,24 @@ async function confirmUnsubscribe(): Promise<void> {
 }
 
 .name {
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: 1.5rem;
+  color: var(--color-text-primary);
+  font-size: 1.1rem;
   font-weight: 700;
   line-height: 1.3;
 }
 
 .subtitle {
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
 }
 
 .preview {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   object-fit: cover;
-  background: var(--bg-elevated);
+  background: var(--color-bg-elevated);
 }
 
 .section {
@@ -208,24 +202,22 @@ async function confirmUnsubscribe(): Promise<void> {
 }
 
 .section-title {
-  color: var(--accent);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: var(--space-2);
 }
 
 .body {
-  color: var(--text);
-  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 
 .steam-title {
-  color: var(--text);
+  color: var(--color-text-primary);
   font-weight: 700;
   margin-bottom: var(--space-2);
 }
@@ -234,84 +226,151 @@ async function confirmUnsubscribe(): Promise<void> {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  min-height: 2.25rem;
-  padding: 0 var(--space-4);
-  border: 1px solid var(--border);
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text);
+  color: var(--color-text-primary);
   cursor: pointer;
-  font-size: 0.85rem;
-  transition: all var(--transition-fast);
+  font-size: 0.82rem;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .workshop-link:hover {
-  border-color: var(--accent);
-  background: var(--bg-elevated);
+  border-color: var(--color-accent);
+  background: var(--color-bg-elevated);
+}
+
+.workshop-link:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .unsubscribe-area {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding-top: var(--space-4);
-  margin-top: auto;
-  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--color-border);
 }
 
 .unsubscribe-btn {
   display: inline-flex;
   align-items: center;
-  width: 100%;
-  justify-content: center;
-  min-height: 2.5rem;
-  padding: 0 var(--space-4);
-  border: 1px solid #ef4444;
+  width: fit-content;
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--color-danger);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: #ef4444;
+  color: var(--color-danger);
   cursor: pointer;
-  font-weight: 600;
-  transition: all var(--transition-fast);
+  font-size: 0.82rem;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .unsubscribe-btn:hover:not(:disabled) {
-  background: #ef4444;
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--color-bg-base);
+}
+
+.unsubscribe-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.state {
+  color: var(--color-text-secondary);
 }
 
 .state.error {
-  color: #ef4444;
+  color: var(--color-danger);
+}
+
+.state.muted {
+  color: var(--color-text-muted);
 }
 
 .retry {
   margin-left: var(--space-2);
-  border: 1px solid var(--border);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2);
   min-height: 1.8rem;
-  background: var(--bg-body);
-  color: var(--text);
+  background: transparent;
+  color: inherit;
   cursor: pointer;
 }
 
 :deep(.steam-html .steam-desc-image) {
   display: block;
   max-width: 100%;
-  margin: var(--space-3) 0;
-  border: 1px solid var(--border);
+  margin: var(--space-2) 0;
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
+:deep(.steam-html .steam-table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-2) 0;
+}
+
+:deep(.steam-html .steam-table th),
+:deep(.steam-html .steam-table td) {
+  border: var(--border-width) solid var(--color-border);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+}
+
 :deep(.steam-html a) {
-  color: var(--accent);
-  text-decoration: underline;
+  color: var(--color-accent);
+}
+
+:deep(.steam-html) {
+  white-space: normal;
+}
+
+:deep(.steam-html .steam-list) {
+  margin: var(--space-2) 0;
+  padding-left: 1.2rem;
+}
+
+:deep(.steam-html .steam-list li) {
+  margin: var(--space-1) 0;
 }
 
 :deep(.steam-html blockquote) {
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  border-left: var(--border-width-strong) solid var(--color-border-strong);
+  background: var(--color-bg-panel);
+}
+
+:deep(.steam-html pre) {
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+:deep(.steam-html h1),
+:deep(.steam-html h2),
+:deep(.steam-html h3),
+:deep(.steam-html h4),
+:deep(.steam-html h5),
+:deep(.steam-html h6) {
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--color-text-primary);
+}
+
+:deep(.steam-html hr) {
+  border: 0;
+  border-top: var(--border-width) solid var(--color-border);
   margin: var(--space-3) 0;
-  padding: var(--space-3);
-  border-left: 4px solid var(--accent);
-  background: var(--bg-panel);
 }
 </style>

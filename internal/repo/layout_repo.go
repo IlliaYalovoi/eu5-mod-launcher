@@ -15,7 +15,6 @@ type LauncherCategoryData struct {
 	ID     string   `json:"id"`
 	Name   string   `json:"name"`
 	ModIDs []string `json:"modIds"`
-	Rule   string   `json:"rule,omitempty"` // E.g., "LOAD AFTER grp_basic"
 }
 
 type LauncherLayoutData struct {

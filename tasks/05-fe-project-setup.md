@@ -81,11 +81,11 @@ Mirror the Go types as TypeScript interfaces:
 
 ```ts
 export interface Mod {
-  id: string
-  name: string
-  version: string
-  tags: string[]
-  description: string
+  ID: string
+  Name: string
+  Version: string
+  Tags: string[]
+  Description: string
   ThumbnailPath: string
   DirPath: string
   Enabled: boolean

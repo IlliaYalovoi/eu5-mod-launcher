@@ -41,11 +41,11 @@ const emit = defineEmits<{
 .title {
   font-family: var(--font-display), serif;
   font-size: 1rem;
-  color: var(--text);
+  color: var(--color-text-primary);
 }
 
 .message {
-  color: var(--text-muted);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.5;
 }
