@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { LaunchGame } from '../wailsjs/go/launcher/App'
+import { LaunchGame } from '../../wailsjs/go/launcher/App'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
 

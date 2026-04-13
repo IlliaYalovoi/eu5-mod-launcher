@@ -48,6 +48,7 @@ onUnmounted(() => { if (unsubscribe) unsubscribe(); timers.forEach(t => clearTim
         <span class="toast-icon" aria-hidden="true">
           <template v-if="toast.type === 'success'">✓</template>
           <template v-else-if="toast.type === 'error'">✕</template>
+          <template v-else-if="toast.type === 'warning'">⚠</template>
           <template v-else>ℹ</template>
         </span>
         <span class="toast-message">{{ toast.message }}</span>

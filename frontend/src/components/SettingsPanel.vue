@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { GetConfigPath, OpenConfigFolder } from '../wailsjs/go/launcher/App'
+import { GetConfigPath, OpenConfigFolder } from '../../wailsjs/go/launcher/App'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
 import BaseButton from './ui/BaseButton.vue'

@@ -4,7 +4,7 @@ import {
   AddConstraint, AddLoadFirst, AddLoadLast,
   GetAllMods, GetConstraints, GetLauncherLayout,
   RemoveConstraint, RemoveLoadFirst, RemoveLoadLast,
-} from '../wailsjs/go/launcher/App'
+} from '../../wailsjs/go/launcher/App'
 import type { Constraint, LauncherLayout, Mod } from '../types'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'

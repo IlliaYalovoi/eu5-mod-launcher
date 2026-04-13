@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { OpenExternalLink, OpenWorkshopItem, FetchWorkshopMetadataForMod, IsUnsubscribeEnabled, UnsubscribeWorkshopMod } from '../wailsjs/go/launcher/App'
+import { OpenExternalLink, OpenWorkshopItem, FetchWorkshopMetadataForMod, IsUnsubscribeEnabled, UnsubscribeWorkshopMod } from '../../wailsjs/go/launcher/App'
 import { renderRichDescriptionHtml, renderSteamDescriptionHtml, toDisplayImageSrc } from '../utils/steamDescription'
 import { showToast } from '../lib/toast'
 import { errorMessage } from '../lib/error'
