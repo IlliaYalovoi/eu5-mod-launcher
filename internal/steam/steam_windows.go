@@ -3,7 +3,6 @@
 package steam
 
 import (
-	"os"
 	"path/filepath"
 
 	"golang.org/x/sys/windows/registry"

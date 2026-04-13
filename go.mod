@@ -5,7 +5,6 @@ go 1.26.2
 require (
 	github.com/adrg/xdg v0.5.3
 	github.com/go-resty/resty/v2 v2.17.2
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/sys v0.43.0
@@ -27,6 +26,7 @@ require (
 	github.com/leaanthony/u v1.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.21 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect

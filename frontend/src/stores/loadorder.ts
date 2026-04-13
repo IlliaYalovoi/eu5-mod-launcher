@@ -15,7 +15,7 @@ import {
   SetLauncherActivePlaysetIndex,
   SetLauncherLayout,
   SetLoadOrder,
-} from '../../wailsjs/go/launcher/App'
+} from '../../wailsjs/go/main/App'
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)

@@ -1,4 +1,4 @@
-export namespace domain {
+export namespace graph {
 	
 	export class Constraint {
 	    type?: string;
@@ -21,36 +21,7 @@ export namespace domain {
 
 }
 
-export namespace game {
-	
-	export class DetectedGame {
-	    id: string;
-	    name: string;
-	    iconKey: string;
-	    detected: boolean;
-	    installDir: string;
-	    documentsDir: string;
-	    needsManualSetup: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new DetectedGame(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.iconKey = source["iconKey"];
-	        this.detected = source["detected"];
-	        this.installDir = source["installDir"];
-	        this.documentsDir = source["documentsDir"];
-	        this.needsManualSetup = source["needsManualSetup"];
-	    }
-	}
-
-}
-
-export namespace launcher {
+export namespace main {
 	
 	export class LauncherCategory {
 	    id: string;
@@ -160,24 +131,30 @@ export namespace mods {
 
 }
 
-export namespace steam {
+export namespace service {
 	
-	export class WorkshopItem {
-	    itemId: string;
-	    title: string;
-	    description: string;
-	    previewUrl: string;
+	export class DetectedGame {
+	    id: string;
+	    name: string;
+	    iconKey: string;
+	    detected: boolean;
+	    installDir: string;
+	    documentsDir: string;
+	    needsManualSetup: boolean;
 	
 	    static createFrom(source: any = {}) {
-	        return new WorkshopItem(source);
+	        return new DetectedGame(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.itemId = source["itemId"];
-	        this.title = source["title"];
-	        this.description = source["description"];
-	        this.previewUrl = source["previewUrl"];
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.iconKey = source["iconKey"];
+	        this.detected = source["detected"];
+	        this.installDir = source["installDir"];
+	        this.documentsDir = source["documentsDir"];
+	        this.needsManualSetup = source["needsManualSetup"];
 	    }
 	}
 

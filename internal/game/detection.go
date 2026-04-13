@@ -50,11 +50,8 @@ var (
 		}
 		libraryRoots := steam.DiscoverSteamLibraryRoots()
 		dirs := []string{}
-		for _, root := range libraryRoots {
-			candidate := filepath.Join(root, "steamapps", "common", "Victoria 3")
-			if _, err := os.Stat(candidate); err == nil {
-				dirs = append(dirs, candidate)
-			}
+		if len(libraryRoots) > 0 {
+			dirs = append(dirs, filepath.Join(libraryRoots[0], "steamapps", "common", "Victoria 3"))
 		}
 		common := filepath.Join(home, "Games", "Paradox Interactive", "Victoria 3")
 		if _, err := os.Stat(common); err == nil {

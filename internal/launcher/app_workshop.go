@@ -7,8 +7,6 @@ import (
 	goruntime "runtime"
 	"strconv"
 	"strings"
-
-	"eu5-mod-launcher/internal/steam"
 )
 
 func (a *App) OpenWorkshopItem(itemID string) error {
@@ -161,23 +159,4 @@ func normalizeWorkshopItemID(itemID string) (string, error) {
 func isWorkshopNumericID(id string) bool {
 	_, err := strconv.ParseUint(id, 10, 64)
 	return err == nil
-}
-
-func (a *App) FetchWorkshopMetadataForMod(modID string) (steam.WorkshopItem, error) {
-	if err := a.mustBeReady(); err != nil {
-		return steam.WorkshopItem{}, err
-	}
-	workshopID := a.workshopItemIDForMod(modID)
-	if workshopID == "" {
-		return steam.WorkshopItem{}, fmt.Errorf("no workshop id for mod %q", modID)
-	}
-	items, err := a.svc.steamClient.FetchWorkshopMetadata([]string{workshopID})
-	if err != nil {
-		return steam.WorkshopItem{}, fmt.Errorf("fetch workshop metadata for mod %q: %w", modID, err)
-	}
-	item, ok := items[workshopID]
-	if !ok {
-		return steam.WorkshopItem{}, fmt.Errorf("workshop item %q not found", workshopID)
-	}
-	return item, nil
 }

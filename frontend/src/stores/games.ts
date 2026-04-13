@@ -4,7 +4,7 @@ import { logger } from '../lib/logger'
 import {
   ListSupportedGames,
   GetGameExe,
-} from '../../wailsjs/go/launcher/App'
+} from '../../wailsjs/go/main/App'
 
 export const useGamesStore = defineStore('games', () => {
   const supportedGames = ref<Array<{ id: string; name: string; detected: boolean }>>([])
@@ -15,9 +15,9 @@ export const useGamesStore = defineStore('games', () => {
     const games = await ListSupportedGames()
     logger.info('games', `Found ${games.length} supported games`, { games })
     supportedGames.value = games.map((game: any) => ({
-      id: game.id,
-      name: game.name,
-      detected: game.detected,
+      id: game.ID,
+      name: game.Name,
+      detected: game.Detected,
     }))
 
     // Set active game to first detected game if none set

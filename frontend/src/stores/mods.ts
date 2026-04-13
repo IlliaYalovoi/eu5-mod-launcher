@@ -10,7 +10,7 @@ import {
   GetAllMods,
   IsUnsubscribeEnabled,
   UnsubscribeWorkshopMod,
-} from '../../wailsjs/go/launcher/App'
+} from '../../wailsjs/go/main/App'
 
 type UnsubscribeNotice = {
   type: 'success' | 'error'

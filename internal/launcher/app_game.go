@@ -3,7 +3,6 @@ package launcher
 import (
 	"eu5-mod-launcher/internal/domain"
 	"eu5-mod-launcher/internal/game"
-	"eu5-mod-launcher/internal/logging"
 	"eu5-mod-launcher/internal/repo"
 	"eu5-mod-launcher/internal/steam"
 	"fmt"
@@ -120,10 +119,7 @@ func (a *App) PickExecutable() (string, error) {
 	return path, nil
 }
 
-func (a *App) GetPlaysetNames() []string {
-	logging.Debugf("GetPlaysetNames: returning %d playsets: %v", len(a.playsetNames), a.playsetNames)
-	return a.playsetNames
-}
+func (a *App) GetPlaysetNames() []string { return a.playsetNames }
 
 func (a *App) GetGameActivePlaysetIndex() int { return a.gameActiveIdx }
 
@@ -160,20 +156,7 @@ func (a *App) SetLauncherActivePlaysetIndex(idx int) error {
 }
 
 func (a *App) ListSupportedGames() ([]game.DetectedGame, error) {
-	logging.Debugf("ListSupportedGames: calling detector with settingsPath=%q", a.settingsPath)
-	result, err := a.svc.gameDetection.ListSupportedGames(a.settingsPath)
-	if err != nil {
-		logging.Errorf("ListSupportedGames: error: %v", err)
-		return nil, err
-	}
-	logging.Infof("ListSupportedGames: found %d games: %v", len(result), func() []string {
-		names := make([]string, len(result))
-		for i, g := range result {
-			names[i] = g.Name + "(detected=" + fmt.Sprintf("%v", g.Detected) + ")"
-		}
-		return names
-	}())
-	return result, nil
+	return a.svc.gameDetection.ListSupportedGames(a.settingsPath)
 }
 
 func (a *App) SetGamePaths(gameID, installDir, documentsDir string) error {
@@ -227,19 +210,6 @@ func (a *App) RefreshGamePaths() error {
 	a.gamePaths, err = a.svc.gameSvc.DiscoverPaths(a.activeGameID)
 	if err != nil {
 		return err
-	}
-	// Apply manual path overrides from settings
-	settings, err := a.svc.settingsRepo.Load(a.settingsPath)
-	if err == nil && settings.GamePaths != nil {
-		if override, ok := settings.GamePaths[string(a.activeGameID)]; ok {
-			if override.DocumentsDir != "" {
-				a.gamePaths.LocalModsDir = override.DocumentsDir + "/mod"
-				a.gamePaths.PlaysetsPath = override.DocumentsDir + "/playsets.json"
-			}
-			if override.InstallDir != "" {
-				a.gamePaths.GameExePath = override.InstallDir
-			}
-		}
 	}
 	a.modPathByID = make(map[string]string)
 	return nil
