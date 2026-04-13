@@ -85,13 +85,6 @@ Tasks are designed to be **maximally independent**. Each one has a clear input, 
 | 22.5 | `22.5-fe-steam-description-rendering-and-open-priority.md` | Frontend+Go: Steam BBCode rendering, description image cache, workshop open fallback priority |
 | 23 | `23-go-steam-unsubscribe.md` | Go: unsubscribe workshop item action |
 | 24 | `24-fe-unsubscribe-workflow.md` | Frontend: unsubscribe UX from context/details |
-| 25 | `25-go-game-adapter-interfaces.md` | Go refactor: game adapter interfaces for mod list import/export |
-| 26 | `26-go-eu5-game-adapter.md` | Go: EU5 concrete adapter over new game interface |
-| 27 | `27-go-game-detection-eu5-vic3.md` | Go: detect supported games (EU5, Vic3) + manual path overrides |
-| 28 | `28-fe-multi-game-sidebar.md` | Frontend: left game sidebar, detected-state ordering and switching |
-| 29 | `29-fe-manual-game-path-setup.md` | Frontend: popup workflow for manual install/documents paths |
-| 30 | `30-fe-game-themes.md` | Frontend: per-game theme tokens and runtime theme switch |
-| 31 | `31-go-fe-last-selected-game-persistence.md` | Go+Frontend: persist/restore last selected game |
 ---
 
 ## Conventions to keep consistent across tasks
