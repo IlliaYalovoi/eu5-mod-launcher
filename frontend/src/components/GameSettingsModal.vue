@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import BaseButton from './ui/BaseButton.vue'
+import BaseModal from './ui/BaseModal.vue'
 import { useSettingsStore } from '../stores/settings'
-import { useModsStore } from '../stores/mods'
 
-const props = defineProps<{ required?: boolean }>()
-const emit = defineEmits<{ (event: 'close'): void }>()
+const props = defineProps<{
+  open: boolean,
+  gameID: string
+}>()
+
+const emit = defineEmits<{
+  (event: 'close'): void
+}>()
 
 const settingsStore = useSettingsStore()
-const modsStore = useModsStore()
-const { modsDirStatus, gameExe, autoDetectedGameExe, configPath } = storeToRefs(settingsStore)
+const { modsDirStatus, gameExe, autoDetectedGameExe } = storeToRefs(settingsStore)
 
 const error = ref<string | null>(null)
 const busy = ref(false)
@@ -30,14 +35,12 @@ async function withBusy(action: () => Promise<void>): Promise<void> {
 function onBrowseModsDir(): void {
   void withBusy(async () => {
     await settingsStore.browseModsDir()
-    await modsStore.fetchAll()
   })
 }
 
 function onAutoDetectModsDir(): void {
   void withBusy(async () => {
     await settingsStore.autoDetectModsDir()
-    await modsStore.fetchAll()
   })
 }
 
@@ -52,38 +55,51 @@ function onAutoDetectGameExe(): void {
     await settingsStore.autoDetectGameExecutable()
   })
 }
-
-function onOpenConfigFolder(): void {
-  void withBusy(async () => {
-    await settingsStore.openConfigFolder()
-  })
-}
 </script>
 
 <template>
-  <section class="settings-panel" aria-label="Settings panel">
-    <header class="head">
-      <h2 class="title">Global Settings</h2>
-      <button v-if="!props.required" class="close" type="button" aria-label="Close" @click="emit('close')">×</button>
-    </header>
+  <BaseModal :open="props.open" @close="emit('close')">
+    <section class="game-settings" aria-label="Game specific settings">
+      <header class="head">
+        <h2 class="title">{{ gameID.toUpperCase() }} Settings</h2>
+        <button class="close" type="button" @click="emit('close')">×</button>
+      </header>
 
-    <div class="field">
-      <label class="label">Program Config Path</label>
-      <input class="value" type="text" :value="configPath" readonly />
-      <div class="actions">
-        <BaseButton variant="ghost" :disabled="busy" @click="onOpenConfigFolder">Open config folder</BaseButton>
+      <div class="field">
+        <label class="label">Mods Directory</label>
+        <input class="value" type="text" :value="modsDirStatus.effectiveDir || 'Not configured'" readonly />
+        <p class="hint">
+          Source: {{ modsDirStatus.usingCustomDir ? 'Custom override' : 'Auto-detected' }}
+        </p>
+        <div class="actions">
+          <BaseButton variant="ghost" :disabled="busy" @click="onBrowseModsDir">Browse...</BaseButton>
+          <BaseButton variant="ghost" :disabled="busy" @click="onAutoDetectModsDir">Auto detect</BaseButton>
+        </div>
       </div>
-    </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
-  </section>
+      <div class="field">
+        <label class="label">Game Executable</label>
+        <input class="value" type="text" :value="gameExe || 'Not configured'" readonly />
+        <p class="hint">
+          Source: {{ gameExe && autoDetectedGameExe && gameExe === autoDetectedGameExe ? 'Auto-detected' : gameExe ? 'Custom override' : 'Not configured' }}
+        </p>
+        <div class="actions">
+          <BaseButton variant="ghost" :disabled="busy" @click="onBrowseGameExe">Browse...</BaseButton>
+          <BaseButton variant="ghost" :disabled="busy" @click="onAutoDetectGameExe">Auto detect</BaseButton>
+        </div>
+      </div>
+
+      <p v-if="error" class="error">{{ error }}</p>
+    </section>
+  </BaseModal>
 </template>
 
 <style scoped>
-.settings-panel {
+.game-settings {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  width: 32rem;
 }
 
 .head {
@@ -106,13 +122,6 @@ function onOpenConfigFolder(): void {
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-}
-
-.required-note {
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--color-danger);
-  border-radius: var(--radius-sm);
-  color: var(--color-danger);
 }
 
 .field {
@@ -152,4 +161,3 @@ function onOpenConfigFolder(): void {
   font-size: 0.85rem;
 }
 </style>
-

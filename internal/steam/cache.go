@@ -255,7 +255,7 @@ func (c *MetadataCache) evictLocked(state metadataCacheFile) {
 	})
 
 	removeCount := len(state.Entries) - c.maxEntries
-	for i := 0; i < removeCount; i++ {
+	for i := range removeCount {
 		delete(state.Entries, list[i].id)
 	}
 }

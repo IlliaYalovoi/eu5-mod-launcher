@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { LauncherCategory, LauncherLayout } from '../types'
+import { logBackendCall } from '../utils/backendDebug'
 import {
   Autosort,
   CreateLauncherCategory,
@@ -40,17 +41,23 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
   async function fetch(): Promise<void> {
     try {
       const [ids, names, gameIndex, launcherIndex, layout] = await Promise.all([
-        GetLoadOrder(),
-        GetPlaysetNames(),
-        GetGameActivePlaysetIndex(),
-        GetLauncherActivePlaysetIndex(),
-        GetLauncherLayout(),
+        logBackendCall('GetLoadOrder', [], () => GetLoadOrder()),
+        logBackendCall('GetPlaysetNames', [], () => GetPlaysetNames()),
+        logBackendCall('GetGameActivePlaysetIndex', [], () => GetGameActivePlaysetIndex()),
+        logBackendCall('GetLauncherActivePlaysetIndex', [], () => GetLauncherActivePlaysetIndex()),
+        logBackendCall('GetLauncherLayout', [], () => GetLauncherLayout()),
       ])
-      orderedIDs.value = ids
-      playsetNames.value = names
-      gameActivePlaysetIndex.value = gameIndex
-      launcherActivePlaysetIndex.value = launcherIndex
-      launcherLayout.value = (layout || emptyLauncherLayout) as LauncherLayout
+      orderedIDs.value = ids || []
+      playsetNames.value = names || []
+      gameActivePlaysetIndex.value = gameIndex ?? -1
+      launcherActivePlaysetIndex.value = launcherIndex ?? -1
+      const nextLayout = (layout || emptyLauncherLayout) as Partial<LauncherLayout>
+      launcherLayout.value = {
+        ungrouped: nextLayout.ungrouped || [],
+        categories: nextLayout.categories || [],
+        order: nextLayout.order || ['category:ungrouped'],
+        collapsed: nextLayout.collapsed || {},
+      }
     } catch {
       orderedIDs.value = []
       playsetNames.value = []
@@ -61,7 +68,13 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
   }
 
   async function fetchLauncherLayout(): Promise<void> {
-    launcherLayout.value = (await GetLauncherLayout()) as LauncherLayout
+    const nextLayout = (await GetLauncherLayout()) as Partial<LauncherLayout>
+    launcherLayout.value = {
+      ungrouped: nextLayout.ungrouped || [],
+      categories: nextLayout.categories || [],
+      order: nextLayout.order || ['category:ungrouped'],
+      collapsed: nextLayout.collapsed || {},
+    }
   }
 
   async function persist(ids: string[]): Promise<void> {
@@ -112,7 +125,7 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
   async function setLauncherPlayset(index: number): Promise<void> {
     await SetLauncherActivePlaysetIndex(index)
     launcherActivePlaysetIndex.value = index
-    orderedIDs.value = await GetLoadOrder()
+    orderedIDs.value = (await GetLoadOrder()) || []
     await fetchLauncherLayout()
   }
 

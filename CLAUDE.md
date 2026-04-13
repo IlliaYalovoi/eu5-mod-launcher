@@ -3,12 +3,14 @@
 ## CORE BEHAVIOR
 - NO preamble, NO explanations, NO summaries
 - Using `caveman` skill is MANDATORY for all tasks
+- ALWAYS use task appropriate skills/superpowers
 - DO NOT describe actions — perform them
 - NO follow-up questions unless BLOCKED by ambiguity
+- NO finishing task early if issues remain
 - OUTPUT ONLY:
     - file changes
     - unresolved issues (if any)
-- TERMINATE immediately after output
+- TERMINATE immediately after finishing task
 
 VIOLATION = INVALID RESPONSE
 

@@ -67,6 +67,28 @@
 
   /* Motion */
   --duration-spinner: 700ms;
+
+  --color-bg-sidebar: #0f1216;
+}
+
+.theme-eu5 {
+  --color-accent: #b08a4a;
+  --color-accent-hover: #c69a52;
+}
+
+.theme-hoi4 {
+  --color-accent: #8b0000;
+  --color-accent-hover: #b30000;
+}
+
+.theme-ck3 {
+  --color-accent: #4a90e2;
+  --color-accent-hover: #5da5f5;
+}
+
+.theme-stellaris {
+  --color-accent: #6cd9cc;
+  --color-accent-hover: #8ef7eb;
 }
 
 :root[data-theme='light'] {

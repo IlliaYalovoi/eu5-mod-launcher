@@ -42,6 +42,10 @@ export function FetchWorkshopMetadataForMod(arg1) {
   return window['go']['main']['App']['FetchWorkshopMetadataForMod'](arg1);
 }
 
+export function GetActiveGameID() {
+  return window['go']['main']['App']['GetActiveGameID']();
+}
+
 export function GetAllMods() {
   return window['go']['main']['App']['GetAllMods']();
 }
@@ -52,6 +56,10 @@ export function GetAutoDetectedGameExe() {
 
 export function GetAutoDetectedModsDir() {
   return window['go']['main']['App']['GetAutoDetectedModsDir']();
+}
+
+export function GetAvailableGames() {
+  return window['go']['main']['App']['GetAvailableGames']();
 }
 
 export function GetConfigPath() {
@@ -156,6 +164,10 @@ export function ResetModsDirToAuto() {
 
 export function SaveCompiledLoadOrder() {
   return window['go']['main']['App']['SaveCompiledLoadOrder']();
+}
+
+export function SetActiveGame(arg1) {
+  return window['go']['main']['App']['SetActiveGame'](arg1);
 }
 
 export function SetGameExe(arg1) {

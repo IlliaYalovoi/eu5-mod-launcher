@@ -3,6 +3,7 @@ package service
 import (
 	"eu5-mod-launcher/internal/domain"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -43,10 +44,8 @@ func (*LoadOrderService) Enable(current []string, modID string) ([]string, error
 	}
 
 	next := append([]string(nil), current...)
-	for _, currentID := range next {
-		if currentID == modID {
-			return next, nil
-		}
+	if slices.Contains(next, modID) {
+		return next, nil
 	}
 
 	return append(next, modID), nil

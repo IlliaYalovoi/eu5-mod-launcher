@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useModsStore } from '../stores/mods'
 import { OpenExternalLink, OpenWorkshopItem } from '../../wailsjs/go/main/App'
+import { logBackendCall } from '../utils/backendDebug'
 import { renderRichDescriptionHtml, renderSteamDescriptionHtml, toDisplayImageSrc } from '../utils/steamDescription'
 
 const modsStore = useModsStore()

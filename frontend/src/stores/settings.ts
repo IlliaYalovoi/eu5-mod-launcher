@@ -1,7 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { useModsStore } from './mods'
+import { useLoadOrderStore } from './loadorder'
+import { logBackendCall } from '../utils/backendDebug'
 import {
+  GetActiveGameID,
   GetAutoDetectedGameExe,
+  GetAvailableGames,
   GetConfigPath,
   GetGameExe,
   GetModsDirStatus,
@@ -11,9 +16,14 @@ import {
   PickFolder,
   ResetModsDirToAuto,
   ResetGameExeToAuto,
+  SetActiveGame,
   SetGameExe,
   SetModsDir,
 } from '../../wailsjs/go/main/App'
+
+type GameMetadata = {
+  ID: () => string
+}
 
 type ModsDirStatus = {
   effectiveDir: string
@@ -42,17 +52,35 @@ export const useSettingsStore = defineStore('settings', () => {
   const isLaunching = ref(false)
   const launchError = ref<string | null>(null)
   const lastLaunchAt = ref<number | null>(null)
+  const activeGameID = ref('eu5')
+  const availableGames = ref<string[]>([])
 
   const modsDir = computed(() => modsDirStatus.value.effectiveDir)
   const requiresManualPaths = computed(() => isLoaded.value && !modsDirStatus.value.effectiveExists)
 
   async function fetch(): Promise<void> {
-    const [status, exe, autoExe, cfg] = await Promise.all([GetModsDirStatus(), GetGameExe(), GetAutoDetectedGameExe(), GetConfigPath()])
+    const [status, exe, autoExe, cfg, activeID, games] = await Promise.all([
+      logBackendCall('GetModsDirStatus', [], () => GetModsDirStatus()),
+      logBackendCall('GetGameExe', [], () => GetGameExe()),
+      logBackendCall('GetAutoDetectedGameExe', [], () => GetAutoDetectedGameExe()),
+      logBackendCall('GetConfigPath', [], () => GetConfigPath()),
+      logBackendCall('GetActiveGameID', [], () => GetActiveGameID()),
+      logBackendCall('GetAvailableGames', [], () => GetAvailableGames()),
+    ])
     modsDirStatus.value = (status || emptyStatus) as ModsDirStatus
     gameExe.value = exe || ''
     autoDetectedGameExe.value = autoExe || ''
     configPath.value = cfg || ''
+    activeGameID.value = activeID || 'eu5'
+    availableGames.value = (games as string[])
     isLoaded.value = true
+  }
+
+  async function setGame(id: string): Promise<void> {
+    await logBackendCall('SetActiveGame', [id], () => SetActiveGame(id))
+    const modsStore = useModsStore()
+    const loadOrderStore = useLoadOrderStore()
+    await Promise.all([fetch(), modsStore.fetchAll(), loadOrderStore.fetch()])
   }
 
   async function setModsDir(path: string): Promise<void> {
@@ -124,7 +152,10 @@ export const useSettingsStore = defineStore('settings', () => {
     launchError,
     lastLaunchAt,
     requiresManualPaths,
+    activeGameID,
+    availableGames,
     fetch,
+    setGame,
     setModsDir,
     autoDetectModsDir,
     browseModsDir,

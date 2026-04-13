@@ -48,7 +48,7 @@ func (s *Adapter) DetectInstances() ([]game.Instance, error) {
 	}
 
 	instance := game.Instance{
-		GameID:          adapterID,
+		GameID:          s.ID(),
 		InstallPath:     installPath,
 		UserConfigPath:  userConfigPath,
 		LocalModsDir:    filepath.Join(userConfigPath, "mod"),

@@ -3,6 +3,7 @@ package service
 import (
 	"eu5-mod-launcher/internal/mods"
 	"fmt"
+	"maps"
 )
 
 type ModsService struct{}
@@ -26,9 +27,7 @@ func (*ModsService) Discover(
 	}
 
 	nextPaths := make(map[string]string, len(knownPaths)+len(allMods))
-	for id, path := range knownPaths {
-		nextPaths[id] = path
-	}
+	maps.Copy(nextPaths, knownPaths)
 	for i := range allMods {
 		nextPaths[allMods[i].ID] = allMods[i].DirPath
 		_, ok := enabled[allMods[i].ID]

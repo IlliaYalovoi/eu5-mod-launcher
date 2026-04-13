@@ -9,11 +9,15 @@ import (
 	"strings"
 )
 
+type GameSettingsData struct {
+	ModsDir string `json:"modsDir,omitempty"`
+	GameExe string `json:"gameExe,omitempty"`
+}
+
 type AppSettingsData struct {
-	ModsDir                    string   `json:"modsDir,omitempty"`
-	GameExe                    string   `json:"gameExe,omitempty"`
-	GameArgs                   []string `json:"gameArgs,omitempty"`
-	LauncherActivePlaysetIndex *int     `json:"launcherActivePlaysetIndex,omitempty"`
+	GameArgs                   []string                    `json:"gameArgs,omitempty"`
+	LauncherActivePlaysetIndex *int                        `json:"launcherActivePlaysetIndex,omitempty"`
+	Games                      map[string]GameSettingsData `json:"games,omitempty"`
 }
 
 type SettingsRepository interface {

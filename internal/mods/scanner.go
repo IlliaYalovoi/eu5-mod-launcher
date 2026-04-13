@@ -166,12 +166,10 @@ func scanCandidatesConcurrent(candidates []scanCandidate, workers int) []Mod {
 	results := make(chan scanResult, len(candidates))
 
 	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workers {
+		wg.Go(func() {
 			runScanWorker(jobs, results)
-		}()
+		})
 	}
 
 	go func() {

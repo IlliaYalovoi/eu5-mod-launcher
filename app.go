@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"eu5-mod-launcher/internal/adapters/eu5"
+	"eu5-mod-launcher/internal/adapters/legacy"
 	"eu5-mod-launcher/internal/domain"
+	"eu5-mod-launcher/internal/game"
 	"eu5-mod-launcher/internal/graph"
 	"eu5-mod-launcher/internal/loadorder"
 	"eu5-mod-launcher/internal/logging"
@@ -12,6 +15,7 @@ import (
 	"eu5-mod-launcher/internal/service"
 	"eu5-mod-launcher/internal/steam"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -56,6 +60,12 @@ type workshopMetadataFetcher interface {
 	FetchWorkshopMetadata(ids []string) (map[string]steam.WorkshopItem, error)
 }
 
+type appSettings struct {
+	GameArgs                   []string                         `json:"gameArgs,omitempty"`
+	LauncherActivePlaysetIndex *int                             `json:"launcherActivePlaysetIndex,omitempty"`
+	Games                      map[string]repo.GameSettingsData `json:"games,omitempty"`
+}
+
 // App wires Wails-exposed methods to internal business packages.
 type App struct {
 	ctx             context.Context
@@ -64,6 +74,7 @@ type App struct {
 	playsetNames    []string
 	gameActiveIndex int
 	launcherIndex   int
+	gameService     *service.GameService
 	modPathByID     map[string]string
 	launcherLayout  LauncherLayout
 	modsService     *service.ModsService
@@ -132,6 +143,13 @@ func (a *App) initCoreServices() {
 	a.playsetRepo = repo.NewFilePlaysetRepository()
 	a.settingsRepo = repo.NewFileSettingsRepository()
 	a.layoutRepo = repo.NewFileLayoutRepository()
+	a.gameService = service.NewGameService()
+	a.gameService.Register(&eu5.Adapter{})
+	a.gameService.Register(game.Adapter(legacy.NewSqliteAdapter("hoi4", "Hearts of Iron IV", "394360")))
+	a.gameService.Register(game.Adapter(legacy.NewSqliteAdapter("ck3", "Crusader Kings III", "1158310")))
+	a.gameService.Register(game.Adapter(legacy.NewSqliteAdapter("stellaris", "Stellaris", "281990")))
+
+	a.setActiveGameOnStartup()
 
 	a.modsService = service.NewModsService()
 	a.loadorderSvc = service.NewLoadOrderService()
@@ -149,41 +167,52 @@ func (a *App) initCoreServices() {
 	})
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.refreshState()
+}
 
+func (a *App) refreshState() {
 	loadorderPath, err := loadorder.DefaultConfigPath()
 	if err != nil {
-		logging.Errorf("startup: resolve default loadorder path: %v", err)
+		logging.Errorf("refreshState: resolve default loadorder path: %v", err)
 		return
+	}
+
+	gameID := a.GetActiveGameID()
+	if gameID != "" {
+		dir := filepath.Dir(loadorderPath)
+		loadorderPath = filepath.Join(dir, gameID+"_loadorder.json")
 	}
 
 	store, err := loadorder.New(loadorderPath)
 	if err != nil {
-		logging.Errorf("startup: initialize loadorder store: %v", err)
+		logging.Errorf("refreshState: initialize loadorder store: %v", err)
 		return
 	}
 	a.loStore = store
 
 	state, err := a.loStore.Load()
 	if err != nil {
-		logging.Warnf("startup: load fallback loadorder state, using empty: %v", err)
+		logging.Warnf("refreshState: load fallback loadorder state, using empty: %v", err)
 		a.loState = loadorder.State{OrderedIDs: []string{}}
 	} else {
 		a.loState = state
 	}
 
-	a.gamePaths, err = loadorder.DiscoverGamePaths()
-	if err != nil {
-		logging.Errorf("startup: auto-discover game paths: %v", err)
+	if a.gamePaths.PlaysetsPath == "" {
+		var err error
+		a.gamePaths, err = loadorder.DiscoverGamePaths()
+		if err != nil {
+			logging.Errorf("refreshState: auto-discover game paths: %v", err)
+		}
 	}
 
 	configDir := filepath.Dir(a.loStore.ConfigPath())
-	a.constraintsPath = filepath.Join(configDir, constraintsFileName)
+	gameID = a.GetActiveGameID()
+	a.constraintsPath = filepath.Join(configDir, gameID+"_constraints.json")
 	a.settingsPath = filepath.Join(configDir, settingsFileName)
-	a.layoutPath = filepath.Join(configDir, launcherLayoutFile)
+	a.layoutPath = filepath.Join(configDir, gameID+"_launcher_layout.json")
 
 	loads := a.loadStartupState()
 	a.applyStartupSettings(loads.settings, loads.settingsErr)
@@ -192,7 +221,7 @@ func (a *App) startup(ctx context.Context) {
 	a.applyStartupLayout(loads.layout, loads.layoutErr)
 
 	logging.Infof(
-		"app startup completed (playsets=%q, localMods=%q, workshopRoots=%d, gameExeAuto=%q, "+
+		"app state refreshed (playsets=%q, localMods=%q, workshopRoots=%d, gameExeAuto=%q, "+
 			"gameExeEffective=%q, gameActive=%d, launcherActive=%d)",
 		a.gamePaths.PlaysetsPath,
 		a.effectiveModsDir(),
@@ -235,12 +264,20 @@ func (a *App) applyStartupSettings(settings repo.AppSettingsData, settingsErr er
 
 func (a *App) loadStartupPlaysetState() {
 	if a.gamePaths.PlaysetsPath == "" {
+		a.playsetNames = []string{}
+		a.gameActiveIndex = -1
+		a.launcherIndex = -1
+		a.loState = loadorder.State{OrderedIDs: []string{}}
 		return
 	}
 
 	playsetNames, gameActiveIndex, err := a.playsetSvc.List(a.gamePaths.PlaysetsPath)
 	if err != nil {
 		logging.Warnf("startup: read playset list: %v", err)
+		a.playsetNames = []string{}
+		a.gameActiveIndex = -1
+		a.launcherIndex = -1
+		a.loState = loadorder.State{OrderedIDs: []string{}}
 		return
 	}
 
@@ -259,9 +296,7 @@ func (a *App) loadStartupPlaysetState() {
 	}
 
 	a.loState = playsetState
-	for id, path := range pathByID {
-		a.modPathByID[id] = path
-	}
+	maps.Copy(a.modPathByID, pathByID)
 }
 
 func (a *App) applyStartupConstraints(loadedGraph *graph.Graph, constraintsErr error) {
@@ -622,13 +657,18 @@ func (a *App) GetAutoDetectedModsDir() string {
 
 // GetModsDirStatus returns mods directory source and availability details.
 func (a *App) GetModsDirStatus() ModsDirStatus {
+	gameID := a.GetActiveGameID()
 	autoDir := a.gamePaths.LocalModsDir
 	effectiveDir := a.effectiveModsDir()
+	customDir := ""
+	if config, ok := a.settings.Games[gameID]; ok {
+		customDir = config.ModsDir
+	}
 	return ModsDirStatus{
 		EffectiveDir:       effectiveDir,
 		AutoDetectedDir:    autoDir,
-		CustomDir:          strings.TrimSpace(a.settings.ModsDir),
-		UsingCustomDir:     strings.TrimSpace(a.settings.ModsDir) != "",
+		CustomDir:          strings.TrimSpace(customDir),
+		UsingCustomDir:     strings.TrimSpace(customDir) != "",
 		AutoDetectedExists: dirExists(autoDir),
 		EffectiveExists:    dirExists(effectiveDir),
 	}
@@ -707,7 +747,11 @@ func (a *App) SetGameExe(path string) error {
 		return fmt.Errorf("set game executable: %w", err)
 	}
 
-	a.settings.GameExe = clean
+	gameID := a.GetActiveGameID()
+	config := a.settings.Games[gameID]
+	config.GameExe = clean
+	a.settings.Games[gameID] = config
+
 	if err := a.settingsRepo.Save(a.settingsPath, toRepoSettings(a.settings)); err != nil {
 		return fmt.Errorf("save settings with game executable: %w", err)
 	}
@@ -809,9 +853,7 @@ func (a *App) SetLauncherActivePlaysetIndex(index int) error {
 
 	a.launcherIndex = index
 	a.loState = playsetState
-	for id, path := range pathByID {
-		a.modPathByID[id] = path
-	}
+	maps.Copy(a.modPathByID, pathByID)
 
 	if err := a.loStore.Save(playsetState); err != nil {
 		return fmt.Errorf("save fallback loadorder for selected playset %d: %w", index, err)
@@ -836,7 +878,11 @@ func (a *App) SetModsDir(path string) error {
 	if err != nil {
 		return fmt.Errorf("set mods dir: %w", err)
 	}
-	a.settings.ModsDir = clean
+
+	gameID := a.GetActiveGameID()
+	config := a.settings.Games[gameID]
+	config.ModsDir = clean
+	a.settings.Games[gameID] = config
 
 	if err := a.settingsRepo.Save(a.settingsPath, toRepoSettings(a.settings)); err != nil {
 		return fmt.Errorf("save settings with mods dir: %w", err)
@@ -851,6 +897,81 @@ func (a *App) ResetModsDirToAuto() (string, error) {
 		return "", err
 	}
 	return a.gamePaths.LocalModsDir, nil
+}
+
+// SetActiveGame switches the current game and re-initializes paths.
+func (a *App) SetActiveGame(gameID string) error {
+	if err := a.gameService.SetActiveGame(gameID, 0); err != nil {
+		return err
+	}
+
+	inst, err := a.gameService.GetActiveInstance()
+	if err != nil {
+		return err
+	}
+
+	a.gamePaths = loadorder.GamePaths{
+		PlaysetsPath:    filepath.Join(inst.UserConfigPath, "playsets.json"),
+		LocalModsDir:    inst.LocalModsDir,
+		WorkshopModDirs: inst.WorkshopModDirs,
+		GameExePath:     inst.GameExePath,
+	}
+
+	// Update Playset Service Repository
+	adapter := a.gameService.GetAdapter(gameID)
+	if _, ok := adapter.(repo.LegacyAdapter); ok && gameID != "eu5" {
+		sqlite := adapter.(repo.LegacyAdapter)
+		a.gamePaths.PlaysetsPath = filepath.Join(inst.UserConfigPath, "launcher-v2.db")
+		a.playsetRepo = repo.NewSqlitePlaysetRepository(sqlite, *inst)
+	} else {
+		a.gamePaths.PlaysetsPath = filepath.Join(inst.UserConfigPath, "playsets.json")
+		a.playsetRepo = repo.NewFilePlaysetRepository()
+	}
+	a.playsetSvc = service.NewPlaysetService(a.playsetRepo)
+
+	if a.ctx != nil {
+		a.refreshState()
+	}
+	return nil
+}
+
+func (a *App) setActiveGameOnStartup() {
+	// Default to EU5 for now
+	if err := a.gameService.SetActiveGame("eu5", 0); err != nil {
+		logging.Errorf("failed to set active game eu5: %v", err)
+	}
+
+	inst, err := a.gameService.GetActiveInstance()
+	if err == nil {
+		a.gamePaths = loadorder.GamePaths{
+			PlaysetsPath:    filepath.Join(inst.UserConfigPath, "playsets.json"),
+			LocalModsDir:    inst.LocalModsDir,
+			WorkshopModDirs: inst.WorkshopModDirs,
+			GameExePath:     inst.GameExePath,
+		}
+		a.playsetRepo = repo.NewFilePlaysetRepository()
+		a.playsetSvc = service.NewPlaysetService(a.playsetRepo)
+	}
+}
+
+// GetAvailableGames returns a list of game IDs supported by the launcher.
+func (a *App) GetAvailableGames() []string {
+	adapters := a.gameService.GetAdapters()
+	ids := make([]string, 0, len(adapters))
+	for _, adapter := range adapters {
+		ids = append(ids, adapter.ID())
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// GetActiveGameID returns the ID of the currently active game.
+func (a *App) GetActiveGameID() string {
+	inst, err := a.gameService.GetActiveInstance()
+	if err != nil {
+		return ""
+	}
+	return inst.GameID
 }
 
 func (a *App) ensureReady() error {
@@ -944,11 +1065,19 @@ func (a *App) initConstraintsService() {
 }
 
 func (a *App) effectiveModsDir() string {
-	return a.settingsSvc.EffectivePath(a.settings.ModsDir, a.gamePaths.LocalModsDir)
+	gameID := a.GetActiveGameID()
+	if config, ok := a.settings.Games[gameID]; ok && strings.TrimSpace(config.ModsDir) != "" {
+		return config.ModsDir
+	}
+	return a.gamePaths.LocalModsDir
 }
 
 func (a *App) effectiveGameExe() string {
-	return a.settingsSvc.EffectivePath(a.settings.GameExe, a.gamePaths.GameExePath)
+	gameID := a.GetActiveGameID()
+	if config, ok := a.settings.Games[gameID]; ok && strings.TrimSpace(config.GameExe) != "" {
+		return config.GameExe
+	}
+	return a.gamePaths.GameExePath
 }
 
 func (a *App) expandConstraintTarget(target string) []string {
@@ -1285,10 +1414,7 @@ func sortIDsByPosition(ids []string, position map[string]int, fallback int) []st
 }
 
 func sortLayoutModIDs(layout *LauncherLayout, position map[string]int, sortedCount int) {
-	workers := goruntime.NumCPU()
-	if workers < 1 {
-		workers = 1
-	}
+	workers := max(goruntime.NumCPU(), 1)
 	if workers > maxSortWorkers {
 		workers = maxSortWorkers
 	}
@@ -1313,7 +1439,7 @@ func sortLayoutModIDsConcurrent(layout *LauncherLayout, position map[string]int,
 
 	jobs := make(chan int)
 	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
+	for range workers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1331,19 +1457,21 @@ func sortLayoutModIDsConcurrent(layout *LauncherLayout, position map[string]int,
 
 func toRepoSettings(settings appSettings) repo.AppSettingsData {
 	return repo.AppSettingsData{
-		ModsDir:                    settings.ModsDir,
-		GameExe:                    settings.GameExe,
 		GameArgs:                   append([]string(nil), settings.GameArgs...),
 		LauncherActivePlaysetIndex: settings.LauncherActivePlaysetIndex,
+		Games:                      maps.Clone(settings.Games),
 	}
 }
 
 func fromRepoSettings(settings repo.AppSettingsData) appSettings {
+	games := maps.Clone(settings.Games)
+	if games == nil {
+		games = make(map[string]repo.GameSettingsData)
+	}
 	return appSettings{
-		ModsDir:                    settings.ModsDir,
-		GameExe:                    settings.GameExe,
 		GameArgs:                   append([]string(nil), settings.GameArgs...),
 		LauncherActivePlaysetIndex: settings.LauncherActivePlaysetIndex,
+		Games:                      games,
 	}
 }
 
@@ -1358,9 +1486,7 @@ func toRepoLayout(layout LauncherLayout) repo.LauncherLayoutData {
 		})
 	}
 	collapsed := map[string]bool{}
-	for id, value := range layout.Collapsed {
-		collapsed[id] = value
-	}
+	maps.Copy(collapsed, layout.Collapsed)
 	return repo.LauncherLayoutData{
 		Ungrouped:  append([]string(nil), layout.Ungrouped...),
 		Categories: categories,
@@ -1380,9 +1506,7 @@ func fromRepoLayout(layout repo.LauncherLayoutData) LauncherLayout {
 		})
 	}
 	collapsed := map[string]bool{}
-	for id, value := range layout.Collapsed {
-		collapsed[id] = value
-	}
+	maps.Copy(collapsed, layout.Collapsed)
 	return LauncherLayout{
 		Ungrouped:  append([]string(nil), layout.Ungrouped...),
 		Categories: categories,
@@ -1588,7 +1712,6 @@ func normalizeWorkshopItemID(itemID string) (string, error) {
 
 	return strconv.FormatUint(parsed, 10), nil
 }
-
 
 func (a *App) openURLInApp(rawURL string) error {
 	if strings.TrimSpace(rawURL) == "" {

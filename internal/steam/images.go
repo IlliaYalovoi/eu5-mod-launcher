@@ -335,7 +335,7 @@ func (c *ImageCache) cleanupLocked() {
 		return files[i].modTime.Before(files[j].modTime)
 	})
 	toRemove := len(files) - c.maxEntries
-	for i := 0; i < toRemove; i++ {
+	for i := range toRemove {
 		if err := os.Remove(files[i].path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return
 		}

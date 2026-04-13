@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useLoadOrderStore } from './loadorder'
 import type { Mod, WorkshopItem } from '../types'
+import { logBackendCall } from '../utils/backendDebug'
 import {
   DisableMod,
   EnableMod,
@@ -95,10 +96,8 @@ export const useModsStore = defineStore('mods', () => {
 
     try {
       await ensureUnsubscribeCapability()
-      allMods.value = (await GetAllMods()) as Mod[]
-      if (!allMods.value.some((mod) => mod.ID === selectedModID.value)) {
-        selectedModID.value = allMods.value[0]?.ID || ''
-      }
+      allMods.value = (await logBackendCall('GetAllMods', [], () => GetAllMods())) as Mod[]
+      selectedModID.value = allMods.value[0]?.ID || ''
     } catch (err) {
       error.value = errorMessage(err)
       allMods.value = []

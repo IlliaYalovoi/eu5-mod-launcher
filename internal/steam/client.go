@@ -106,10 +106,7 @@ func (c *Client) FetchWorkshopMetadata(ids []string) (map[string]WorkshopItem, e
 		requestSet[id] = struct{}{}
 	}
 
-	attempts := c.retries + 1
-	if attempts < 1 {
-		attempts = 1
-	}
+	attempts := max(c.retries+1, 1)
 
 	var lastErr error
 	for attempt := 0; attempt < attempts; attempt++ {

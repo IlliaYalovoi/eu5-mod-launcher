@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import ModListPanel from './components/ModListPanel.vue'
+import Sidebar from './components/Sidebar.vue'
 import LoadOrderPanel from './components/LoadOrderPanel.vue'
 import ModDetailsPanel from './components/ModDetailsPanel.vue'
 import ConstraintModal from './components/ConstraintModal.vue'
@@ -43,6 +44,9 @@ const constraintModal = reactive({
 })
 
 const settingsOpen = ref(false)
+
+const appThemeClass = computed(() => `theme-${settingsStore.activeGameID}`)
+
 let unsubscribeNoticeTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(
@@ -76,7 +80,7 @@ onBeforeUnmount(() => {
 })
 
 const contextMenuItems = computed<MenuItem[]>(() => {
-  const isCategory = contextMenu.targetID.indexOf('category:') === 0
+  const isCategory = contextMenu.targetID?.indexOf('category:') === 0
 
   const currentCategoryForTarget = (() => {
     for (const category of launcherLayout.value.categories) {
@@ -266,11 +270,12 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell" :class="appThemeClass">
     <header class="titlebar">
-      <span>EU5 Mod Launcher</span>
+      <span>{{ settingsStore.activeGameID.toUpperCase() }} Mod Launcher</span>
       <button class="settings-trigger" type="button" @click="openSettings">Settings</button>
     </header>
+    <Sidebar />
     <aside class="sidebar">
       <ModListPanel />
     </aside>
@@ -302,11 +307,11 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 <style scoped>
 .shell {
   display: grid;
-  grid-template-columns: 17.5rem 1fr 21rem;
+  grid-template-columns: 4rem 17.5rem 1fr 21rem;
   grid-template-rows: 3rem 1fr;
   grid-template-areas:
-    'titlebar titlebar titlebar'
-    'sidebar content details';
+    'titlebar titlebar titlebar titlebar'
+    'game-sidebar sidebar content details';
   height: 100%;
   background: var(--color-bg-base);
   color: var(--color-text-primary);

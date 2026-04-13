@@ -57,6 +57,12 @@ func (s *GameService) GetActiveInstance() (*game.Instance, error) {
 	return s.activeInstance, nil
 }
 
+func (s *GameService) GetAdapter(id string) game.Adapter {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.adapters[id]
+}
+
 func (s *GameService) GetAdapters() []game.Adapter {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

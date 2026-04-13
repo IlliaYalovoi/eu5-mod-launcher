@@ -25,11 +25,15 @@ export function FetchWorkshopMetadataBatch(arg1:Array<string>):Promise<Record<st
 
 export function FetchWorkshopMetadataForMod(arg1:string):Promise<steam.WorkshopItem>;
 
+export function GetActiveGameID():Promise<string>;
+
 export function GetAllMods():Promise<Array<mods.Mod>>;
 
 export function GetAutoDetectedGameExe():Promise<string>;
 
 export function GetAutoDetectedModsDir():Promise<string>;
+
+export function GetAvailableGames():Promise<Array<string>>;
 
 export function GetConfigPath():Promise<string>;
 
@@ -82,6 +86,8 @@ export function ResetGameExeToAuto():Promise<string>;
 export function ResetModsDirToAuto():Promise<string>;
 
 export function SaveCompiledLoadOrder():Promise<Array<string>>;
+
+export function SetActiveGame(arg1:string):Promise<void>;
 
 export function SetGameExe(arg1:string):Promise<void>;
 
