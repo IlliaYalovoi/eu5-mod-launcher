@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import type { LauncherLayout, Mod } from '../types'
-import LoadOrderItem from './LoadOrderItem.vue'
 import {
   CreateLauncherCategory,
   DeleteLauncherCategory,
@@ -196,10 +195,10 @@ defineExpose({ load, launcherLayout })
                 <span class="group-handle" @click.stop>⠿</span>
                 <div class="group-title-zone">
                   <h3 class="group-name">{{ block.name }}</h3>
-                  <div class="group-stats-pill">
+                  <span class="group-stats">
                     <span class="enabled-count">{{ getCategoryStats(block.modIds).enabledCount }}</span>
-                    <span class="total-count">/ {{ block.modIds.length }}</span>
-                  </div>
+                    <span class="total-count">/ {{ block.modIds.length }} mods</span>
+                  </span>
                 </div>
                 <div class="group-actions">
                   <button v-if="!block.isUngrouped" class="group-delete" @click.stop="onCategoryDelete(block.id)">×</button>
@@ -217,19 +216,29 @@ defineExpose({ load, launcherLayout })
                 :animation="150"
                 class="mods-list"
               >
-                <template #item="{ element: modID, index }">
-                  <LoadOrderItem
-                    v-if="modsByID[modID]"
-                    :mod="modsByID[modID]"
-                    :index="index"
-                    :is-disabled="!modsByID[modID].enabled"
+                <template #item="{ element: modID }">
+                  <article
+                    class="mod-row"
+                    :class="{ 'is-disabled': !modsByID[modID]?.enabled }"
                     @click="emit('select-mod', modID)"
-                    @toggle="handleDisable"
-                    @contextmenu="payload => emit('contextmenu', payload)"
-                  />
-                  <div v-else class="mod-missing">Missing Mod: {{ modID }}</div>
-                </template>
-              </draggable>
+                    @contextmenu.stop.prevent="onItemContextMenu($event, modID)"
+                  >
+                  <div class="mod-handle">⠿</div>
+                  <div class="mod-info">
+                    <div class="mod-name-row">
+                      <span class="mod-name">{{ modsByID[modID]?.name || modID }}</span>
+                      <span v-if="(modsByID[modID] as any)?.constraints && (modsByID[modID] as any).constraints.length > 0" class="mod-conflict-badge" title="Has constraints/rules">!</span>
+                    </div>
+                    <span class="mod-id">{{ modsByID[modID]?.tags?.join(', ') || modID }}</span>
+                  </div>
+                  <div
+                    class="toggle"
+                    :class="{ on: modsByID[modID]?.enabled }"
+                    @click.stop="handleDisable(modID)"
+                  ></div>
+                </article>
+              </template>
+            </draggable>
           </section>
         </template>
       </draggable>
@@ -284,7 +293,7 @@ defineExpose({ load, launcherLayout })
 }
 
 .group-block:hover {
-  border-color: var(--accent-primary, var(--accent));
+  border-color: var(--accent);
 }
 
 .group-block.is-collapsed {
@@ -295,16 +304,15 @@ defineExpose({ load, launcherLayout })
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  background: var(--card-bg, rgba(255, 255, 255, 0.05));
-  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 255, 255, 0.05);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   user-select: none;
-  min-height: 3rem;
 }
 
 .group-header:hover {
-  background: var(--card-bg-hover, rgba(255, 255, 255, 0.08));
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .group-header.is-collapsed {
@@ -314,36 +322,27 @@ defineExpose({ load, launcherLayout })
 .group-title-zone {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-3);
 }
 
 .group-name {
   font-family: var(--font-display);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--accent-primary, var(--accent));
-  font-weight: 800;
+  color: var(--accent);
+  font-weight: 700;
 }
 
-.group-stats-pill {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  display: flex;
-  gap: 4px;
-  border: 1px solid var(--border);
+.group-stats {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .enabled-count {
   color: var(--success);
-}
-
-.total-count {
-  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .group-actions {
@@ -359,6 +358,38 @@ defineExpose({ load, launcherLayout })
   text-align: center;
 }
 
+.toggle {
+  width: 34px;
+  height: 18px;
+  background: #333;
+  border-radius: 9px;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.toggle.on {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  top: 1px;
+  left: 1px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle.on::after {
+  transform: translateX(16px);
+}
+
 .panel-header-right {
   display: flex;
   gap: var(--space-3);
@@ -366,8 +397,8 @@ defineExpose({ load, launcherLayout })
 
 .header-btn {
   background: var(--bg-panel);
-  border: 1px solid var(--accent-primary, var(--accent));
-  color: var(--accent-primary, var(--accent));
+  border: 1px solid var(--accent);
+  color: var(--accent);
   padding: 6px 16px;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -378,7 +409,7 @@ defineExpose({ load, launcherLayout })
 }
 
 .header-btn:hover {
-  background: var(--accent-primary, var(--accent));
+  background: var(--accent);
   color: var(--bg-body);
 }
 
@@ -391,11 +422,11 @@ defineExpose({ load, launcherLayout })
 
 .group-handle:hover {
   opacity: 1;
-  color: var(--accent-primary, var(--accent));
+  color: var(--accent);
 }
 
 .group-delete {
-  color: var(--error, #ef4444);
+  color: #ef4444;
   font-size: 1.1rem;
   line-height: 1;
   opacity: 0.6;
@@ -409,17 +440,82 @@ defineExpose({ load, launcherLayout })
 .mods-list {
   display: flex;
   flex-direction: column;
-  padding: var(--space-3);
-  gap: var(--space-2);
+  padding: var(--space-2);
+  gap: 2px;
   min-height: 1rem;
 }
 
-.mod-missing {
-  padding: var(--space-2);
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-style: italic;
-  border: 1px dashed var(--border);
+.mod-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
   border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mod-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-left-color: var(--accent);
+}
+
+.mod-row.is-disabled {
+  opacity: 0.6;
+}
+
+.mod-handle {
+  cursor: grab !important;
+  color: var(--text-muted);
+  opacity: 0.3;
+  font-size: 0.7rem;
+}
+
+.mod-row:hover .mod-handle {
+  opacity: 0.7;
+}
+
+.mod-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mod-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mod-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.mod-conflict-badge {
+  background: #f59e0b;
+  color: black;
+  font-size: 0.65rem;
+  font-weight: 900;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mod-id {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 </style>
