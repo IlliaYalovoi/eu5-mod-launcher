@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import {computed, onMounted, onUnmounted, reactive, ref, watch} from 'vue'
 import { useActiveGameStore } from './stores/activeGame'
-import type { LauncherLayout, Mod, WorkspaceMode } from './types'
+import type { LauncherLayout, Mod } from './types'
 import {
   GetGameActivePlaysetIndex,
   GetAllMods,
@@ -26,8 +26,6 @@ import ConstraintModal from './components/ConstraintModal.vue'
 import BaseModal from './components/ui/BaseModal.vue'
 
 const activeGameStore = useActiveGameStore()
-
-const currentMode = ref<WorkspaceMode>('load-order')
 
 type MenuItem = {
   id: string
@@ -215,77 +213,69 @@ function closeSettings() {
 </script>
 
 <template>
-  <div class="app-shell">
-    <nav class="command-rail">
-      <div class="rail-header">
-        <h1 class="app-title-mini">PDX</h1>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1 class="app-title">PDX Mod Organizer</h1>
       </div>
 
-      <div class="rail-nav">
-        <button
-          v-for="game in supportedGames"
-          :key="game.id"
-          class="rail-game-btn"
-          :class="{
-            'rail-game-btn--active': activeGameStore.activeGameID === game.id,
-            'rail-game-btn--undetected': !game.detected
-          }"
-          @click="onGameClick(game)"
-          :title="game.name"
-        >
-          <span class="game-icon">⚔️</span>
-        </button>
-      </div>
-
-      <div class="rail-footer">
-        <button class="rail-action-btn" @click="settingsOpen = true" title="Settings">⚙️</button>
-        <LaunchButton
-          v-if="activeGameStore.activeGameID"
-          :playset-names="playsetNames"
-          :game-active-playset-index="launcherActivePlaysetIndex"
-          compact
-        />
-      </div>
-    </nav>
-
-    <main class="workspace-center">
-      <header class="workspace-header" v-if="activeGameStore.activeGameID">
-        <div class="workspace-meta">
-          <h1 class="target-game-name">{{ supportedGames.find(g => g.id === activeGameStore.activeGameID)?.name }}</h1>
-          <div v-if="playsetNames.length > 0" class="playset-nav">
-             <select
-                class="playset-select-minimal"
-                :value="launcherActivePlaysetIndex"
-                @change="onLauncherPlaysetChange"
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <h3 class="nav-label">Games</h3>
+          <div class="games-list">
+            <div
+              v-for="game in supportedGames"
+              :key="game.id"
+              class="game-item"
+            >
+              <button
+                class="game-card"
+                :class="{
+                  'game-card--active': activeGameStore.activeGameID === game.id,
+                  'game-card--undetected': !game.detected
+                }"
+                @click="onGameClick(game)"
               >
-                <option v-for="(name, index) in playsetNames" :key="`${name}-${index}`" :value="index">
-                  {{ name }}
-                </option>
-              </select>
+                <span class="game-icon">⚔️</span>
+                <span class="game-name">{{ game.name }}</span>
+              </button>
+
+              <div
+                v-if="activeGameStore.activeGameID === game.id && playsetNames.length > 0"
+                class="playset-selector"
+              >
+                <select
+                  class="playset-select"
+                  :value="launcherActivePlaysetIndex"
+                  @change="onLauncherPlaysetChange"
+                >
+                  <option v-for="(name, index) in playsetNames" :key="`${name}-${index}`" :value="index">
+                    {{ name }}
+                  </option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
+      </nav>
 
-        <nav class="mode-tabs">
-          <button
-            class="mode-tab"
-            :class="{ 'mode-tab--active': currentMode === 'load-order' }"
-            @click="currentMode = 'load-order'"
-          >
-            Load Order
-          </button>
-          <button
-            class="mode-tab"
-            :class="{ 'mode-tab--active': currentMode === 'discover' }"
-            @click="currentMode = 'discover'"
-          >
-            Mod Repository
-          </button>
-        </nav>
+      <div class="sidebar-footer">
+        <div class="footer-actions">
+          <button class="footer-btn" @click="settingsOpen = true">Settings</button>
+        </div>
+        <LaunchButton
+          :playset-names="playsetNames"
+          :game-active-playset-index="launcherActivePlaysetIndex"
+        />
+      </div>
+    </aside>
+
+    <main class="content-area">
+      <header class="toolbar" v-if="activeGameStore.activeGameID">
+        <h1 class="target-game-title">{{ supportedGames.find(g => g.id === activeGameStore.activeGameID)?.name }}</h1>
       </header>
-
-      <div class="workspace-content">
+      <div class="main-split">
         <LoadOrderPanel
-          v-if="currentMode === 'load-order'"
           ref="loadOrderPanel"
           @select-mod="onModSelect"
           @contextmenu="openContextMenu"
@@ -295,20 +285,12 @@ function closeSettings() {
           @autosort="handleAutosort"
         />
         <ModRepository
-          v-else-if="currentMode === 'discover'"
           ref="modRepository"
           @select-mod="onModSelect"
           @mod-enabled="refreshPanels"
         />
       </div>
     </main>
-
-    <aside class="inspector-right" :class="{ 'inspector-right--open': detailsOpen && selectedMod }">
-      <ModDetailsPanel v-if="selectedMod" :mod="selectedMod" @close="closeDetails" />
-      <div v-else class="inspector-empty">
-        <p>Select a mod to view details</p>
-      </div>
-    </aside>
 
     <!-- Manage Groups Modal -->
     <BaseModal :open="manageGroupsModal.open" @close="manageGroupsModal.open = false">
@@ -329,7 +311,10 @@ function closeSettings() {
        </div>
     </BaseModal>
 
-    <!-- Mod Details Modal removed, now in inspector -->
+    <!-- Mod Details Modal -->
+    <BaseModal :open="detailsOpen" @close="closeDetails">
+      <ModDetailsPanel :mod="selectedMod" @close="closeDetails" />
+    </BaseModal>
 
     <!-- Context Menu -->
     <ContextMenu
@@ -367,184 +352,167 @@ function closeSettings() {
 </template>
 
 <style scoped>
-.app-shell {
+.shell {
   display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  background: var(--bg-body);
+  height: 100%;
+  width: 100%;
 }
 
-/* Command Rail */
-.command-rail {
-  width: 72px;
-  background: var(--rail-bg, var(--bg-sidebar));
+.sidebar {
+  width: 280px;
+  background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  align-items: center;
   flex-shrink: 0;
-  padding: var(--space-4) 0;
 }
 
-.rail-header {
-  margin-bottom: var(--space-6);
+.sidebar-header {
+  padding: var(--space-5) var(--space-4);
 }
 
-.app-title-mini {
+.app-title {
   font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 0 var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+}
+
+.nav-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.games-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.game-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.game-card:hover {
+  background: var(--bg-elevated);
+}
+
+.game-card--active {
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+}
+
+.game-card--undetected {
+  opacity: 0.5;
+}
+
+.game-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.game-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.playset-selector {
+  margin-top: 10px;
+  margin-left: 32px;
+}
+
+.playset-select {
+  width: 100%;
+  padding: var(--space-2);
+  background: var(--bg-body);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font-size: 0.8rem;
+}
+
+.playset-select:focus {
+  border-color: var(--accent);
+}
+
+.sidebar-footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.footer-btn {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.footer-btn:hover {
   color: var(--accent);
 }
 
-.rail-nav {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.rail-game-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-elevated);
-  transition: all var(--transition-fast);
-  border: 2px solid transparent;
-}
-
-.rail-game-btn:hover {
-  border-color: var(--border);
-  transform: translateY(-1px);
-}
-
-.rail-game-btn--active {
-  background: var(--accent);
-  color: var(--bg-body);
-  border-color: var(--accent);
-  box-shadow: 0 0 15px var(--accent-alpha, rgba(var(--accent-rgb), 0.3));
-}
-
-.rail-game-btn--undetected {
-  opacity: 0.3;
-  filter: grayscale(1);
-}
-
-.rail-footer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  align-items: center;
-}
-
-.rail-action-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  transition: transform 0.2s;
-}
-
-.rail-action-btn:hover {
-  transform: rotate(30deg);
-}
-
-/* Workspace Center */
-.workspace-center {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--workspace-bg, var(--bg-body));
-}
-
-.workspace-header {
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.workspace-meta {
+.toolbar {
+  padding: 20px 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.1);
 }
 
-.target-game-name {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
+.target-game-title {
   margin: 0;
-  color: var(--text-base);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: 0.05em;
 }
 
-.playset-select-minimal {
-  padding: var(--space-1) var(--space-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--accent);
-  font-size: 0.85rem;
-  outline: none;
-}
-
-.mode-tabs {
+.toolbar-actions {
   display: flex;
-  gap: var(--space-6);
+  gap: 20px;
 }
 
-.mode-tab {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  padding-bottom: var(--space-2);
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-
-.mode-tab:hover {
-  color: var(--text-base);
-}
-
-.mode-tab--active {
+.toolbar-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
   color: var(--accent);
-  border-bottom-color: var(--accent);
+  padding: 5px 15px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.workspace-content {
-  flex: 1;
-  overflow: hidden;
-}
-
-/* Inspector Right */
-.inspector-right {
-  width: 0;
-  background: var(--inspector-bg, var(--bg-panel));
-  border-left: 1px solid var(--border);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.inspector-right--open {
-  width: 400px;
-}
-
-.inspector-empty {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-style: italic;
+.toolbar-btn:hover {
+  background: var(--accent);
+  color: var(--bg-body);
 }
 
 .manage-groups-view {
@@ -604,5 +572,20 @@ function closeSettings() {
   color: #ef4444;
   font-size: 1.2rem;
   font-weight: 700;
+}
+
+.content-area {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-body);
+  display: flex;
+  flex-direction: column;
+}
+
+.main-split {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  flex: 1;
+  overflow: hidden;
 }
 </style>
