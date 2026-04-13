@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	_ "image/gif"  // decode guard supports GIF previews
-	_ "image/jpeg" // decode guard supports JPEG previews
-	_ "image/png"  // decode guard supports PNG previews
+	_ "image/gif"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -116,6 +116,11 @@ func (c *ImageCache) storeDownloadedLocked(item WorkshopItem) (string, error) {
 		return "", fmt.Errorf("store preview image for %q: %w", itemID, err)
 	}
 
+	compressed, err := c.CompressThumbnail(data)
+	if err == nil {
+		data = compressed
+	}
+
 	ext := detectImageExtension(data)
 	if ext == ".img" {
 		ext = extensionForURLPath(parsedURL.Path)
@@ -144,6 +149,45 @@ func (c *ImageCache) storeDownloadedLocked(item WorkshopItem) (string, error) {
 
 	c.cleanupLocked()
 	return finalPath, nil
+}
+
+// CompressThumbnail decodes, resizes (max 128px), and encodes to low-quality JPEG.
+func (c *ImageCache) CompressThumbnail(data []byte) ([]byte, error) {
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+
+	const maxDim = 128
+	if w > maxDim || h > maxDim {
+		newW, newH := w, h
+		if w > h {
+			newH = h * maxDim / w
+			newW = maxDim
+		} else {
+			newW = w * maxDim / h
+			newH = maxDim
+		}
+
+		newImg := image.NewRGBA(image.Rect(0, 0, newW, newH))
+		for y := 0; y < newH; y++ {
+			for x := 0; x < newW; x++ {
+				srcX := x * w / newW
+				srcY := y * h / newH
+				newImg.Set(x, y, img.At(bounds.Min.X+srcX, bounds.Min.Y+srcY))
+			}
+		}
+		img = newImg
+	}
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 40}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func parsePreviewURL(previewURL string) (*url.URL, error) {
