@@ -13,7 +13,7 @@
 - Never re-read a file already in context this session
 - For Go files: read only the relevant function, not the whole file
 - For Vue SFCs: read script/template/style blocks separately if large
-
+- 
 ## Project Coding Conventions
 When writing or modifying Go code:
 
