@@ -7,7 +7,6 @@ import (
 
 	"eu5-mod-launcher/internal/game"
 	"eu5-mod-launcher/internal/loadorder"
-	"eu5-mod-launcher/internal/logging"
 	"eu5-mod-launcher/internal/repo"
 )
 
@@ -119,7 +118,7 @@ func discoverEU5InstallDirs() []string {
 func (s *GameDetectionService) ListSupportedGames(settingsPath string) ([]DetectedGame, error) {
 	overrides, err := s.loadOverrides(settingsPath)
 	if err != nil {
-		logging.Warnf("game-detection: load overrides: %v", err)
+		return nil, err
 	}
 
 	result := make([]DetectedGame, 0, len(s.supportedGames))
@@ -134,11 +133,9 @@ func (s *GameDetectionService) ListSupportedGames(settingsPath string) ([]Detect
 		// Merge with overrides
 		if override.InstallDir != "" {
 			installDir = override.InstallDir
-			logging.Debugf("game-detection: %s using override install dir: %s", gi.name, installDir)
 		}
 		if override.DocumentsDir != "" {
 			docsDir = override.DocumentsDir
-			logging.Debugf("game-detection: %s using override documents dir: %s", gi.name, docsDir)
 		}
 
 		detected := installDir != "" && dirExists(installDir)
@@ -152,12 +149,6 @@ func (s *GameDetectionService) ListSupportedGames(settingsPath string) ([]Detect
 			DocumentsDir:     docsDir,
 			NeedsManualSetup: !detected && (installDir != "" || docsDir != ""),
 		})
-
-		if detected {
-			logging.Infof("game-detection: %s detected at %s", gi.name, installDir)
-		} else {
-			logging.Debugf("game-detection: %s not detected (install=%q, docs=%q)", gi.name, installDir, docsDir)
-		}
 	}
 
 	// Sort: detected first, then stable order
@@ -168,38 +159,25 @@ func (s *GameDetectionService) ListSupportedGames(settingsPath string) ([]Detect
 		return result[i].ID < result[j].ID
 	})
 
-	logging.Infof("game-detection: found %d games (%d detected)", len(result), func() int {
-		n := 0
-		for _, g := range result {
-			if g.Detected {
-				n++
-			}
-		}
-		return n
-	}())
-
 	return result, nil
 }
 
 // SetGamePaths persists manual path overrides for a game.
 func (s *GameDetectionService) SetGamePaths(settingsPath, gameID, installDir, documentsDir string) error {
-	gi := s.findGameInfo(game.GameID(gameID))
-	if gi == nil {
-		logging.Warnf("game-detection: set paths for unknown game: %s", gameID)
-		return nil
-	}
-
 	overrides, err := s.loadOverrides(settingsPath)
 	if err != nil {
 		return err
+	}
+
+	gi := s.findGameInfo(game.GameID(gameID))
+	if gi == nil {
+		return nil // Unknown game, ignore
 	}
 
 	overrides[gi.id] = pathOverride{
 		InstallDir:   installDir,
 		DocumentsDir: documentsDir,
 	}
-
-	logging.Infof("game-detection: saved manual paths for %s (install=%q, docs=%q)", gi.name, installDir, documentsDir)
 
 	return s.saveOverrides(settingsPath, overrides)
 }

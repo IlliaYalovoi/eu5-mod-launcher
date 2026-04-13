@@ -1900,19 +1900,3 @@ func (a *App) SetGamePaths(gameID, installDir, documentsDir string) error {
 	}
 	return a.gameDetectionSvc.SetGamePaths(a.settingsPath, gameID, installDir, documentsDir)
 }
-
-// SetActiveGame sets the active game and re-discovers paths.
-func (a *App) SetActiveGame(gameID string) error {
-	if a.settingsPath == "" {
-		return errAppStorageNotInitialized
-	}
-	a.activeGameID = game.GameID(gameID)
-	var err error
-	a.gamePaths, err = a.gameSvc.DiscoverPaths(a.activeGameID)
-	if err != nil {
-		return err
-	}
-	// Clear cached mod data so it will be re-fetched for new game
-	a.modPathByID = make(map[string]string)
-	return nil
-}

@@ -8,4 +8,4 @@ WAILS_TAGS += enable_unsubscribe
 endif
 
 build-windows:
-	wails build -platform windows/amd64 -tags "$(WAILS_TAGS)" -debug
+	wails build -platform windows/amd64 -tags "$(WAILS_TAGS)"

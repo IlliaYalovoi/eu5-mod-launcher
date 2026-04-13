@@ -86,8 +86,6 @@ export function ResetModsDirToAuto():Promise<string>;
 
 export function SaveCompiledLoadOrder():Promise<Array<string>>;
 
-export function SetActiveGame(arg1:string):Promise<void>;
-
 export function SetGameExe(arg1:string):Promise<void>;
 
 export function SetGamePaths(arg1:string,arg2:string,arg3:string):Promise<void>;

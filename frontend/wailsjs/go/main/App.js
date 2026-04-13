@@ -162,10 +162,6 @@ export function SaveCompiledLoadOrder() {
   return window['go']['main']['App']['SaveCompiledLoadOrder']();
 }
 
-export function SetActiveGame(arg1) {
-  return window['go']['main']['App']['SetActiveGame'](arg1);
-}
-
 export function SetGameExe(arg1) {
   return window['go']['main']['App']['SetGameExe'](arg1);
 }
