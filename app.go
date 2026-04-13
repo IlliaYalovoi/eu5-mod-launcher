@@ -90,11 +90,10 @@ type App struct {
 	loState         loadorder.State
 	conGraph        *graph.Graph
 	conService      *service.ConstraintsService
-	constraintsPath       string
-	settingsPath         string
-	layoutPath           string
-	activeGameID         game.GameID
-	gameDetectionSvc     *service.GameDetectionService
+	constraintsPath string
+	settingsPath    string
+	layoutPath      string
+	activeGameID    game.GameID
 }
 
 type ModsDirStatus struct {
@@ -137,8 +136,6 @@ func (a *App) initCoreServices() {
 	a.playsetRepo = repo.NewFilePlaysetRepository()
 	a.settingsRepo = repo.NewFileSettingsRepository()
 	a.layoutRepo = repo.NewFileLayoutRepository()
-
-	a.gameDetectionSvc = service.NewGameDetectionService(a.settingsRepo)
 
 	a.modsService = service.NewModsService()
 	a.loadorderSvc = service.NewLoadOrderService()
@@ -1883,20 +1880,4 @@ func (a *App) revalidateWorkshopMetadata(itemIDs []string) {
 	if _, err := a.fetchAndCacheWorkshopMetadata(itemIDs); err != nil {
 		logging.Debugf("steam metadata background revalidate skipped: %v", err)
 	}
-}
-
-// ListSupportedGames returns all supported games with detection state.
-func (a *App) ListSupportedGames() ([]service.DetectedGame, error) {
-	if a.settingsPath == "" {
-		return nil, errAppStorageNotInitialized
-	}
-	return a.gameDetectionSvc.ListSupportedGames(a.settingsPath)
-}
-
-// SetGamePaths stores manual path overrides for a game.
-func (a *App) SetGamePaths(gameID, installDir, documentsDir string) error {
-	if a.settingsPath == "" {
-		return errAppStorageNotInitialized
-	}
-	return a.gameDetectionSvc.SetGamePaths(a.settingsPath, gameID, installDir, documentsDir)
 }

@@ -97,7 +97,7 @@ func defaultSteamInstallPath() string {
 }
 
 func discoverWorkshopModDirs(appID string) []string {
-	libraryRoots := DiscoverSteamLibraryRoots()
+	libraryRoots := discoverSteamLibraryRoots()
 	if len(libraryRoots) == 0 {
 		return nil
 	}
@@ -114,7 +114,7 @@ func discoverWorkshopModDirs(appID string) []string {
 }
 
 func discoverGameExePath() string {
-	libraryRoots := DiscoverSteamLibraryRoots()
+	libraryRoots := discoverSteamLibraryRoots()
 	for _, root := range libraryRoots {
 		candidate := filepath.Join(root, "steamapps", "common", "Europa Universalis V", "binaries", "eu5.exe")
 		if fileExists(candidate) {
@@ -124,8 +124,7 @@ func discoverGameExePath() string {
 	return ""
 }
 
-// DiscoverSteamLibraryRoots returns all Steam library roots (including the main Steam path).
-func DiscoverSteamLibraryRoots() []string {
+func discoverSteamLibraryRoots() []string {
 	steamRoot := findSteamInstallPath()
 	if steamRoot == "" {
 		return nil
