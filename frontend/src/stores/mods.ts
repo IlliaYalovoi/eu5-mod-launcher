@@ -295,5 +295,6 @@ export const useModsStore = defineStore('mods', () => {
     clearWorkshopOpenError,
     clearUnsubscribeNotice,
     startPolling,
+    getMod: modByID,
   }
 })

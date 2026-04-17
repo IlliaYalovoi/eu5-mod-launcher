@@ -25,8 +25,8 @@ const emptyMessage = computed(() => {
   return 'No mods match your search query.'
 })
 
-function toggleMod(mod: Mod) {
-  modsStore.setEnabled(mod.ID, !mod.Enabled)
+function toggleMod(mod: Mod, value: boolean) {
+  modsStore.setEnabled(mod.ID, value)
 }
 
 function selectMod(mod: Mod) {
@@ -49,7 +49,7 @@ function selectMod(mod: Mod) {
           :key="mod.ID"
           :mod="mod"
           :selected="mod.ID === selectedModID"
-          @toggle="toggleMod(mod)"
+          @toggle="(val: boolean) => toggleMod(mod, val)"
           @select="selectMod(mod)"
         />
       </div>
