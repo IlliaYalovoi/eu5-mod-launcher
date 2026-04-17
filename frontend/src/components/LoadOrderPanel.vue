@@ -261,7 +261,7 @@ function selectMod(modID: string) {
 .view-content {
   flex: 1;
   padding: 20px 40px;
-  overflow-y: auto;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 1fr 340px;
   gap: 30px;
@@ -271,6 +271,8 @@ function selectMod(modID: string) {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
 .mod-group {
