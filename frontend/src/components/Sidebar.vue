@@ -7,6 +7,10 @@ import { useModsStore } from '../stores/mods'
 import GameSettingsModal from './GameSettingsModal.vue'
 import LaunchButton from './LaunchButton.vue'
 
+const emit = defineEmits<{
+  (event: 'open-settings'): void
+}>()
+
 const settingsStore = useSettingsStore()
 const loadOrderStore = useLoadOrderStore()
 const modsStore = useModsStore()
@@ -77,6 +81,7 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
   <div class="sidebar-wrapper">
     <div class="sidebar-section header">
       <h2>MOD ORGANIZER</h2>
+      <button class="settings-btn" type="button" @click="emit('open-settings')" title="Settings">⚙️</button>
     </div>
 
     <nav class="game-nav sidebar-section">
@@ -144,11 +149,31 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
   border-bottom: 1px solid var(--color-border);
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .header h2 {
   font-size: 18px;
   color: var(--color-accent);
   margin: 0;
   font-family: var(--font-display);
+}
+
+.settings-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.settings-btn:hover {
+  color: var(--color-text-primary);
 }
 
 .game-nav {

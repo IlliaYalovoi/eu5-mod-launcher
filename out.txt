@@ -1,5 +1,6 @@
-TypeScript: 1 errors in 1 files
-═══════════════════════════════════════
-tsconfig.json (1 errors)
-  L6: TS5107 Option 'moduleResolution=node10' is deprecated and will stop functioning in TypeScript 7.0. Specify compilerOption '"...
-    Visit https://aka.ms/ts6 for migration information.
+npm warn Unknown cli config "--noEmit". This will stop working in the next major version of npm.
+npm error Missing script: "vue-tsc"
+npm error
+npm error To see a list of scripts, run:
+npm error   npm run
+npm error A complete log of this run can be found in: /home/illia/.npm/_logs/2026-04-17T21_29_39_477Z-debug-0.log

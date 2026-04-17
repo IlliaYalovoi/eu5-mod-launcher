@@ -269,7 +269,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 <template>
   <div class="shell" :class="appThemeClass">
     <aside class="sidebar">
-      <Sidebar />
+      <Sidebar @open-settings="openSettings" />
     </aside>
     <main class="content" aria-label="Main content area">
       <LoadOrderPanel @contextmenu="openContextMenu" @open-constraints="openConstraintModal" />
@@ -308,10 +308,6 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   background: var(--color-bg-base);
   color: var(--color-text-primary);
   overflow: hidden;
-}
-
-.titlebar {
-  display: none; /* Removed, title moved to toolbar */
 }
 
 .sidebar {
