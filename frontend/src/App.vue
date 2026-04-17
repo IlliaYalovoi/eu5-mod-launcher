@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import ModListPanel from './components/ModListPanel.vue'
 import Sidebar from './components/Sidebar.vue'
 import LoadOrderPanel from './components/LoadOrderPanel.vue'
 import ModDetailsPanel from './components/ModDetailsPanel.vue'
@@ -269,13 +268,8 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 
 <template>
   <div class="shell" :class="appThemeClass">
-    <header class="titlebar">
-      <span>{{ settingsStore.activeGameID.toUpperCase() }} Mod Launcher</span>
-      <button class="settings-trigger" type="button" @click="openSettings">Settings</button>
-    </header>
-    <Sidebar />
     <aside class="sidebar">
-      <ModListPanel />
+      <Sidebar />
     </aside>
     <main class="content" aria-label="Main content area">
       <LoadOrderPanel @contextmenu="openContextMenu" @open-constraints="openConstraintModal" />
@@ -305,68 +299,42 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 <style scoped>
 .shell {
   display: grid;
-  grid-template-columns: 4rem 17.5rem 1fr 21rem;
-  grid-template-rows: 3rem 1fr;
+  /* Sidebar, Main Content, Details (if open) */
+  grid-template-columns: 280px 1fr auto;
+  grid-template-rows: 100vh;
   grid-template-areas:
-    'titlebar titlebar titlebar titlebar'
-    'game-sidebar sidebar content details';
+    'sidebar content details';
   height: 100%;
   background: var(--color-bg-base);
   color: var(--color-text-primary);
+  overflow: hidden;
 }
 
 .titlebar {
-  grid-area: titlebar;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-5);
-  border-bottom: var(--border-width) solid var(--color-border);
-  font-family: var(--font-display), serif;
-  font-size: 1rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.settings-trigger {
-  min-height: 2rem;
-  padding: 0 var(--space-3);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  text-transform: none;
-  cursor: pointer;
-}
-
-.settings-trigger:hover {
-  background: var(--color-bg-elevated);
-}
-
-.sidebar,
-.content,
-.details {
-  overflow: hidden;
-  padding: var(--space-5);
-  min-height: 0;
+  display: none; /* Removed, title moved to toolbar */
 }
 
 .sidebar {
   grid-area: sidebar;
   display: flex;
-  border-right: var(--border-width) solid var(--color-border);
+  flex-direction: column;
   background: var(--color-bg-panel);
+  border-right: 2px solid var(--color-border);
+  box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+  overflow-y: auto;
 }
 
 .content {
   grid-area: content;
   display: flex;
-  background: var(--color-bg-base);
+  flex-direction: column;
+  background: transparent;
+  height: 100vh;
 }
 
 .details {
   grid-area: details;
-  border-left: var(--border-width) solid var(--color-border);
+  border-left: 2px solid var(--color-border);
   background: var(--color-bg-panel);
 }
 
