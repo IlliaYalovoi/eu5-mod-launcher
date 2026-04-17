@@ -129,7 +129,10 @@ func (s *SqliteAdapter) LoadPlaysets(instance game.Instance) ([]game.Playset, er
 	var dbPlaysets []dbPlayset
 	err = db.Select(&dbPlaysets, "SELECT id, name FROM playsets WHERE isRemoved = 0")
 	if err != nil {
-		return nil, fmt.Errorf("failed to query playsets: %w", err)
+		err = db.Select(&dbPlaysets, "SELECT id, name FROM playsets")
+		if err != nil {
+			return nil, fmt.Errorf("failed to query playsets: %w", err)
+		}
 	}
 
 	playsets := make([]game.Playset, 0, len(dbPlaysets))
@@ -172,7 +175,10 @@ func (s *SqliteAdapter) LoadMods(instance game.Instance) ([]game.ModEntry, error
 	var dbMods []dbMod
 	err = db.Select(&dbMods, "SELECT id, displayName, dirPath FROM mods WHERE isRemoved = 0")
 	if err != nil {
-		return nil, fmt.Errorf("failed to query mods: %w", err)
+		err = db.Select(&dbMods, "SELECT id, displayName, dirPath FROM mods")
+		if err != nil {
+			return nil, fmt.Errorf("failed to query mods: %w", err)
+		}
 	}
 
 	entries := make([]game.ModEntry, len(dbMods))
@@ -194,7 +200,10 @@ func (s *SqliteAdapter) GetModNames(instance game.Instance) (map[string]string, 
 	var dbMods []dbMod
 	err = db.Select(&dbMods, "SELECT id, displayName FROM mods WHERE isRemoved = 0")
 	if err != nil {
-		return nil, err
+		err = db.Select(&dbMods, "SELECT id, displayName FROM mods")
+		if err != nil {
+			return nil, err
+		}
 	}
 	m := make(map[string]string)
 	for _, dm := range dbMods {
