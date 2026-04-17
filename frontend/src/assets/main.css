@@ -1,39 +1,38 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Cinzel:wght@500;700&display=swap');
 
 :root,
 :root[data-theme='dark'] {
-  /* Colors */
-  --color-bg-base: #13171d;
-  --color-bg-panel: #1a2029;
-  --color-bg-elevated: #222a35;
-  --color-border: #3c4655;
-  --color-border-strong: #8b7445;
-  --color-text-primary: #e5dfd0;
-  --color-text-secondary: #b9b09b;
-  --color-text-muted: #8f8878;
-  --color-accent: #b08a4a;
-  --color-accent-hover: #c69a52;
-  --color-danger: #c05757;
-  --color-success: #6ca574;
+  /* EU5 / Caesar Theme (Parchment & Ink) */
+  --color-bg-base: #1a1814;
+  --color-bg-panel: #24211b; /* Sidebar */
+  --color-bg-elevated: #2d2922; /* Card */
+  --color-border: #3d382e;
+  --color-border-strong: #b9935a;
+  --color-text-primary: #d4cfc3;
+  --color-text-secondary: #8c8578;
+  --color-text-muted: #8c8578;
+  --color-accent: #b9935a;
+  --color-accent-glow: rgba(185, 147, 90, 0.2);
+  --color-accent-hover: #8e6d3d;
+  --color-danger: #9e3939;
+  --color-success: #5c7c51;
   --color-disabled: #7f8692;
-  --color-overlay: rgba(0, 0, 0, 0.55);
-  --color-scrollbar-track: rgba(26, 32, 41, 0.7);
-  --color-scrollbar-thumb: rgba(139, 116, 69, 0.7);
-  --color-scrollbar-thumb-hover: rgba(176, 138, 74, 0.85);
-  --color-scrollbar-thumb-border: rgba(26, 32, 41, 0.7);
+  --color-overlay: rgba(0, 0, 0, 0.7);
+  --color-scrollbar-track: rgba(26, 24, 20, 0.7);
+  --color-scrollbar-thumb: rgba(185, 147, 90, 0.5);
+  --color-scrollbar-thumb-hover: rgba(185, 147, 90, 0.8);
+  --color-scrollbar-thumb-border: rgba(36, 33, 27, 0.7);
 
-  /* Legacy/template compatibility */
-  --color-legacy-html-bg: rgba(27, 38, 54, 1);
-  --color-legacy-plain-white: #ffffff;
+  /* Legacy overrides */
+  --color-legacy-html-bg: #1a1814;
+  --color-legacy-plain-white: #d4cfc3;
   --color-legacy-text-dark: #333333;
-  --color-legacy-input-bg: rgba(240, 240, 240, 1);
-  --color-legacy-input-bg-hover: rgba(255, 255, 255, 1);
-  --gradient-legacy-btn-hover: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
+  --color-legacy-input-bg: #1a1814;
+  --color-legacy-input-bg-hover: #24211b;
 
   /* Typography */
-  --font-display: 'Cinzel', 'Times New Roman', serif;
-  --font-body: 'Nunito', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+  --font-display: 'Crimson Pro', 'Georgia', serif;
+  --font-body: 'Crimson Pro', 'Georgia', serif;
 
   /* Spacing scale (4px base) */
   --space-1: 0.25rem;
@@ -72,8 +71,8 @@
 }
 
 .theme-eu5 {
-  --color-accent: #b08a4a;
-  --color-accent-hover: #c69a52;
+  --color-accent: #b9935a;
+  --color-accent-hover: #8e6d3d;
 }
 
 .theme-hoi4 {
@@ -97,37 +96,32 @@
 }
 
 :root[data-theme='light'] {
-  --color-bg-base: #f2f4f7;
-  --color-bg-panel: #ffffff;
-  --color-bg-elevated: #edf1f7;
-  --color-border: #c8d0db;
+  --color-bg-base: #f4f1ea;
+  --color-bg-panel: #e8e4db;
+  --color-bg-elevated: #dcd7cc;
+  --color-border: #bcaea3;
   --color-border-strong: #8b7445;
-  --color-text-primary: #1f2937;
-  --color-text-secondary: #455064;
-  --color-text-muted: #607086;
-  --color-accent: #8f6424;
-  --color-accent-hover: #a6732a;
-  --color-danger: #b44141;
-  --color-success: #2f8b50;
+  --color-text-primary: #2c2925;
+  --color-text-secondary: #5a544b;
+  --color-text-muted: #736b60;
+  --color-accent: #8b7445;
+  --color-accent-hover: #a68c56;
+  --color-danger: #a54242;
+  --color-success: #3c704b;
   --color-disabled: #8b96a6;
   --color-overlay: rgba(0, 0, 0, 0.35);
   --color-scrollbar-track: rgba(200, 208, 219, 0.55);
   --color-scrollbar-thumb: rgba(143, 100, 36, 0.55);
   --color-scrollbar-thumb-hover: rgba(143, 100, 36, 0.75);
   --color-scrollbar-thumb-border: rgba(237, 241, 247, 0.8);
-  --color-legacy-html-bg: #f2f4f7;
-  --color-legacy-plain-white: #1f2937;
-  --color-legacy-text-dark: #1f2937;
-  --color-legacy-input-bg: #ffffff;
+  
+  /* Legacy overrides */
+  --color-legacy-html-bg: #f4f1ea;
+  --color-legacy-plain-white: #2c2925;
+  --color-legacy-text-dark: #2c2925;
+  --color-legacy-input-bg: #e8e4db;
   --color-legacy-input-bg-hover: #ffffff;
   --gradient-legacy-btn-hover: linear-gradient(to top, #e7ecf3 0%, #f5f7fa 100%);
-}
-
-@font-face {
-  font-family: 'Nunito';
-  font-style: normal;
-  font-weight: 400;
-  src: local(''), url('./fonts/nunito-v16-latin-regular.woff2') format('woff2');
 }
 
 * {
@@ -149,9 +143,11 @@ body {
 }
 
 body {
-  background: var(--color-bg-base);
+  margin: 0;
   color: var(--color-text-primary);
   font-family: var(--font-body);
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%231a1814" width="100" height="100"/><path d="M0 0l100 100M100 0L0 100" stroke="%23221f1a" stroke-width="0.5"/></svg>');
+  background-color: var(--color-bg-base);
   line-height: 1.45;
   text-rendering: optimizeLegibility;
   scrollbar-color: var(--color-border-strong) var(--color-bg-panel);
@@ -189,4 +185,3 @@ a {
   color: inherit;
   text-decoration: none;
 }
-
