@@ -35,11 +35,11 @@ function onDismissError(event: MouseEvent): void {
 
 <template>
   <button
-    class="launch-button"
+    class="launch-btn"
     :class="{
-      'launch-button--loading': isLaunching,
-      'launch-button--success': isSuccessFlash,
-      'launch-button--error': launchError,
+      'loading': isLaunching,
+      'launch-btn--success': isSuccessFlash,
+      'launch-btn--error': launchError,
     }"
     type="button"
     :disabled="isLaunching"
@@ -63,57 +63,68 @@ function onDismissError(event: MouseEvent): void {
 </template>
 
 <style scoped>
-.launch-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-height: 2.25rem;
-  padding: var(--space-2) var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-primary);
-  font-weight: 700;
+.launch-btn {
+  background: linear-gradient(to bottom, #b9935a, #8e6d3d);
+  color: #1a1814;
+  border: 1px solid #5a4623;
+  padding: 14px;
+  border-radius: 3px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
   cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+  box-shadow: 0 4px 0 #5a4623;
+  width: 100%;
+  text-align: center;
+  transition: transform 0.1s, box-shadow 0.1s;
 }
 
-.launch-button:hover:not(:disabled) {
-  background: var(--color-bg-elevated);
+.launch-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #5a4623;
 }
 
-.launch-button:focus-visible {
-  outline: none;
-  border-color: var(--color-border-strong);
+.launch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: 0 4px 0 #3a2e18;
+  background: linear-gradient(to bottom, #8a734e, #6e5532);
 }
 
-.launch-button:disabled {
-  opacity: 0.75;
-  cursor: wait;
+.loading {
+  animation: pulse 1.5s infinite;
 }
 
-.launch-button--success {
-  border-color: var(--color-success);
-  color: var(--color-success);
+@keyframes pulse {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
 }
 
-.launch-button--error {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+.launch-btn--success {
+  border-color: var(--color-success, #4caf50);
+  color: var(--color-success, #4caf50);
+}
+
+.launch-btn--error {
+  border-color: var(--color-danger, #f44336);
+  color: var(--color-danger, #f44336);
 }
 
 .spinner {
   width: 0.9rem;
   height: 0.9rem;
-  border: var(--border-width) solid currentColor;
+  border: 2px solid currentColor;
   border-top-color: transparent;
-  border-radius: var(--radius-pill);
-  animation: spin var(--duration-spinner) linear infinite;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
 .dismiss {
-  margin-left: var(--space-1);
+  margin-left: 8px;
   font-size: 1rem;
   line-height: 1;
 }
@@ -124,4 +135,3 @@ function onDismissError(event: MouseEvent): void {
   }
 }
 </style>
-
