@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '../stores/settings'
+import { useLoadOrderStore } from '../stores/loadorder'
 import GameSettingsModal from './GameSettingsModal.vue'
+import LaunchButton from './LaunchButton.vue'
 
 const settingsStore = useSettingsStore()
+const loadOrderStore = useLoadOrderStore()
+
+const { playsetNames, launcherActivePlaysetIndex, activeCountLabel } = storeToRefs(loadOrderStore)
 
 const gameIcons: Record<string, string> = {
-  eu5: '🌍',
-  hoi4: '⚔️',
+  eu5: '⚜️',
+  hoi4: '🎖️',
   ck3: '👑',
   stellaris: '🚀',
-  vic3: '📜',
+  vic3: '🎩',
 }
 
 const gameNames: Record<string, string> = {
-  eu5: 'Europa Universalis V',
+  eu5: 'Project Caesar',
   hoi4: 'Hearts of Iron IV',
   ck3: 'Crusader Kings III',
   stellaris: 'Stellaris',
@@ -25,6 +31,8 @@ const gameSettingsModal = ref({
   open: false,
   gameID: '',
 })
+
+const isSwitchingPlayset = ref(false)
 
 function selectGame(id: string) {
   settingsStore.setGame(id)
@@ -41,66 +49,178 @@ async function openGameSettings(id: string) {
 function closeGameSettings() {
   gameSettingsModal.value.open = false
 }
+
+async function onLauncherPlaysetChange(event: Event) {
+  const target = event.target as HTMLSelectElement
+  const index = parseInt(target.value, 10)
+  if (Number.isNaN(index)) return
+
+  isSwitchingPlayset.value = true
+  try {
+    await loadOrderStore.setActivePlayset(index)
+  } finally {
+    isSwitchingPlayset.value = false
+  }
+}
+
+const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
 </script>
 
 <template>
-  <nav class="game-sidebar">
-    <button
-      v-for="gameID in settingsStore.availableGames"
-      :key="gameID"
-      class="game-icon"
-      :class="{ active: settingsStore.activeGameID === gameID }"
-      :title="(gameNames[gameID] || gameID.toUpperCase()) + ' (Right click for settings)'"
-      @click="selectGame(gameID)"
-      @contextmenu.prevent="openGameSettings(gameID)"
-    >
-      {{ gameIcons[gameID] || '🎮' }}
-    </button>
+  <div class="sidebar-wrapper">
+    <div class="sidebar-section header">
+      <h2>MOD ORGANIZER</h2>
+    </div>
 
-    <GameSettingsModal
-      v-if="gameSettingsModal.open"
-      :open="gameSettingsModal.open"
-      :game-i-d="gameSettingsModal.gameID"
-      @close="closeGameSettings"
-    />
-  </nav>
+    <nav class="game-nav sidebar-section">
+      <div
+        v-for="gameID in settingsStore.availableGames"
+        :key="gameID"
+        class="game-item"
+      >
+        <button
+          class="game-btn"
+          :class="{ active: settingsStore.activeGameID === gameID }"
+          :title="(gameNames[gameID] || gameID.toUpperCase()) + ' (Right click for settings)'"
+          @click="selectGame(gameID)"
+          @contextmenu.prevent="openGameSettings(gameID)"
+        >
+          <span class="icon">{{ gameIcons[gameID] || '🎮' }}</span>
+          <span>{{ gameNames[gameID] || gameID.toUpperCase() }}</span>
+        </button>
+
+        <div v-if="settingsStore.activeGameID === gameID" class="playset-selector">
+          <select
+            class="playset-dropdown"
+            :disabled="!hasPlaysetChoices || isSwitchingPlayset"
+            :value="launcherActivePlaysetIndex"
+            @change="onLauncherPlaysetChange"
+          >
+            <option v-for="(name, index) in playsetNames" :key="\`\${name}-\${index}\`" :value="index">
+              {{ name }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <GameSettingsModal
+        v-if="gameSettingsModal.open"
+        :open="gameSettingsModal.open"
+        :game-i-d="gameSettingsModal.gameID"
+        @close="closeGameSettings"
+      />
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="play-area">
+        <div class="stats-mini">
+          <span>{{ activeCountLabel }}</span>
+        </div>
+        <LaunchButton />
+        <div class="status-indicator">
+          ● LOAD ORDER READY
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.game-sidebar {
-  width: 4rem;
-  background: var(--color-bg-sidebar);
-  border-right: var(--border-width) solid var(--color-border);
+.sidebar-wrapper {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: var(--space-4) 0;
-  gap: var(--space-4);
+  height: 100%;
 }
 
-.game-icon {
-  width: 2.5rem;
-  height: 2.5rem;
+.sidebar-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header h2 {
+  font-size: 18px;
+  color: var(--color-accent);
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.game-nav {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.game-item {
+  margin-bottom: 8px;
+}
+
+.game-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--color-bg-panel);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 1.25rem;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
   cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
   transition: all 0.2s;
+  font-family: var(--font-body);
 }
 
-.game-icon:hover {
-  border-color: var(--color-accent);
+.game-btn.active {
+  color: var(--color-text-primary);
   background: var(--color-bg-elevated);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
-.game-icon.active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: #000;
-  box-shadow: 0 0 10px var(--color-accent);
+.game-btn .icon {
+  font-size: 1.2rem;
+}
+
+.playset-selector {
+  margin-top: 10px;
+  margin-left: 32px;
+}
+
+.playset-dropdown {
+  width: 100%;
+  background: var(--color-bg-base);
+  color: var(--color-accent);
+  border: 1px solid var(--color-border);
+  padding: 8px;
+  border-radius: 2px;
+  font-size: 13px;
+  outline: none;
+  font-family: var(--font-body);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 20px;
+  background: rgba(0,0,0,0.2);
+  border-top: 2px solid var(--color-border);
+}
+
+.play-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stats-mini {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.status-indicator {
+  font-size: 11px;
+  text-align: center;
+  color: var(--color-success);
+  margin-top: 5px;
 }
 </style>
