@@ -45,6 +45,12 @@ const constraintModal = reactive({
 
 const settingsOpen = ref(false)
 
+const detailsOpen = computed(() => !!modsStore.selectedModID)
+
+function closeDetails() {
+  modsStore.selectMod('')
+}
+
 const appThemeClass = computed(() => `theme-${settingsStore.activeGameID}`)
 
 let unsubscribeNoticeTimeout: ReturnType<typeof setTimeout> | null = null
@@ -274,9 +280,11 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
     <main class="content" aria-label="Main content area">
       <LoadOrderPanel @contextmenu="openContextMenu" @open-constraints="openConstraintModal" />
     </main>
-    <aside class="details">
-      <ModDetailsPanel />
-    </aside>
+    <BaseModal :open="detailsOpen" @close="closeDetails">
+      <div class="modal-content-wrapper">
+        <ModDetailsPanel />
+      </div>
+    </BaseModal>
     <div v-if="unsubscribeNotice" class="toast" :class="`toast--${unsubscribeNotice.type}`" role="status" aria-live="polite">
       {{ unsubscribeNotice.message }}
     </div>
@@ -299,15 +307,25 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 <style scoped>
 .shell {
   display: grid;
-  /* Sidebar, Main Content, Details (if open) */
-  grid-template-columns: 280px 1fr auto;
+  grid-template-columns: 280px 1fr;
   grid-template-rows: 100vh;
   grid-template-areas:
-    'sidebar content details';
+    'sidebar content';
   height: 100%;
   background: var(--color-bg-base);
   color: var(--color-text-primary);
   overflow: hidden;
+}
+
+.modal-content-wrapper {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .sidebar {
@@ -326,12 +344,6 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   flex-direction: column;
   background: transparent;
   height: 100vh;
-}
-
-.details {
-  grid-area: details;
-  border-left: 2px solid var(--color-border);
-  background: var(--color-bg-panel);
 }
 
 .toast {

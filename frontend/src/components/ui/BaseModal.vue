@@ -109,7 +109,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding: var(--space-6);
-  background: var(--color-overlay);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
 }
 
 .modal-panel {
