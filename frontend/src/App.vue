@@ -8,6 +8,7 @@ import ConstraintModal from './components/ConstraintModal.vue'
 import ContextMenu from './components/ui/ContextMenu.vue'
 import BaseModal from './components/ui/BaseModal.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import ManageGroupsModal from './components/ManageGroupsModal.vue'
 import { useLoadOrderStore } from './stores/loadorder'
 import { useModsStore } from './stores/mods'
 import { useSettingsStore } from './stores/settings'
@@ -44,6 +45,7 @@ const constraintModal = reactive({
 })
 
 const settingsOpen = ref(false)
+const manageGroupsOpen = ref(false)
 
 const detailsOpen = computed(() => !!modsStore.selectedModID)
 
@@ -278,7 +280,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
       <Sidebar @open-settings="openSettings" />
     </aside>
     <main class="content" aria-label="Main content area">
-      <LoadOrderPanel @contextmenu="openContextMenu" @open-constraints="openConstraintModal" />
+      <LoadOrderPanel @contextmenu="openContextMenu" @open-constraints="openConstraintModal" @manage-groups="manageGroupsOpen = true" />
     </main>
     <BaseModal :open="detailsOpen" @close="closeDetails">
       <div class="modal-content-wrapper">
@@ -301,6 +303,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
     <BaseModal :open="settingsOpen" @close="closeSettings">
       <SettingsPanel :required="requiresManualPaths" @close="closeSettings" />
     </BaseModal>
+    <ManageGroupsModal :open="manageGroupsOpen" @close="manageGroupsOpen = false" />
   </div>
 </template>
 

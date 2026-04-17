@@ -1,0 +1,2 @@
+> vue-tsc --noEmit && vite build
+src/App.vue(51,13): error TS2551: Property 'setSelectedModID' does not exist on type 'Store<"mods", Pick<{ allMods: Ref<{ ID: string; Name: string; Version: string; Tags: string[]; Description: string; ThumbnailPath: string; DirPath: string; Enabled: boolean; }[], Mod[] | { ID: string; Name: string; ... 5 more ...; Enabled: boolean; }[]>; ... 25 more ...; startPolling: () => void; }, "error" | ... 5 ...'. Did you mean 'selectedModID'?
