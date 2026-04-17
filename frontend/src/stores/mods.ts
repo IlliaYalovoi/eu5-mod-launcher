@@ -98,7 +98,7 @@ export const useModsStore = defineStore('mods', () => {
     try {
       await ensureUnsubscribeCapability()
       allMods.value = (await logBackendCall('GetAllMods', [], () => GetAllMods())) as Mod[]
-      selectedModID.value = allMods.value[0]?.ID || ''
+      selectedModID.value = ''
     } catch (err) {
       error.value = errorMessage(err)
       allMods.value = []
