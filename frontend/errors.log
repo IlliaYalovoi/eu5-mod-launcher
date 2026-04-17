@@ -1,0 +1,16 @@
+src/App.vue(4,8): error TS1192: Module '"/home/illia/code/eu5-mod-launcher/frontend/src/components/Sidebar.vue"' has no default export.
+src/components/Sidebar.vue(12,51): error TS2339: Property 'activeCountLabel' does not exist on type 'ToRefs<Pick<{ orderedIDs: Ref<string[], string[]>; playsetNames: Ref<string[], string[]>; gameActivePlaysetIndex: Ref<number, number>; launcherActivePlaysetIndex: Ref<number, number>; ... 13 more ...; lastSortedAt: Ref<...>; }, "orderedIDs" | ... 6 more ... | "lastSortedAt">> & ToRefs<...> & _ToComputedRefs<...>'.
+src/components/Sidebar.vue(60,26): error TS2339: Property 'setActivePlayset' does not exist on type 'Store<"loadorder", Pick<{ orderedIDs: Ref<string[], string[]>; playsetNames: Ref<string[], string[]>; gameActivePlaysetIndex: Ref<number, number>; launcherActivePlaysetIndex: Ref<...>; ... 13 more ...; lastSortedAt: Ref<...>; }, "orderedIDs" | ... 6 more ... | "lastSortedAt">, Pick<...>, Pick<...>>'.
+src/components/Sidebar.vue(77,26): error TS2339: Property 'settingsStore' does not exist on type '{}'.
+src/components/Sidebar.vue(83,29): error TS2339: Property 'settingsStore' does not exist on type '{}'.
+src/components/Sidebar.vue(84,20): error TS2339: Property 'gameNames' does not exist on type '{}'.
+src/components/Sidebar.vue(85,19): error TS2339: Property 'selectGame' does not exist on type '{}'.
+src/components/Sidebar.vue(86,33): error TS2339: Property 'openGameSettings' does not exist on type '{}'.
+src/components/Sidebar.vue(88,33): error TS2339: Property 'gameIcons' does not exist on type '{}'.
+src/components/Sidebar.vue(89,20): error TS2339: Property 'gameNames' does not exist on type '{}'.
+src/components/Sidebar.vue(92,20): error TS2339: Property 'settingsStore' does not exist on type '{}'.
+src/components/Sidebar.vue(95,25): error TS2339: Property 'hasPlaysetChoices' does not exist on type '{}'.
+src/components/Sidebar.vue(95,46): error TS2339: Property 'isSwitchingPlayset' does not exist on type '{}'.
+src/components/Sidebar.vue(96,21): error TS2339: Property 'launcherActivePlaysetIndex' does not exist on type '{}'.
+src/components/Sidebar.vue(97,22): error TS2339: Property 'onLauncherPlaysetChange' does not exist on type '{}'.
+src/components/Sidebar.vue(99,45): error TS2339: Property 'playsetNames' does not exist on type '{}'.

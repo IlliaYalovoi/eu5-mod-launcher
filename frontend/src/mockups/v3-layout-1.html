@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direction X: Victoria 3 Aesthetic</title>
+    <style>
+        :root {
+            /* Victoria 3 Palette */
+            --bg-dark: #1e2226; /* Deep greenish-gray background */
+            --panel-bg: #272c30; /* Slightly lighter panel */
+            --border-gold: #c3a365; /* The iconic dull gold */
+            --border-dark: #121416;
+            --text-main: #e0e0e0;
+            --text-muted: #8b9298;
+            --accent-green: #3a5c4e; /* The green from the buttons */
+            --accent-hover: #4a7563;
+            --danger: #8a3a3a;
+
+            --font-display: "Georgia", serif; /* Needs that 19th century serif */
+            --font-ui: "Arial", sans-serif;
+        }
+
+        body {
+            margin: 0; padding: 2rem; background: var(--bg-dark); color: var(--text-main);
+            font-family: var(--font-ui); height: 100vh; box-sizing: border-box;
+            /* Subtle texture */
+            background-image:
+                linear-gradient(rgba(30, 34, 38, 0.95), rgba(30, 34, 38, 0.95)),
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Ornate Framed Container */
+        .app-container {
+            display: flex; flex-direction: column; height: 100%;
+            border: 2px solid var(--border-gold);
+            background: var(--panel-bg);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        /* Corner ornaments */
+        .app-container::before, .app-container::after {
+            content: ""; position: absolute; width: 20px; height: 20px;
+            border: 2px solid var(--border-gold);
+        }
+        .app-container::before { top: 4px; left: 4px; border-right: none; border-bottom: none; }
+        .app-container::after { bottom: 4px; right: 4px; border-left: none; border-top: none; }
+
+        /* Header */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 2rem; background: linear-gradient(to bottom, #32383d, #272c30);
+            border-bottom: 1px solid var(--border-gold);
+            position: relative;
+        }
+
+        .header-title {
+            font-family: var(--font-display); font-size: 1.8rem; color: var(--border-gold);
+            margin: 0; text-shadow: 1px 1px 2px #000;
+            display: flex; align-items: center; gap: 1rem;
+        }
+
+        .game-tabs { display: flex; gap: 0.5rem; }
+        .game-tab {
+            background: #1a1d20; border: 1px solid var(--border-dark); border-bottom: none;
+            color: var(--text-muted); padding: 0.5rem 1.5rem; font-family: var(--font-display);
+            cursor: pointer; transition: 0.2s; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .game-tab.active {
+            background: var(--panel-bg); color: var(--border-gold);
+            border-color: var(--border-gold); border-bottom-color: var(--panel-bg);
+            box-shadow: none; position: relative; top: 1px;
+        }
+
+        /* Main Area */
+        .main-area {
+            display: flex; flex: 1; overflow: hidden; padding: 1rem; gap: 1rem;
+        }
+
+        /* Panels */
+        .panel {
+            flex: 1; display: flex; flex-direction: column;
+            background: #1e2226; border: 1px solid #121416;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .panel-header {
+            background: linear-gradient(to right, rgba(195, 163, 101, 0.1), transparent);
+            padding: 0.75rem 1rem; border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-header h2 {
+            margin: 0; font-family: var(--font-display); font-size: 1.2rem;
+            color: #d8d8d8; font-weight: normal; letter-spacing: 1px;
+        }
+        .count-badge {
+            background: #111; border: 1px solid #333; padding: 0.2rem 0.5rem;
+            font-size: 0.8rem; color: var(--border-gold);
+        }
+
+        /* Search */
+        .search-box {
+            padding: 0.75rem; border-bottom: 1px solid #111;
+            background: rgba(0,0,0,0.2);
+        }
+        .search-input {
+            width: 100%; padding: 0.5rem; background: #111; border: 1px solid #333;
+            color: #ccc; font-family: var(--font-ui); box-sizing: border-box;
+        }
+        .search-input:focus { outline: none; border-color: var(--border-gold); }
+
+        /* Lists */
+        .list { overflow-y: auto; flex: 1; padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
+
+        .mod-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.75rem; background: #272c30; border: 1px solid #333;
+            cursor: pointer; transition: 0.1s;
+        }
+        .mod-item:hover { background: #2d3338; border-color: #444; }
+
+        .mod-info { display: flex; flex-direction: column; }
+        .mod-name { font-family: var(--font-display); font-size: 1.1rem; color: #ddd; }
+        .mod-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+        /* Victoria 3 Style Button */
+        .v3-btn {
+            background: linear-gradient(to bottom, #4a7563, var(--accent-green));
+            border: 1px solid #1a2c25; border-top-color: #5c917b;
+            color: #fff; text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+            padding: 0.4rem 1rem; font-family: var(--font-display); font-size: 0.9rem;
+            cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            border-radius: 2px;
+        }
+        .v3-btn:hover { background: linear-gradient(to bottom, #558772, #4a7563); }
+        .v3-btn:active { background: var(--accent-green); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); border-top-color: #1a2c25; }
+
+        /* Active List specific */
+        .playset-panel .mod-item {
+            border-left: 3px solid var(--accent-green);
+        }
+        .order-num {
+            font-family: var(--font-display); font-size: 1.2rem; color: var(--border-gold);
+            width: 30px; text-align: center; margin-right: 0.5rem;
+            text-shadow: 1px 1px 1px #000;
+        }
+
+        .v3-btn-danger {
+            background: linear-gradient(to bottom, #8a3a3a, #6b2a2a);
+            border-color: #4a1d1d; border-top-color: #a84b4b;
+        }
+        .v3-btn-danger:hover { background: linear-gradient(to bottom, #9c4545, #8a3a3a); }
+
+        /* Bottom Bar */
+        .bottom-bar {
+            padding: 1rem 2rem; background: #1e2226; border-top: 1px solid var(--border-gold);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .play-btn {
+            background: linear-gradient(to bottom, #c3a365, #9c7f4a);
+            border: 1px solid #5a4828; border-top-color: #e0c58e;
+            color: #1a1a1a; text-shadow: 1px 1px 0 rgba(255,255,255,0.3);
+            padding: 0.75rem 3rem; font-family: var(--font-display); font-size: 1.4rem;
+            font-weight: bold; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .play-btn:hover { background: linear-gradient(to bottom, #d1b47c, #c3a365); }
+
+        /* Ribbon */
+        .autosort-ribbon {
+            background: rgba(0,0,0,0.4); border-bottom: 1px solid #333;
+            padding: 0.5rem; text-align: center; color: var(--text-muted);
+            font-size: 0.85rem; font-style: italic; font-family: var(--font-display);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1 class="header-title">
+                <span style="font-size: 2.5rem; line-height: 0.5;">❂</span>
+                Modifications Manager
+            </h1>
+            <div class="game-tabs">
+                <div class="game-tab">Europa Universalis IV</div>
+                <div class="game-tab active">Victoria 3</div>
+                <div class="game-tab">Hearts of Iron IV</div>
+            </div>
+        </header>
+
+        <main class="main-area">
+            <!-- Library (Disabled Mods) -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h2>Available in Library</h2>
+                    <span class="count-badge">145 Items</span>
+                </div>
+                <div class="search-box">
+                    <input type="text" class="search-input" placeholder="Search library...">
+                </div>
+                <div class="list">
+                    <div class="mod-item">
+                        <div class="mod-info">
+                            <span class="mod-name">The Great Rework</span>
+                            <span class="mod-meta">v1.2.4 • Overhaul</span>
+                        </div>
+                        <button class="v3-btn">Enable</button>
+                    </div>
+                    <div class="mod-item">
+                        <div class="mod-info">
+                            <span class="mod-name">Morgenröte - Dawn of Flavor</span>
+                            <span class="mod-meta">v2.1 • Flavor</span>
+                        </div>
+                        <button class="v3-btn">Enable</button>
+                    </div>
+                    <div class="mod-item">
+                        <div class="mod-info">
+                            <span class="mod-name">Victorian Flavor Mod</span>
+                            <span class="mod-meta">v1.0 • Flavor</span>
+                        </div>
+                        <button class="v3-btn">Enable</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Playset (Active Mods) -->
+            <section class="panel playset-panel">
+                <div class="panel-header">
+                    <h2>Active Playset</h2>
+                    <span class="count-badge">3 Items</span>
+                </div>
+                <div class="autosort-ribbon">
+                    Load order is managed by the automated sorting engine.
+                </div>
+                <div class="list">
+                    <div class="mod-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="order-num">1</span>
+                            <div class="mod-info">
+                                <span class="mod-name">Visual Leaders</span>
+                                <span class="mod-meta">v1.1 • Graphics</span>
+                            </div>
+                        </div>
+                        <button class="v3-btn v3-btn-danger">Disable</button>
+                    </div>
+                    <div class="mod-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="order-num">2</span>
+                            <div class="mod-info">
+                                <span class="mod-name">Improved Building Grid</span>
+                                <span class="mod-meta">v2.0 • UI</span>
+                            </div>
+                        </div>
+                        <button class="v3-btn v3-btn-danger">Disable</button>
+                    </div>
+                    <div class="mod-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="order-num">3</span>
+                            <div class="mod-info">
+                                <span class="mod-name">Dense Trade Routes</span>
+                                <span class="mod-meta">v1.4 • Map</span>
+                            </div>
+                        </div>
+                        <button class="v3-btn v3-btn-danger">Disable</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="bottom-bar">
+            <div style="color: var(--text-muted); font-size: 0.9rem;">
+                Playset: <span style="color: var(--text-main);">Default Initial</span>
+            </div>
+            <button class="play-btn">Play</button>
+        </footer>
+    </div>
+</body>
+</html>

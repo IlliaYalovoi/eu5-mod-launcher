@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direction 3: The Archivist (CK3 Theme)</title>
+    <style>
+        :root {
+            /* CK3 inspired: Vellum, royal purple, gold accents, ink */
+            --bg-color: #fcf8f2;
+            --panel-bg: #fffcf8;
+            --text-main: #3d3027;
+            --accent: #5e2a4a; /* Royal purple */
+            --gold: #b38b4d;
+            --border: #dcd0c0;
+
+            --font-display: "Garamond", "Georgia", serif; /* Elegant, historical */
+            --font-ui: "system-ui", sans-serif;
+            --font-cursive: "Brush Script MT", cursive; /* For accents */
+        }
+
+        body {
+            margin: 0; padding: 0; background: var(--bg-color); color: var(--text-main);
+            font-family: var(--font-ui); height: 100vh; display: flex; flex-direction: column;
+            background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+        }
+
+        /* Top Navigation (Game Tabs) */
+        .header {
+            display: flex; justify-content: center; align-items: flex-end; gap: 2rem;
+            padding-top: 1rem; border-bottom: 2px solid var(--gold); background: var(--panel-bg);
+        }
+        .tab {
+            font-family: var(--font-display); font-size: 1.2rem; padding: 1rem 2rem;
+            color: var(--text-main); text-decoration: none; position: relative;
+            border: 1px solid transparent; border-bottom: none; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 0.1em; transition: 0.3s;
+        }
+        .tab.active {
+            border-color: var(--gold); background: var(--bg-color); color: var(--accent);
+            font-weight: bold;
+        }
+        .tab.active::after {
+            content: ""; position: absolute; bottom: -2px; left: 0; right: 0;
+            height: 4px; background: var(--bg-color);
+        }
+        .tab:hover:not(.active) { color: var(--gold); }
+
+        .main-area { display: flex; flex: 1; overflow: hidden; padding: 2rem; gap: 3rem; }
+
+        /* The Columns (Library vs Playset) */
+        .column { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+
+        .col-header {
+            padding: 1.5rem; text-align: center; border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+        .col-header h2 {
+            font-family: var(--font-display); font-size: 2rem; font-weight: normal;
+            margin: 0; color: var(--accent);
+        }
+        .col-header span {
+            font-family: var(--font-cursive); font-size: 1.2rem; color: var(--gold);
+            display: block; margin-top: 0.5rem;
+        }
+
+        .list { overflow-y: auto; flex: 1; padding: 1rem; }
+        .mod-card {
+            padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+            transition: 0.2s; cursor: pointer;
+        }
+        .mod-card:hover { background: rgba(94, 42, 74, 0.05); }
+
+        .mod-info { display: flex; flex-direction: column; gap: 0.2rem; }
+        .mod-name { font-size: 1.1rem; font-weight: 600; font-family: var(--font-display); }
+        .mod-desc { font-size: 0.8rem; color: #777; font-style: italic; }
+
+        /* Custom Checkbox (Wax seal style) */
+        .toggle {
+            width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        }
+        .toggle.on { background: var(--accent); border-color: var(--accent); }
+        .toggle.on::after { content: "✓"; color: var(--bg-color); font-size: 12px; font-weight: bold; }
+
+        /* Specific to Active/Playset Column */
+        .active-column { border: 2px solid var(--gold); position: relative; }
+        /* Auto-sort indicator */
+        .auto-sort-ribbon {
+            background: var(--bg-color); border-bottom: 1px solid var(--gold); padding: 0.5rem;
+            text-align: center; font-size: 0.8rem; color: var(--accent); font-weight: bold;
+            display: flex; justify-content: center; align-items: center; gap: 0.5rem;
+        }
+        .load-order-marker { font-family: var(--font-display); font-size: 1.5rem; color: var(--gold); margin-right: 1rem; width: 30px; text-align: right; }
+        .mod-card.active-item { justify-content: flex-start; }
+        .mod-card.active-item .toggle { margin-left: auto; }
+
+        /* Specific to Library Column */
+        .search-container { padding: 1rem; border-bottom: 1px solid var(--border); }
+        .search-input {
+            width: 100%; padding: 0.8rem; border: 1px solid var(--border); border-radius: 4px;
+            font-family: inherit; background: var(--bg-color); color: var(--text-main);
+            outline: none; box-sizing: border-box;
+        }
+        .search-input:focus { border-color: var(--accent); }
+        .disabled-item { opacity: 0.7; }
+        .disabled-item:hover { opacity: 1; }
+
+        /* Global Actions */
+        .bottom-bar {
+            padding: 1.5rem 2rem; border-top: 1px solid var(--border); background: var(--panel-bg);
+            display: flex; justify-content: flex-end;
+        }
+        .play-btn {
+            background: var(--accent); color: var(--bg-color); border: 2px solid var(--gold);
+            padding: 1rem 3rem; font-family: var(--font-display); font-size: 1.5rem;
+            border-radius: 4px; cursor: pointer; transition: 0.3s;
+        }
+        .play-btn:hover { background: var(--gold); border-color: var(--accent); color: var(--accent); }
+
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="tab">EU4</div>
+        <div class="tab">HOI4</div>
+        <div class="tab active">Crusader Kings III</div>
+        <div class="tab" style="margin-left: auto;">Settings</div>
+    </header>
+
+    <main class="main-area">
+        <!-- Disabled Mods / The Grand Library -->
+        <section class="column library-column">
+            <div class="col-header">
+                <h2>The Grand Library</h2>
+                <span>Available Tomes</span>
+            </div>
+            <div class="search-container">
+                <input type="text" class="search-input" placeholder="Search the archives...">
+            </div>
+            <div class="list">
+                <div class="mod-card disabled-item">
+                    <div class="mod-info">
+                        <span class="mod-name">Community Flavor Pack</span>
+                        <span class="mod-desc">Version 1.8.0 • Flavor</span>
+                    </div>
+                    <div class="toggle"></div>
+                </div>
+                <div class="mod-card disabled-item">
+                    <div class="mod-info">
+                        <span class="mod-name">Ethnicities & Portraits Expanded</span>
+                        <span class="mod-desc">Version 2.1 • Portraits</span>
+                    </div>
+                    <div class="toggle"></div>
+                </div>
+                <div class="mod-card disabled-item">
+                    <div class="mod-info">
+                        <span class="mod-name">VIET Events</span>
+                        <span class="mod-desc">Version 1.0 • Events</span>
+                    </div>
+                    <div class="toggle"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Active Mods / The Royal Playset -->
+        <section class="column active-column">
+            <div class="col-header">
+                <h2>Royal Playset</h2>
+                <span>Active Decrees</span>
+            </div>
+            <div class="auto-sort-ribbon">
+                <span>✦</span> Auto-Scribe is organizing load order <span>✦</span>
+            </div>
+            <div class="list">
+                <div class="mod-card active-item">
+                    <div class="load-order-marker">I.</div>
+                    <div class="mod-info">
+                        <span class="mod-name">Fullscreen Barbershop</span>
+                        <span class="mod-desc">Version 1.5 • UI</span>
+                    </div>
+                    <div class="toggle on"></div>
+                </div>
+                <div class="mod-card active-item">
+                    <div class="load-order-marker">II.</div>
+                    <div class="mod-info">
+                        <span class="mod-name">Nameplates</span>
+                        <span class="mod-desc">Version 1.2 • UI</span>
+                    </div>
+                    <div class="toggle on"></div>
+                </div>
+                <div class="mod-card active-item">
+                    <div class="load-order-marker">III.</div>
+                    <div class="mod-info">
+                        <span class="mod-name">Clearer Notifications</span>
+                        <span class="mod-desc">Version 1.0 • UI</span>
+                    </div>
+                    <div class="toggle on"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bottom-bar">
+        <button class="play-btn">Begin Reign</button>
+    </footer>
+</body>
+</html>

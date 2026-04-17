@@ -3,13 +3,20 @@ import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '../stores/settings'
 import { useLoadOrderStore } from '../stores/loadorder'
+import { useModsStore } from '../stores/mods'
 import GameSettingsModal from './GameSettingsModal.vue'
 import LaunchButton from './LaunchButton.vue'
 
 const settingsStore = useSettingsStore()
 const loadOrderStore = useLoadOrderStore()
+const modsStore = useModsStore()
 
-const { playsetNames, launcherActivePlaysetIndex, activeCountLabel } = storeToRefs(loadOrderStore)
+const { playsetNames, launcherActivePlaysetIndex } = storeToRefs(loadOrderStore)
+
+const activeCountLabel = computed(() => {
+  const count = modsStore.enabledMods.length
+  return `${count} Active Mod${count === 1 ? '' : 's'}`
+})
 
 const gameIcons: Record<string, string> = {
   eu5: '⚜️',
@@ -57,7 +64,7 @@ async function onLauncherPlaysetChange(event: Event) {
 
   isSwitchingPlayset.value = true
   try {
-    await loadOrderStore.setActivePlayset(index)
+    await loadOrderStore.setLauncherPlayset(index)
   } finally {
     isSwitchingPlayset.value = false
   }
@@ -96,7 +103,7 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
             :value="launcherActivePlaysetIndex"
             @change="onLauncherPlaysetChange"
           >
-            <option v-for="(name, index) in playsetNames" :key="\`\${name}-\${index}\`" :value="index">
+            <option v-for="(name, index) in playsetNames" :key="`${name}-${index}`" :value="index">
               {{ name }}
             </option>
           </select>
