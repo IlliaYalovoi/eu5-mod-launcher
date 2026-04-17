@@ -5,10 +5,10 @@ import { storeToRefs } from 'pinia'
 import type { LauncherLayout, Mod } from '../types'
 import AutosortButton from './AutosortButton.vue'
 import CycleErrorPanel from './CycleErrorPanel.vue'
-import LaunchButton from './LaunchButton.vue'
 import { useLoadOrderStore } from '../stores/loadorder'
 import { useModsStore } from '../stores/mods'
 import BaseButton from './ui/BaseButton.vue'
+import ModListPanel from './ModListPanel.vue'
 
 type EditableBlock = {
   id: string
@@ -95,8 +95,6 @@ const blockByModID = computed(() => {
   }
   return out
 })
-
-const activeCountLabel = computed(() => `${compiledOrder.value.length} mods active`)
 
 watch(
   launcherLayout,
@@ -372,133 +370,188 @@ function onSaveCompiled(): void {
 </script>
 
 <template>
-  <section class="load-order-panel" aria-label="Load order panel">
-    <header class="head">
-      <div>
-        <h2 class="title">Load Order</h2>
-        <p class="count">{{ activeCountLabel }}</p>
-      </div>
-      <div class="head-actions">
-        <LaunchButton />
+  <div class="main-wrapper">
+    <header class="toolbar">
+      <h1 class="playset-title">Load Order</h1>
+      <div class="toolbar-actions">
         <AutosortButton />
-        <BaseButton :loading="isSavingCompiled" @click="onSaveCompiled">Save to Game</BaseButton>
+        <BaseButton :loading="isSavingCompiled" @click="onSaveCompiled" class="action-btn">Save to Game</BaseButton>
       </div>
     </header>
 
-    <div class="category-create">
-      <input v-model="categoryName" class="category-input" type="text" placeholder="New category name..." />
-      <BaseButton variant="ghost" @click="onCreateCategory">Create Category</BaseButton>
-    </div>
+    <div class="view-content">
+      <div class="group-container">
+        <CycleErrorPanel @open-constraints="onCycleOpenConstraints" />
 
-    <p v-if="persistError" class="alert">{{ persistError }}</p>
-    <p v-else-if="saveError" class="alert">{{ saveError }}</p>
+        <!-- keep category list items as is but styled -->
+        <div class="category-create">
+          <input v-model="categoryName" class="category-input" type="text" placeholder="New category name..." />
+          <BaseButton variant="ghost" @click="onCreateCategory">Create Category</BaseButton>
+        </div>
 
-    <div class="list-wrap">
-      <draggable v-model="blocks" item-key="id" handle=".category-handle" :animation="150" @end="persistLayout">
-        <template #item="{ element: block }">
-          <section class="bucket category-block" @contextmenu="onItemContextMenu($event, block.id)">
-            <div class="category-head">
-              <button class="category-handle" type="button" aria-label="Drag category">☰</button>
-              <h3 class="bucket-title">{{ block.name }}</h3>
-              <button class="fold" type="button" @click="onToggleCollapse(block.id)">{{ block.collapsed ? '+' : '-' }}</button>
-              <button v-if="!block.isUngrouped" class="delete-category" type="button" @click="onDeleteCategory(block.id)">×</button>
-            </div>
+        <p v-if="persistError" class="alert">{{ persistError }}</p>
+        <p v-else-if="saveError" class="alert">{{ saveError }}</p>
 
-            <draggable
-              v-if="!block.collapsed"
-              v-model="block.modIds"
-              :item-key="modItemKey"
-              :group="{ name: 'mods' }"
-              handle=".mod-handle"
-              :animation="150"
-              @end="persistLayout"
-            >
-              <template #item="{ element: modID }">
-                <article class="mod-row" @contextmenu.stop.prevent="onItemContextMenu($event, modID)">
-                  <button class="mod-handle" type="button" aria-label="Drag mod">☰</button>
-
-                  <div class="mod-number-cell">
-                    <template v-if="globalEditModID === modID">
-                      <input
-                        v-model="globalEditValue"
-                        :data-global-edit="modID"
-                        class="number-input"
-                        type="number"
-                        min="1"
-                        @keydown.enter.prevent="confirmGlobalEdit(modID)"
-                        @keydown.esc.prevent="cancelGlobalEdit"
-                      />
-                      <button class="confirm" type="button" @click="confirmGlobalEdit(modID)">✓</button>
-                    </template>
-                    <button v-else class="number-btn" type="button" @click="beginGlobalEdit(modID)">{{ numberByModID[modID] }}</button>
+        <div class="list-wrap">
+          <draggable v-model="blocks" item-key="id" handle=".category-handle" :animation="150" @end="persistLayout">
+            <template #item="{ element: block }">
+              <section class="bucket category-block mod-group" @contextmenu="onItemContextMenu($event, block.id)">
+                <div class="category-head group-header">
+                  <div class="header-left">
+                    <button class="category-handle" type="button" aria-label="Drag category">☰</button>
+                    <strong>{{ block.name }}</strong>
                   </div>
-
-                  <div class="mod-local-number-cell">
-                    <template v-if="!block.isUngrouped">
-                      <template v-if="localEditModID === modID">
-                        <input
-                          v-model="localEditValue"
-                          :data-local-edit="modID"
-                          class="number-input secondary"
-                          type="number"
-                          min="1"
-                          @keydown.enter.prevent="confirmLocalEdit(modID)"
-                          @keydown.esc.prevent="cancelLocalEdit"
-                        />
-                        <button class="confirm" type="button" @click="confirmLocalEdit(modID)">✓</button>
-                      </template>
-                      <button v-else class="number-btn secondary" type="button" @click="beginLocalEdit(modID)">
-                        {{ localNumberByModID[modID] }}
-                      </button>
-                    </template>
+                  <div class="header-actions">
+                    <button class="fold" type="button" @click="onToggleCollapse(block.id)">{{ block.collapsed ? '+' : '-' }}</button>
+                    <button v-if="!block.isUngrouped" class="delete-category" type="button" @click="onDeleteCategory(block.id)">×</button>
                   </div>
+                </div>
 
-                  <span class="mod-name">{{ getMod(modID)?.Name || modID }}</span>
-                </article>
-              </template>
-            </draggable>
-          </section>
-        </template>
-      </draggable>
+                <draggable
+                  v-if="!block.collapsed"
+                  v-model="block.modIds"
+                  :item-key="modItemKey"
+                  :group="{ name: 'mods' }"
+                  handle=".mod-handle"
+                  :animation="150"
+                  @end="persistLayout"
+                  class="items mod-list"
+                >
+                  <template #item="{ element: modID }">
+                    <article class="mod-row" @contextmenu.stop.prevent="onItemContextMenu($event, modID)">
+                      <button class="mod-handle" type="button" aria-label="Drag mod">☰</button>
+
+                      <div class="mod-number-cell">
+                        <template v-if="globalEditModID === modID">
+                          <input
+                            v-model="globalEditValue"
+                            :data-global-edit="modID"
+                            class="number-input"
+                            type="number"
+                            min="1"
+                            @keydown.enter.prevent="confirmGlobalEdit(modID)"
+                            @keydown.esc.prevent="cancelGlobalEdit"
+                          />
+                          <button class="confirm" type="button" @click="confirmGlobalEdit(modID)">✓</button>
+                        </template>
+                        <button v-else class="number-btn" type="button" @click="beginGlobalEdit(modID)">{{ numberByModID[modID] }}</button>
+                      </div>
+
+                      <div class="mod-local-number-cell">
+                        <template v-if="!block.isUngrouped">
+                          <template v-if="localEditModID === modID">
+                            <input
+                              v-model="localEditValue"
+                              :data-local-edit="modID"
+                              class="number-input secondary"
+                              type="number"
+                              min="1"
+                              @keydown.enter.prevent="confirmLocalEdit(modID)"
+                              @keydown.esc.prevent="cancelLocalEdit"
+                            />
+                            <button class="confirm" type="button" @click="confirmLocalEdit(modID)">✓</button>
+                          </template>
+                          <button v-else class="number-btn secondary" type="button" @click="beginLocalEdit(modID)">
+                            {{ localNumberByModID[modID] }}
+                          </button>
+                        </template>
+                      </div>
+
+                      <span class="mod-name">{{ getMod(modID)?.Name || modID }}</span>
+                    </article>
+                  </template>
+                </draggable>
+              </section>
+            </template>
+          </draggable>
+        </div>
+      </div>
+
+      <ModListPanel />
     </div>
-
-    <CycleErrorPanel @open-constraints="onCycleOpenConstraints" />
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.load-order-panel {
+.main-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.toolbar {
+  padding: 20px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.playset-title {
+  margin: 0;
+  font-size: 24px;
+  font-family: var(--font-display);
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 20px;
+}
+
+.action-btn {
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  padding: 5px 15px;
+  cursor: pointer;
+}
+
+.view-content {
+  flex: 1;
+  padding: 20px 40px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 30px;
+}
+
+.group-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mod-group {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.group-header {
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.03);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.list-wrap {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  height: 100%;
-  min-height: 0;
-}
-
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.head-actions {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.title {
-  font-family: var(--font-display), serif;
-  font-size: 0.95rem;
-  color: var(--color-text-secondary);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.count {
-  margin-top: var(--space-1);
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
 }
 
 .category-create {
@@ -523,39 +576,6 @@ function onSaveCompiled(): void {
   background: var(--color-bg-elevated);
   color: var(--color-danger);
   font-size: 0.85rem;
-}
-
-.list-wrap {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-right: var(--space-1);
-}
-
-.bucket {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-panel);
-}
-
-.bucket-title {
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.category-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 .fold {
@@ -648,5 +668,3 @@ function onSaveCompiled(): void {
   color: var(--color-text-primary);
 }
 </style>
-
-
