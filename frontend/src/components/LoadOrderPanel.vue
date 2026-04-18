@@ -37,8 +37,8 @@ const persistError = ref<string | null>(null)
 const saveError = ref<string | null>(null)
 
 watch(
-  launcherLayout,
-  (value) => {
+  () => [launcherLayout.value, allMods.value] as const,
+  ([value, modsValue]) => {
     const collapsed = value.collapsed || {}
     const categoryByID: Record<string, { id: string; name: string; modIds: string[] }> = {}
     for (const category of value.categories) {
@@ -64,7 +64,7 @@ watch(
           id: ungroupedID,
           name: 'Ungrouped',
           modIds: value.ungrouped.filter(modID => {
-            const mod = allMods.value.find(m => m.ID === modID)
+            const mod = modsValue.find(m => m.ID === modID)
             return mod && mod.Enabled
           }),
           isUngrouped: true,
@@ -81,7 +81,7 @@ watch(
         id: category.id,
         name: category.name,
         modIds: category.modIds.filter(modID => {
-          const mod = allMods.value.find(m => m.ID === modID)
+          const mod = modsValue.find(m => m.ID === modID)
           return mod && mod.Enabled
         }),
         isUngrouped: false,
@@ -94,7 +94,7 @@ watch(
         id: ungroupedID,
         name: 'Ungrouped',
         modIds: value.ungrouped.filter(modID => {
-          const mod = allMods.value.find(m => m.ID === modID)
+          const mod = modsValue.find(m => m.ID === modID)
           return mod && mod.Enabled
         }),
         isUngrouped: true,
@@ -110,7 +110,7 @@ watch(
         id: category.id,
         name: category.name,
         modIds: category.modIds.filter(modID => {
-          const mod = allMods.value.find(m => m.ID === modID)
+          const mod = modsValue.find(m => m.ID === modID)
           return mod && mod.Enabled
         }),
         isUngrouped: false,
@@ -120,7 +120,7 @@ watch(
 
     blocks.value = next
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 )
 
 onMounted(() => {
