@@ -20,11 +20,34 @@ func IsVersionCompatible(gameVersion, supportedVersion string) bool {
 	if gameVersion == "unknown" {
 		return false
 	}
-	if gameVersion == supportedVersion {
+
+	gv := strings.TrimSpace(strings.ToLower(gameVersion))
+	gv = strings.TrimPrefix(gv, "v.")
+	gv = strings.TrimPrefix(gv, "v")
+
+	sv := strings.TrimSpace(strings.ToLower(supportedVersion))
+	sv = strings.TrimPrefix(sv, "v.")
+	sv = strings.TrimPrefix(sv, "v")
+
+	if gv == sv {
 		return true
 	}
-	prefix := strings.ReplaceAll(supportedVersion, "*", "")
-	return strings.HasPrefix(gameVersion, prefix)
+
+	gParts := strings.Split(gv, ".")
+	sParts := strings.Split(sv, ".")
+
+	for i, sPart := range sParts {
+		sPart = strings.TrimSpace(sPart)
+		if sPart == "*" {
+			continue
+		}
+
+		if i >= len(gParts) || gParts[i] != sPart {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (*ModsService) Discover(

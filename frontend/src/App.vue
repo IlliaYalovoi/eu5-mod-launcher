@@ -347,6 +347,7 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   flex-direction: column;
   background: transparent;
   height: 100vh;
+  min-height: 0;
 }
 
 .toast {

@@ -241,8 +241,12 @@ body {
   background-color: var(--color-bg-base);
   line-height: 1.55;
   text-rendering: optimizeLegibility;
-  scrollbar-color: var(--color-border-strong) var(--color-bg-panel);
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
   scrollbar-width: thin;
+}
+
+* {
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
 }
 
 *::-webkit-scrollbar {

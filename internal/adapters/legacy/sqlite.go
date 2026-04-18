@@ -55,6 +55,14 @@ func (s *SqliteAdapter) DetectInstances() ([]game.Instance, error) {
 		if !utils.FileExists(candidateExe) {
 			candidateExe = filepath.Join(candidate, s.id+".exe")
 		}
+		if s.id == "vic3" {
+			if !utils.FileExists(candidateExe) {
+				candidateExe = filepath.Join(candidate, "binaries", "victoria3.exe")
+			}
+			if !utils.FileExists(candidateExe) {
+				candidateExe = filepath.Join(candidate, "victoria3.exe")
+			}
+		}
 		if utils.FileExists(candidateExe) {
 			installPath = candidate
 			exePath = candidateExe

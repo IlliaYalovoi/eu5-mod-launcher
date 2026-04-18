@@ -76,6 +76,7 @@ function selectMod(mod: Mod) {
   flex-direction: column;
   gap: 15px;
   height: 100%;
+  min-height: 0;
 }
 
 .repo-title {

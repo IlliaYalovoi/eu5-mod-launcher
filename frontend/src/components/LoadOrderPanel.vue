@@ -237,6 +237,8 @@ function selectMod(modID: string) {
 .main-wrapper {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   height: 100%;
 }
 
@@ -286,6 +288,7 @@ function selectMod(modID: string) {
   gap: 20px;
   overflow-y: auto;
   padding-right: 10px;
+  min-height: 0;
 }
 
 .mod-group {
