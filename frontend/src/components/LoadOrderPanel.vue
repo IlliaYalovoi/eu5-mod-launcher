@@ -214,7 +214,7 @@ function selectMod(modID: string) {
               </div>
             </div>
 
-            <div v-if="!block.collapsed" class="mod-list">
+            <TransitionGroup v-if="!block.collapsed" name="mod-row" tag="div" class="mod-list">
               <LoadOrderItem
                 v-for="modID in block.modIds"
                 :key="modID"
@@ -223,7 +223,7 @@ function selectMod(modID: string) {
                 @open-constraints="emit('open-constraints', modID)"
                 @select="selectMod"
               />
-            </div>
+            </TransitionGroup>
           </section>
         </div>
       </div>
@@ -348,5 +348,20 @@ function selectMod(modID: string) {
   min-width: 1.5rem;
   min-height: 1.5rem;
   cursor: pointer;
+}
+
+.mod-row-move {
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.mod-row-enter-active,
+.mod-row-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.mod-row-enter-from,
+.mod-row-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
 </style>

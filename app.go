@@ -103,6 +103,11 @@ type App struct {
 	constraintsPath string
 	settingsPath    string
 	layoutPath      string
+
+	snapshotBuildMu     sync.Mutex
+	snapshotCacheMu     sync.RWMutex
+	snapshotCache       map[string]GameSnapshot
+	snapshotRevisionMap map[string]int64
 }
 
 type ModsDirStatus struct {
@@ -126,14 +131,16 @@ type startupLoads struct {
 // NewApp creates a new App application struct.
 func NewApp() *App {
 	app := &App{
-		loState:         loadorder.State{OrderedIDs: []string{}},
-		conGraph:        graph.New(),
-		modPathByID:     map[string]string{},
-		launcherLayout:  LauncherLayout{Ungrouped: []string{}, Categories: []LauncherCategory{}},
-		imageDataURLs:   map[string]string{},
-		playsetNames:    []string{},
-		gameActiveIndex: -1,
-		launcherIndex:   -1,
+		loState:             loadorder.State{OrderedIDs: []string{}},
+		conGraph:            graph.New(),
+		modPathByID:         map[string]string{},
+		launcherLayout:      LauncherLayout{Ungrouped: []string{}, Categories: []LauncherCategory{}},
+		imageDataURLs:       map[string]string{},
+		playsetNames:        []string{},
+		gameActiveIndex:     -1,
+		launcherIndex:       -1,
+		snapshotCache:       map[string]GameSnapshot{},
+		snapshotRevisionMap: map[string]int64{},
 	}
 	app.initCoreServices()
 	return app
@@ -448,6 +455,8 @@ func (a *App) SetLoadOrder(ids []string) error {
 	} else {
 		a.launcherLayout = nextLayout
 	}
+
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -496,6 +505,7 @@ func (a *App) AddConstraint(from, target string) error {
 	if err := a.conService.AddConstraint(from, target); err != nil {
 		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
 	}
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -507,6 +517,7 @@ func (a *App) AddLoadFirst(modID string) error {
 	if err := a.conService.AddLoadFirst(modID); err != nil {
 		return fmt.Errorf("add load-first %q: %w", modID, err)
 	}
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -518,6 +529,7 @@ func (a *App) AddLoadLast(modID string) error {
 	if err := a.conService.AddLoadLast(modID); err != nil {
 		return fmt.Errorf("add load-last %q: %w", modID, err)
 	}
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -529,6 +541,7 @@ func (a *App) RemoveConstraint(from, target string) error {
 	if err := a.conService.RemoveConstraint(from, target); err != nil {
 		return fmt.Errorf("remove constraint %q -> %q: %w", from, target, err)
 	}
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -540,6 +553,7 @@ func (a *App) RemoveLoadFirst(modID string) error {
 	if err := a.conService.RemoveLoadFirst(modID); err != nil {
 		return fmt.Errorf("remove load-first %q: %w", modID, err)
 	}
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -552,6 +566,7 @@ func (a *App) RemoveLoadLast(modID string) error {
 		return fmt.Errorf("remove load-last %q: %w", modID, err)
 	}
 
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -589,6 +604,7 @@ func (a *App) Autosort() ([]string, error) {
 		return nil, fmt.Errorf("save launcher layout after autosort: %w", err)
 	}
 
+	a.invalidateActiveSnapshot()
 	return append([]string(nil), a.loState.OrderedIDs...), nil
 }
 
@@ -612,6 +628,7 @@ func (a *App) SetLauncherLayout(layout LauncherLayout) error {
 	}
 	a.launcherLayout = next
 
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -683,6 +700,7 @@ func (a *App) SaveCompiledLoadOrder() ([]string, error) {
 		return nil, fmt.Errorf("persist compiled load order: %w", err)
 	}
 
+	a.invalidateActiveSnapshot()
 	return append([]string(nil), a.loState.OrderedIDs...), nil
 }
 
@@ -825,6 +843,7 @@ func (a *App) SetGameVersionOverride(version string) error {
 		return fmt.Errorf("save settings with game version override: %w", err)
 	}
 
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -848,6 +867,7 @@ func (a *App) SetGameExe(path string) error {
 		return fmt.Errorf("save settings with game executable: %w", err)
 	}
 
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -957,6 +977,7 @@ func (a *App) SetLauncherActivePlaysetIndex(index int) error {
 		return fmt.Errorf("persist launcher active playset %d: %w", index, err)
 	}
 
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -980,6 +1001,7 @@ func (a *App) SetModsDir(path string) error {
 		return fmt.Errorf("save settings with mods dir: %w", err)
 	}
 
+	a.invalidateActiveSnapshot()
 	return nil
 }
 
@@ -993,6 +1015,10 @@ func (a *App) ResetModsDirToAuto() (string, error) {
 
 // SetActiveGame switches the current game and re-initializes paths.
 func (a *App) SetActiveGame(gameID string) error {
+	return a.setActiveGameInternal(gameID, true)
+}
+
+func (a *App) setActiveGameInternal(gameID string, invalidateSnapshot bool) error {
 	if err := a.gameService.SetActiveGame(gameID, 0); err != nil {
 		return err
 	}
@@ -1011,9 +1037,8 @@ func (a *App) SetActiveGame(gameID string) error {
 
 	// Update Playset Service Repository
 	adapter := a.gameService.GetAdapter(gameID)
-	if _, ok := adapter.(repo.LegacyAdapter); ok && gameID != "eu5" {
-		sqlite := adapter.(repo.LegacyAdapter)
-		a.gamePaths.PlaysetsPath = filepath.Join(inst.UserConfigPath, "launcher-v2.db")
+	if sqlite, ok := adapter.(repo.LegacyAdapter); ok && gameID != "eu5" {
+		a.gamePaths.PlaysetsPath = filepath.Join(inst.UserConfigPath, "launcher-v2.sqlite")
 		a.playsetRepo = repo.NewSqlitePlaysetRepository(sqlite, *inst)
 	} else {
 		a.gamePaths.PlaysetsPath = filepath.Join(inst.UserConfigPath, "playsets.json")
@@ -1023,6 +1048,9 @@ func (a *App) SetActiveGame(gameID string) error {
 
 	if a.ctx != nil {
 		a.refreshState()
+	}
+	if invalidateSnapshot {
+		a.invalidateSnapshot(gameID)
 	}
 	return nil
 }
@@ -1072,6 +1100,12 @@ func (a *App) ensureReady() error {
 	}
 	if a.imageDataURLs == nil {
 		a.imageDataURLs = map[string]string{}
+	}
+	if a.snapshotCache == nil {
+		a.snapshotCache = map[string]GameSnapshot{}
+	}
+	if a.snapshotRevisionMap == nil {
+		a.snapshotRevisionMap = map[string]int64{}
 	}
 	if a.settingsPath == "" {
 		a.settingsPath = filepath.Join(filepath.Dir(a.loStore.ConfigPath()), settingsFileName)

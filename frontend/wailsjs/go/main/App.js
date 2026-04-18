@@ -78,6 +78,10 @@ export function GetGameExe() {
   return window['go']['main']['App']['GetGameExe']();
 }
 
+export function GetGameSnapshot(arg1) {
+  return window['go']['main']['App']['GetGameSnapshot'](arg1);
+}
+
 export function GetGameVersion() {
   return window['go']['main']['App']['GetGameVersion']();
 }
@@ -182,6 +186,10 @@ export function SetActiveGame(arg1) {
   return window['go']['main']['App']['SetActiveGame'](arg1);
 }
 
+export function SetActiveGameAndGetSnapshot(arg1) {
+  return window['go']['main']['App']['SetActiveGameAndGetSnapshot'](arg1);
+}
+
 export function SetGameExe(arg1) {
   return window['go']['main']['App']['SetGameExe'](arg1);
 }
@@ -208,4 +216,8 @@ export function SetModsDir(arg1) {
 
 export function UnsubscribeWorkshopMod(arg1) {
   return window['go']['main']['App']['UnsubscribeWorkshopMod'](arg1);
+}
+
+export function WarmNonActiveGameSnapshots() {
+  return window['go']['main']['App']['WarmNonActiveGameSnapshots']();
 }

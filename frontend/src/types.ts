@@ -44,3 +44,41 @@ export interface GameSettingsData {
   gameVersionOverride?: string
 }
 
+export interface SnapshotMeta {
+  revision: number
+  fetchedAt: number
+  stale: boolean
+}
+
+export interface SnapshotModsDirStatus {
+  effectiveDir: string
+  autoDetectedDir: string
+  customDir: string
+  usingCustomDir: boolean
+  autoDetectedExists: boolean
+  effectiveExists: boolean
+}
+
+export interface SnapshotSettings {
+  modsDirStatus: SnapshotModsDirStatus
+  gameExe: string
+  autoDetectedGameExe: string
+  configPath: string
+  gameVersion: string
+  gameVersionOverride: string
+  availableGames: string[]
+}
+
+export interface GameSnapshot {
+  gameID: string
+  mods: Mod[]
+  loadOrder: string[]
+  launcherLayout: LauncherLayout
+  constraints: Constraint[]
+  playsetNames: string[]
+  gameActivePlaysetIndex: number
+  launcherActivePlaysetIndex: number
+  settings: SnapshotSettings
+  meta: SnapshotMeta
+}
+

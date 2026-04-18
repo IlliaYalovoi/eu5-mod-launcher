@@ -1,16 +1,14 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { useLoadOrderStore } from './loadorder'
+import { useSnapshotsStore } from './snapshots'
 import type { Mod, WorkshopItem } from '../types'
-import { logBackendCall } from '../utils/backendDebug'
 import {
   DisableMod,
   EnableMod,
   FetchWorkshopMetadataForMod,
-  GetAllMods,
+  HasNewThumbnails,
   IsUnsubscribeEnabled,
   UnsubscribeWorkshopMod,
-  HasNewThumbnails,
 } from '../../wailsjs/go/main/App'
 
 type UnsubscribeNotice = {
@@ -25,7 +23,8 @@ function errorMessage(err: unknown): string {
 }
 
 export const useModsStore = defineStore('mods', () => {
-  const allMods = ref<Mod[]>([])
+  const snapshotsStore = useSnapshotsStore()
+
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const selectedModID = ref<string>('')
@@ -40,6 +39,14 @@ export const useModsStore = defineStore('mods', () => {
   const unsubscribeCapabilityLoaded = ref(false)
   const metadataRequests = new Map<string, Promise<void>>()
   const unsubscribeRequests = new Map<string, Promise<void>>()
+
+  const allMods = computed(() => snapshotsStore.activeSnapshot?.mods || [])
+
+  function syncSelectedModID(): void {
+    if (selectedModID.value && !allMods.value.some((mod) => mod.ID === selectedModID.value)) {
+      selectedModID.value = ''
+    }
+  }
 
   async function ensureUnsubscribeCapability(): Promise<void> {
     if (unsubscribeCapabilityLoaded.value) {
@@ -97,12 +104,10 @@ export const useModsStore = defineStore('mods', () => {
 
     try {
       await ensureUnsubscribeCapability()
-      allMods.value = (await logBackendCall('GetAllMods', [], () => GetAllMods())) as Mod[]
-      selectedModID.value = ''
+      await snapshotsStore.refreshActive()
+      syncSelectedModID()
     } catch (err) {
       error.value = errorMessage(err)
-      allMods.value = []
-      selectedModID.value = ''
     } finally {
       isLoading.value = false
     }
@@ -187,8 +192,8 @@ export const useModsStore = defineStore('mods', () => {
         }
 
         await UnsubscribeWorkshopMod(itemID)
-        const loadOrderStore = useLoadOrderStore()
-        await Promise.all([fetchAll(), loadOrderStore.fetch()])
+        await snapshotsStore.refreshActive()
+        syncSelectedModID()
         unsubscribeNotice.value = { type: 'success', message: 'Unsubscribe request sent to Steam.' }
       } catch (err) {
         const message = errorMessage(err)
@@ -222,8 +227,8 @@ export const useModsStore = defineStore('mods', () => {
       } else {
         await DisableMod(id)
       }
-      const loadOrderStore = useLoadOrderStore()
-      await Promise.all([fetchAll(), loadOrderStore.fetch()])
+      await snapshotsStore.refreshActive()
+      syncSelectedModID()
     } catch (err) {
       error.value = errorMessage(err)
     } finally {
@@ -232,13 +237,14 @@ export const useModsStore = defineStore('mods', () => {
   }
 
   function startPolling(): void {
-    const timer = setInterval(async () => {
+    window.setInterval(async () => {
       try {
         const available = await HasNewThumbnails()
         if (available && !isLoading.value) {
-          await fetchAll()
+          await snapshotsStore.refreshActive()
+          syncSelectedModID()
         }
-      } catch (err) {
+      } catch {
         // Silently ignore polling errors
       }
     }, 1000)

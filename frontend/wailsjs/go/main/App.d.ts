@@ -43,6 +43,8 @@ export function GetGameActivePlaysetIndex():Promise<number>;
 
 export function GetGameExe():Promise<string>;
 
+export function GetGameSnapshot(arg1:string):Promise<main.GameSnapshot>;
+
 export function GetGameVersion():Promise<string>;
 
 export function GetGameVersionOverride():Promise<string>;
@@ -95,6 +97,8 @@ export function SaveCompiledLoadOrder():Promise<Array<string>>;
 
 export function SetActiveGame(arg1:string):Promise<void>;
 
+export function SetActiveGameAndGetSnapshot(arg1:string):Promise<main.GameSnapshot>;
+
 export function SetGameExe(arg1:string):Promise<void>;
 
 export function SetGameVersionOverride(arg1:string):Promise<void>;
@@ -108,3 +112,5 @@ export function SetLoadOrder(arg1:Array<string>):Promise<void>;
 export function SetModsDir(arg1:string):Promise<void>;
 
 export function UnsubscribeWorkshopMod(arg1:string):Promise<void>;
+
+export function WarmNonActiveGameSnapshots():Promise<Record<string, main.GameSnapshot>>;

@@ -48,10 +48,10 @@ function selectMod(mod: Mod) {
     <SearchInput v-model="searchText" placeholder="Search unmanaged mods..." class="search-box" />
 
     <div class="list-body">
-      <div v-if="isLoading" class="state loading">Loading mods...</div>
+      <div v-if="isLoading && allMods.length === 0" class="state loading">Loading mods...</div>
       <p v-else-if="error" class="state error">{{ error }}</p>
       <p v-else-if="filteredMods.length === 0" class="state empty">{{ emptyMessage }}</p>
-      <div v-else class="cards">
+      <TransitionGroup v-else class="cards" name="repo-card" tag="div">
         <ModCard
           v-for="mod in filteredMods"
           :key="mod.ID"
@@ -60,7 +60,7 @@ function selectMod(mod: Mod) {
           @toggle="(val: boolean) => toggleMod(mod, val)"
           @select="selectMod(mod)"
         />
-      </div>
+      </TransitionGroup>
     </div>
     <div class="repo-footer">Items here are NOT in the current playset.</div>
   </aside>
@@ -134,5 +134,20 @@ function selectMod(mod: Mod) {
   color: var(--color-text-muted);
   font-size: 11px;
   margin-top: 10px;
+}
+
+.repo-card-move {
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.repo-card-enter-active,
+.repo-card-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.repo-card-enter-from,
+.repo-card-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
 </style>

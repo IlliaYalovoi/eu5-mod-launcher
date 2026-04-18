@@ -1,53 +1,54 @@
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Constraint } from '../types'
 import { useLoadOrderStore } from './loadorder'
-import { logBackendCall } from '../utils/backendDebug'
+import { useSnapshotsStore } from './snapshots'
 import {
   AddConstraint,
   AddLoadFirst,
   AddLoadLast,
-  GetConstraints,
   RemoveConstraint,
   RemoveLoadFirst,
   RemoveLoadLast,
 } from '../../wailsjs/go/main/App'
 
 export const useConstraintsStore = defineStore('constraints', () => {
-  const constraints = ref<Constraint[]>([])
+  const snapshotsStore = useSnapshotsStore()
+
+  const constraints = computed(() => snapshotsStore.activeSnapshot?.constraints || [])
 
   async function fetch(): Promise<void> {
-    constraints.value = (await GetConstraints()) as Constraint[]
+    await snapshotsStore.refreshActive()
   }
 
   async function add(from: string, to: string): Promise<void> {
     await AddConstraint(from, to)
-    await fetch()
+    await snapshotsStore.refreshActive()
   }
 
   async function remove(from: string, to: string): Promise<void> {
     await RemoveConstraint(from, to)
-    await fetch()
+    await snapshotsStore.refreshActive()
   }
 
   async function addLoadFirst(modID: string): Promise<void> {
     await AddLoadFirst(modID)
-    await fetch()
+    await snapshotsStore.refreshActive()
   }
 
   async function addLoadLast(modID: string): Promise<void> {
     await AddLoadLast(modID)
-    await fetch()
+    await snapshotsStore.refreshActive()
   }
 
   async function removeLoadFirst(modID: string): Promise<void> {
     await RemoveLoadFirst(modID)
-    await fetch()
+    await snapshotsStore.refreshActive()
   }
 
   async function removeLoadLast(modID: string): Promise<void> {
     await RemoveLoadLast(modID)
-    await fetch()
+    await snapshotsStore.refreshActive()
   }
 
   function forMod(id: string): Constraint[] {
@@ -81,4 +82,3 @@ export const useConstraintsStore = defineStore('constraints', () => {
 
   return { constraints, fetch, add, remove, addLoadFirst, addLoadLast, removeLoadFirst, removeLoadLast, forMod }
 })
-

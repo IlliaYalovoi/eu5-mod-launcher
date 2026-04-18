@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smooth UX Snapshot Redesign - Visual Companion</title>
+  <style>
+    :root {
+      --bg: #0f1318;
+      --panel: #1a212a;
+      --panel-2: #232d38;
+      --text: #d9e2ee;
+      --muted: #93a4b7;
+      --accent: #d4b362;
+      --ok: #5db386;
+      --warn: #e7ad4d;
+      --danger: #d66a6a;
+      --line: #344353;
+      --shadow: rgba(0, 0, 0, 0.28);
+      --theme-time: 220ms;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at top left, #1b2430 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background var(--theme-time) ease, color var(--theme-time) ease;
+    }
+
+    body.theme-eu5 { --accent: #d4b362; --panel: #1a212a; --panel-2: #232d38; }
+    body.theme-hoi4 { --accent: #a89a7b; --panel: #1f1f1f; --panel-2: #2a2a2a; }
+    body.theme-ck3 { --accent: #c89d57; --panel: #281f23; --panel-2: #34292f; }
+    body.theme-stellaris { --accent: #20c5cf; --panel: #11202a; --panel-2: #1b2d38; }
+    body.theme-vic3 { --accent: #cfa85f; --panel: #1c2624; --panel-2: #283430; }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 8px 20px var(--shadow);
+      transition: background var(--theme-time) ease, border-color var(--theme-time) ease;
+    }
+
+    .title {
+      margin-right: auto;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: var(--panel-2);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 160ms ease;
+    }
+
+    button:hover { border-color: var(--accent); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 8px 20px var(--shadow);
+      transition: background var(--theme-time) ease, border-color var(--theme-time) ease;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--accent);
+    }
+
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .timeline {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .step {
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+      font-size: 13px;
+    }
+
+    .step strong { color: var(--accent); }
+
+    .snapshot-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .node {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      text-align: center;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .arrow {
+      color: var(--muted);
+      font-size: 18px;
+      text-align: center;
+    }
+
+    .switch-demo {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      height: 160px;
+      position: relative;
+      overflow: hidden;
+      background: #0d1218;
+    }
+
+    .layer {
+      position: absolute;
+      inset: 0;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      transition: opacity 200ms ease, transform 200ms ease;
+    }
+
+    .layer.old { background: linear-gradient(120deg, rgba(35,45,56,0.95), rgba(26,33,42,0.95)); }
+    .layer.new { background: linear-gradient(120deg, rgba(22,34,42,0.95), rgba(19,29,35,0.95)); }
+
+    .bar {
+      height: 20px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.09);
+    }
+
+    .bar.small { width: 45%; }
+    .bar.mid { width: 70%; }
+
+    .fade-out { opacity: 0; transform: translateY(6px); }
+    .fade-in { opacity: 1; transform: translateY(0); }
+
+    .skeleton-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .skeleton {
+      height: 16px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+      background-size: 200% 100%;
+      animation: pulse 1.2s linear infinite;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      margin-right: 6px;
+      margin-top: 6px;
+    }
+
+    .badge.ok { color: var(--ok); }
+    .badge.warn { color: var(--warn); }
+    .badge.err { color: var(--danger); }
+
+    @keyframes pulse {
+      0% { background-position: 0% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .snapshot-flow { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body class="theme-eu5">
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="title">Smooth UX Snapshot Redesign — Visual Companion</div>
+      <button data-theme="theme-eu5">EU5</button>
+      <button data-theme="theme-hoi4">HOI4</button>
+      <button data-theme="theme-ck3">CK3</button>
+      <button data-theme="theme-stellaris">Stellaris</button>
+      <button data-theme="theme-vic3">Vic3</button>
+      <button id="run-switch">Run switch demo</button>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h3>1) Atomic switch timeline (no blank frame)</h3>
+        <div class="timeline">
+          <div class="step"><strong>T0</strong> User selects game.</div>
+          <div class="step"><strong>T1</strong> Old snapshot stays visible.</div>
+          <div class="step"><strong>T2</strong> Backend runs SetActiveGameAndGetSnapshot(target).</div>
+          <div class="step"><strong>T3</strong> Target snapshot cached + validated by revision/requestId.</div>
+          <div class="step"><strong>T4</strong> Crossfade 180–220ms, then target becomes visible layer.</div>
+        </div>
+        <p class="muted">No intermediate empty render. Errors keep old view and show toast.</p>
+      </section>
+
+      <section class="card">
+        <h3>2) Backend snapshot architecture</h3>
+        <div class="snapshot-flow">
+          <div class="node">Frontend
+            <br><span class="muted">orchestrator store</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">App API
+            <br><span class="muted">SetActiveGameAndGetSnapshot</span>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node">Snapshot Builder
+            <br><span class="muted">mods + loadorder + constraints + settings</span>
+          </div>
+        </div>
+        <p class="muted" style="margin-top:10px;">Per-game cache + revisioning. Mutations invalidate affected game snapshot.</p>
+      </section>
+
+      <section class="card">
+        <h3>3) Crossfade switch visual</h3>
+        <div class="switch-demo" id="switch-demo">
+          <div class="layer old fade-in" id="old-layer">
+            <div class="bar small"></div>
+            <div class="bar"></div>
+            <div class="bar mid"></div>
+            <div class="bar"></div>
+            <div class="bar small"></div>
+          </div>
+          <div class="layer new fade-out" id="new-layer">
+            <div class="bar mid"></div>
+            <div class="bar"></div>
+            <div class="bar small"></div>
+            <div class="bar"></div>
+            <div class="bar mid"></div>
+          </div>
+        </div>
+        <p class="muted">Demo shows old layer retained until new snapshot committed.</p>
+      </section>
+
+      <section class="card">
+        <h3>4) Skeleton vs stale policy</h3>
+        <div>
+          <span class="badge ok">Cached snapshot: render stale + syncing badge</span>
+          <span class="badge warn">Cold snapshot: show structured skeleton</span>
+          <span class="badge err">Warm failure: keep stale + retry later</span>
+        </div>
+        <div class="skeleton-grid">
+          <div class="skeleton"></div><div class="skeleton"></div>
+          <div class="skeleton"></div><div class="skeleton"></div>
+          <div class="skeleton"></div><div class="skeleton"></div>
+        </div>
+        <p class="muted">Sparse warm refresh cadence: 5–10 min for non-active games.</p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const body = document.body;
+    const themeButtons = document.querySelectorAll('button[data-theme]');
+    themeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        body.className = btn.dataset.theme;
+      });
+    });
+
+    const oldLayer = document.getElementById('old-layer');
+    const newLayer = document.getElementById('new-layer');
+
+    document.getElementById('run-switch').addEventListener('click', () => {
+      oldLayer.classList.remove('fade-in');
+      oldLayer.classList.add('fade-out');
+      newLayer.classList.remove('fade-out');
+      newLayer.classList.add('fade-in');
+
+      setTimeout(() => {
+        oldLayer.classList.remove('fade-out');
+        oldLayer.classList.add('fade-in');
+        newLayer.classList.remove('fade-in');
+        newLayer.classList.add('fade-out');
+      }, 950);
+    });
+  </script>
+</body>
+</html>

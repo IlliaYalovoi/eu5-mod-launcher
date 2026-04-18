@@ -12,6 +12,7 @@ import ManageGroupsModal from './components/ManageGroupsModal.vue'
 import { useLoadOrderStore } from './stores/loadorder'
 import { useModsStore } from './stores/mods'
 import { useSettingsStore } from './stores/settings'
+import { useSnapshotsStore } from './stores/snapshots'
 
 type MenuItem = {
   id: string
@@ -25,6 +26,7 @@ type MenuItem = {
 const loadOrderStore = useLoadOrderStore()
 const modsStore = useModsStore()
 const settingsStore = useSettingsStore()
+const snapshotsStore = useSnapshotsStore()
 modsStore.startPolling()
 const { orderedIDs, launcherLayout } = storeToRefs(loadOrderStore)
 const { unsubscribeFeatureEnabled, unsubscribeNotice } = storeToRefs(modsStore)
@@ -53,9 +55,12 @@ function closeDetails() {
   modsStore.selectMod('')
 }
 
-const appThemeClass = computed(() => `theme-${settingsStore.activeGameID}`)
+const appThemeClass = computed(() => `theme-${snapshotsStore.visibleGameID || 'eu5'}`)
+const isSwitching = computed(() => snapshotsStore.switchState !== 'idle')
+const isCold = computed(() => snapshotsStore.hasColdStart)
 
 let unsubscribeNoticeTimeout: ReturnType<typeof setTimeout> | null = null
+let switchErrorTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(
   requiresManualPaths,
@@ -80,12 +85,40 @@ watch(unsubscribeNotice, (notice) => {
   }, 3200)
 })
 
+watch(
+  () => snapshotsStore.switchError,
+  (message) => {
+    if (switchErrorTimeout) {
+      clearTimeout(switchErrorTimeout)
+      switchErrorTimeout = null
+    }
+    if (!message) {
+      return
+    }
+    switchErrorTimeout = setTimeout(() => {
+      snapshotsStore.clearSwitchError()
+    }, 5000)
+  },
+)
+
 onBeforeUnmount(() => {
   if (unsubscribeNoticeTimeout) {
     clearTimeout(unsubscribeNoticeTimeout)
     unsubscribeNoticeTimeout = null
   }
+  if (switchErrorTimeout) {
+    clearTimeout(switchErrorTimeout)
+    switchErrorTimeout = null
+  }
 })
+
+function retrySwitch(): void {
+  if (switchErrorTimeout) {
+    clearTimeout(switchErrorTimeout)
+    switchErrorTimeout = null
+  }
+  void snapshotsStore.retryLastSwitch()
+}
 
 const contextMenuItems = computed<MenuItem[]>(() => {
   const isCategory = contextMenu.targetID?.indexOf('category:') === 0
@@ -275,18 +308,40 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
 </script>
 
 <template>
-  <div class="shell" :class="appThemeClass">
+  <div class="shell" :class="[appThemeClass, { 'shell--theme-transition': isSwitching }]">
     <aside class="sidebar">
       <Sidebar @open-settings="openSettings" />
     </aside>
     <main class="content" aria-label="Main content area">
-      <LoadOrderPanel @contextmenu="openContextMenu" @open-constraints="openConstraintModal" @manage-groups="manageGroupsOpen = true" />
+      <div v-if="isCold" class="startup-skeleton">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line"></div>
+      </div>
+      <div v-else class="content-transition-wrap">
+        <Transition name="game-crossfade" mode="out-in">
+          <div :key="snapshotsStore.visibleGameID" class="content-layer" :class="{ 'content-layer--switching': isSwitching }">
+            <LoadOrderPanel
+              @contextmenu="openContextMenu"
+              @open-constraints="openConstraintModal"
+              @manage-groups="manageGroupsOpen = true"
+            />
+          </div>
+        </Transition>
+      </div>
+      <div v-if="isSwitching" class="sync-indicator" role="status" aria-live="polite">
+        Syncing game snapshot...
+      </div>
     </main>
     <BaseModal :open="detailsOpen" @close="closeDetails">
       <div class="modal-content-wrapper">
         <ModDetailsPanel />
       </div>
     </BaseModal>
+    <div v-if="snapshotsStore.switchError" class="toast toast--error toast--switch" role="status" aria-live="polite">
+      <span>{{ snapshotsStore.switchError }}</span>
+      <button class="toast-action" type="button" @click="retrySwitch">Retry</button>
+    </div>
     <div v-if="unsubscribeNotice" class="toast" :class="`toast--${unsubscribeNotice.type}`" role="status" aria-live="polite">
       {{ unsubscribeNotice.message }}
     </div>
@@ -348,6 +403,67 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   background: transparent;
   height: 100vh;
   min-height: 0;
+  position: relative;
+}
+
+.content-transition-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.content-layer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.content-layer--switching {
+  pointer-events: none;
+}
+
+.startup-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+
+.skeleton-line {
+  height: 2.4rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+  background-size: 200% 100%;
+  animation: skeleton-shift 1.1s ease-in-out infinite;
+}
+
+.skeleton-line:nth-child(2) {
+  width: 85%;
+}
+
+.skeleton-line:nth-child(3) {
+  width: 70%;
+}
+
+.sync-indicator {
+  position: absolute;
+  right: var(--space-4);
+  top: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+@keyframes skeleton-shift {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .toast {
@@ -361,6 +477,23 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   border-radius: var(--radius-sm);
   background: var(--color-bg-elevated);
   color: var(--color-text-primary);
+}
+
+.toast--switch {
+  top: var(--space-5);
+  bottom: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.toast-action {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
 }
 
 .toast--success {

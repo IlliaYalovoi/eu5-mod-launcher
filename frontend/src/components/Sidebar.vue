@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useSettingsStore } from '../stores/settings'
 import { useLoadOrderStore } from '../stores/loadorder'
 import { useModsStore } from '../stores/mods'
+import { useSnapshotsStore } from '../stores/snapshots'
 import GameSettingsModal from './GameSettingsModal.vue'
 import LaunchButton from './LaunchButton.vue'
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 const settingsStore = useSettingsStore()
 const loadOrderStore = useLoadOrderStore()
 const modsStore = useModsStore()
+const snapshotsStore = useSnapshotsStore()
 
 const { playsetNames, launcherActivePlaysetIndex } = storeToRefs(loadOrderStore)
 
@@ -45,12 +47,12 @@ const gameSettingsModal = ref({
 
 const isSwitchingPlayset = ref(false)
 
-function selectGame(id: string) {
-  settingsStore.setGame(id)
+function selectGame(id: string): void {
+  void snapshotsStore.switchGame(id)
 }
 
-async function openGameSettings(id: string) {
-  await settingsStore.setGame(id)
+async function openGameSettings(id: string): Promise<void> {
+  await snapshotsStore.switchGame(id)
   gameSettingsModal.value = {
     open: true,
     gameID: id,
@@ -74,6 +76,8 @@ async function onLauncherPlaysetChange(event: Event) {
   }
 }
 
+const availableGames = computed(() => snapshotsStore.visibleSnapshot?.settings.availableGames || settingsStore.availableGames)
+const activeGameID = computed(() => snapshotsStore.activeGameID || settingsStore.activeGameID)
 const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
 </script>
 
@@ -86,13 +90,14 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
 
     <nav class="game-nav sidebar-section">
       <div
-        v-for="gameID in settingsStore.availableGames"
+        v-for="gameID in availableGames"
         :key="gameID"
         class="game-item"
       >
         <button
           class="game-btn"
-          :class="{ active: settingsStore.activeGameID === gameID }"
+          :disabled="snapshotsStore.switchState !== 'idle'"
+          :class="{ active: activeGameID === gameID }"
           :title="(gameNames[gameID] || gameID.toUpperCase()) + ' (Right click for settings)'"
           @click="selectGame(gameID)"
           @contextmenu.prevent="openGameSettings(gameID)"
@@ -101,7 +106,7 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
           <span>{{ gameNames[gameID] || gameID.toUpperCase() }}</span>
         </button>
 
-        <div v-if="settingsStore.activeGameID === gameID" class="playset-selector">
+        <div v-if="activeGameID === gameID" class="playset-selector">
           <select
             class="playset-dropdown"
             :disabled="!hasPlaysetChoices || isSwitchingPlayset"
@@ -199,6 +204,11 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
   text-align: left;
   transition: all 0.2s;
   font-family: var(--font-body);
+}
+
+.game-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .game-btn.active {

@@ -1,114 +1,82 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { LauncherCategory, LauncherLayout } from '../types'
-import { logBackendCall } from '../utils/backendDebug'
+import { useSnapshotsStore } from './snapshots'
 import {
   Autosort,
   CreateLauncherCategory,
   DeleteLauncherCategory,
-  GetGameActivePlaysetIndex,
-  GetLauncherActivePlaysetIndex,
-  GetLauncherLayout,
-  GetLoadOrder,
-  GetPlaysetNames,
   SaveCompiledLoadOrder,
   SetLauncherActivePlaysetIndex,
   SetLauncherLayout,
   SetLoadOrder,
 } from '../../wailsjs/go/main/App'
+import { main } from '../../wailsjs/go/models'
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-const emptyLauncherLayout: LauncherLayout = {
-  ungrouped: [],
-  categories: [],
-  order: ['category:ungrouped'],
-  collapsed: {},
-}
-
 export const useLoadOrderStore = defineStore('loadorder', () => {
-  const orderedIDs = ref<string[]>([])
-  const playsetNames = ref<string[]>([])
-  const gameActivePlaysetIndex = ref(-1)
-  const launcherActivePlaysetIndex = ref(-1)
+  const snapshotsStore = useSnapshotsStore()
+
   const autosortError = ref<string | null>(null)
   const isSorting = ref(false)
   const lastSortedAt = ref<number | null>(null)
-  const launcherLayout = ref<LauncherLayout>({ ...emptyLauncherLayout })
+
+  const orderedIDs = computed(() => snapshotsStore.activeSnapshot?.loadOrder || [])
+  const playsetNames = computed(() => snapshotsStore.activeSnapshot?.playsetNames || [])
+  const gameActivePlaysetIndex = computed(() => snapshotsStore.activeSnapshot?.gameActivePlaysetIndex ?? -1)
+  const launcherActivePlaysetIndex = computed(() => snapshotsStore.activeSnapshot?.launcherActivePlaysetIndex ?? -1)
+  const launcherLayout = computed<LauncherLayout>(() => {
+    const nextLayout = snapshotsStore.activeSnapshot?.launcherLayout as Partial<LauncherLayout> | undefined
+    return {
+      ungrouped: nextLayout?.ungrouped || [],
+      categories: nextLayout?.categories || [],
+      order: nextLayout?.order || ['category:ungrouped'],
+      collapsed: nextLayout?.collapsed || {},
+    }
+  })
 
   async function fetch(): Promise<void> {
-    try {
-      const [ids, names, gameIndex, launcherIndex, layout] = await Promise.all([
-        logBackendCall('GetLoadOrder', [], () => GetLoadOrder()),
-        logBackendCall('GetPlaysetNames', [], () => GetPlaysetNames()),
-        logBackendCall('GetGameActivePlaysetIndex', [], () => GetGameActivePlaysetIndex()),
-        logBackendCall('GetLauncherActivePlaysetIndex', [], () => GetLauncherActivePlaysetIndex()),
-        logBackendCall('GetLauncherLayout', [], () => GetLauncherLayout()),
-      ])
-      orderedIDs.value = ids || []
-      playsetNames.value = names || []
-      gameActivePlaysetIndex.value = gameIndex ?? -1
-      launcherActivePlaysetIndex.value = launcherIndex ?? -1
-      const nextLayout = (layout || emptyLauncherLayout) as Partial<LauncherLayout>
-      launcherLayout.value = {
-        ungrouped: nextLayout.ungrouped || [],
-        categories: nextLayout.categories || [],
-        order: nextLayout.order || ['category:ungrouped'],
-        collapsed: nextLayout.collapsed || {},
-      }
-    } catch {
-      orderedIDs.value = []
-      playsetNames.value = []
-      gameActivePlaysetIndex.value = -1
-      launcherActivePlaysetIndex.value = -1
-      launcherLayout.value = { ...emptyLauncherLayout }
-    }
+    await snapshotsStore.refreshActive()
   }
 
   async function fetchLauncherLayout(): Promise<void> {
-    const nextLayout = (await GetLauncherLayout()) as Partial<LauncherLayout>
-    launcherLayout.value = {
-      ungrouped: nextLayout.ungrouped || [],
-      categories: nextLayout.categories || [],
-      order: nextLayout.order || ['category:ungrouped'],
-      collapsed: nextLayout.collapsed || {},
-    }
+    await snapshotsStore.refreshActive()
   }
 
   async function persist(ids: string[]): Promise<void> {
     await SetLoadOrder(ids)
-    orderedIDs.value = [...ids]
+    await snapshotsStore.refreshActive()
   }
 
   async function persistLauncherLayout(next: LauncherLayout): Promise<void> {
-    await SetLauncherLayout(next as any)
-    launcherLayout.value = next
+    await SetLauncherLayout(main.LauncherLayout.createFrom(next))
+    await snapshotsStore.refreshActive()
   }
 
   async function createCategory(name: string): Promise<LauncherCategory> {
     const created = (await CreateLauncherCategory(name)) as LauncherCategory
-    await fetchLauncherLayout()
+    await snapshotsStore.refreshActive()
     return created
   }
 
   async function deleteCategory(categoryID: string): Promise<void> {
     await DeleteLauncherCategory(categoryID)
-    await fetchLauncherLayout()
+    await snapshotsStore.refreshActive()
   }
 
   async function saveCompiled(): Promise<void> {
-    orderedIDs.value = await SaveCompiledLoadOrder()
-    await fetchLauncherLayout()
+    await SaveCompiledLoadOrder()
+    await snapshotsStore.refreshActive()
   }
 
   async function autosort(): Promise<void> {
     isSorting.value = true
     try {
-      orderedIDs.value = await Autosort()
-      await fetchLauncherLayout()
-
+      await Autosort()
+      await snapshotsStore.refreshActive()
       autosortError.value = null
       lastSortedAt.value = Date.now()
     } catch (err) {
@@ -124,9 +92,7 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
 
   async function setLauncherPlayset(index: number): Promise<void> {
     await SetLauncherActivePlaysetIndex(index)
-    launcherActivePlaysetIndex.value = index
-    orderedIDs.value = (await GetLoadOrder()) || []
-    await fetchLauncherLayout()
+    await snapshotsStore.refreshActive()
   }
 
   return {
@@ -150,4 +116,3 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
     lastSortedAt,
   }
 })
-

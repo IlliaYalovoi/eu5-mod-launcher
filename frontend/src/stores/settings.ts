@@ -1,43 +1,20 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { useModsStore } from './mods'
-import { useLoadOrderStore } from './loadorder'
-import { logBackendCall } from '../utils/backendDebug'
+import { useSnapshotsStore } from './snapshots'
+import type { SnapshotModsDirStatus } from '../types'
 import {
-  GetActiveGameID,
-  GetAutoDetectedGameExe,
-  GetAvailableGames,
-  GetConfigPath,
-  GetGameExe,
-  GetModsDirStatus,
-  GetGameVersion,
-  GetGameVersionOverride,
-  SetGameVersionOverride,
   LaunchGame,
   OpenConfigFolder,
   PickExecutable,
   PickFolder,
   ResetModsDirToAuto,
   ResetGameExeToAuto,
-  SetActiveGame,
   SetGameExe,
+  SetGameVersionOverride,
   SetModsDir,
 } from '../../wailsjs/go/main/App'
 
-type GameMetadata = {
-  ID: () => string
-}
-
-type ModsDirStatus = {
-  effectiveDir: string
-  autoDetectedDir: string
-  customDir: string
-  usingCustomDir: boolean
-  autoDetectedExists: boolean
-  effectiveExists: boolean
-}
-
-const emptyStatus: ModsDirStatus = {
+const emptyStatus: SnapshotModsDirStatus = {
   effectiveDir: '',
   autoDetectedDir: '',
   customDir: '',
@@ -47,59 +24,46 @@ const emptyStatus: ModsDirStatus = {
 }
 
 export const useSettingsStore = defineStore('settings', () => {
-  const modsDirStatus = ref<ModsDirStatus>({ ...emptyStatus })
-  const gameExe = ref('')
-  const autoDetectedGameExe = ref('')
-  const gameVersion = ref('unknown')
-  const gameVersionOverride = ref('')
-  const configPath = ref('')
-  const isLoaded = ref(false)
+  const snapshotsStore = useSnapshotsStore()
+
   const isLaunching = ref(false)
   const launchError = ref<string | null>(null)
   const lastLaunchAt = ref<number | null>(null)
-  const activeGameID = ref('eu5')
-  const availableGames = ref<string[]>([])
 
+  const activeSnapshot = computed(() => snapshotsStore.activeSnapshot)
+  const modsDirStatus = computed<SnapshotModsDirStatus>(() => activeSnapshot.value?.settings.modsDirStatus || emptyStatus)
+  const gameExe = computed(() => activeSnapshot.value?.settings.gameExe || '')
+  const autoDetectedGameExe = computed(() => activeSnapshot.value?.settings.autoDetectedGameExe || '')
+  const gameVersion = computed(() => activeSnapshot.value?.settings.gameVersion || 'unknown')
+  const gameVersionOverride = computed(() => activeSnapshot.value?.settings.gameVersionOverride || '')
+  const configPath = computed(() => activeSnapshot.value?.settings.configPath || '')
+  const activeGameID = computed(() => activeSnapshot.value?.gameID || 'eu5')
+  const availableGames = computed(() => activeSnapshot.value?.settings.availableGames || [])
+
+  const isLoaded = computed(() => snapshotsStore.startupState === 'ready')
   const modsDir = computed(() => modsDirStatus.value.effectiveDir)
   const requiresManualPaths = computed(() => isLoaded.value && !modsDirStatus.value.effectiveExists)
 
   async function fetch(): Promise<void> {
-    const [status, exe, autoExe, cfg, activeID, games, ver, verOverride] = await Promise.all([
-      logBackendCall('GetModsDirStatus', [], () => GetModsDirStatus()),
-      logBackendCall('GetGameExe', [], () => GetGameExe()),
-      logBackendCall('GetAutoDetectedGameExe', [], () => GetAutoDetectedGameExe()),
-      logBackendCall('GetConfigPath', [], () => GetConfigPath()),
-      logBackendCall('GetActiveGameID', [], () => GetActiveGameID()),
-      logBackendCall('GetAvailableGames', [], () => GetAvailableGames()),
-      logBackendCall('GetGameVersion', [], () => GetGameVersion()),
-      logBackendCall('GetGameVersionOverride', [], () => GetGameVersionOverride()),
-    ])
-    modsDirStatus.value = (status || emptyStatus) as ModsDirStatus
-    gameExe.value = exe || ''
-    autoDetectedGameExe.value = autoExe || ''
-    configPath.value = cfg || ''
-    activeGameID.value = activeID || 'eu5'
-    availableGames.value = (games as string[])
-    gameVersion.value = ver || 'unknown'
-    gameVersionOverride.value = verOverride || ''
-    isLoaded.value = true
+    if (!snapshotsStore.activeSnapshot) {
+      await snapshotsStore.bootstrap()
+      return
+    }
+    await snapshotsStore.refreshActive()
   }
 
   async function setGame(id: string): Promise<void> {
-    await logBackendCall('SetActiveGame', [id], () => SetActiveGame(id))
-    const modsStore = useModsStore()
-    const loadOrderStore = useLoadOrderStore()
-    await Promise.all([fetch(), modsStore.fetchAll(), loadOrderStore.fetch()])
+    await snapshotsStore.switchGame(id)
   }
 
   async function setModsDir(path: string): Promise<void> {
     await SetModsDir(path)
-    modsDirStatus.value = (await GetModsDirStatus()) as ModsDirStatus
+    await snapshotsStore.refreshActive()
   }
 
   async function autoDetectModsDir(): Promise<void> {
     await ResetModsDirToAuto()
-    modsDirStatus.value = (await GetModsDirStatus()) as ModsDirStatus
+    await snapshotsStore.refreshActive()
   }
 
   async function browseModsDir(): Promise<void> {
@@ -112,7 +76,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function setGameExecutable(path: string): Promise<void> {
     await SetGameExe(path)
-    gameExe.value = path
+    await snapshotsStore.refreshActive()
   }
 
   async function browseGameExecutable(): Promise<void> {
@@ -125,14 +89,12 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function autoDetectGameExecutable(): Promise<void> {
     await ResetGameExeToAuto()
-    gameExe.value = await GetGameExe()
-    autoDetectedGameExe.value = await GetAutoDetectedGameExe()
+    await snapshotsStore.refreshActive()
   }
 
   async function setGameVersionOverride(version: string): Promise<void> {
     await SetGameVersionOverride(version)
-    gameVersionOverride.value = version
-    gameVersion.value = await GetGameVersion()
+    await snapshotsStore.refreshActive()
   }
 
   async function openConfigFolder(): Promise<void> {
