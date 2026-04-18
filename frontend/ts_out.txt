@@ -1,0 +1,5 @@
+TypeScript: 1 errors in 1 files
+═══════════════════════════════════════
+tsconfig.json (1 errors)
+  L6: TS5107 Option 'moduleResolution=node10' is deprecated and will stop functioning in TypeScript 7.0. Specify compilerOption '"...
+    Visit https://aka.ms/ts6 for migration information.

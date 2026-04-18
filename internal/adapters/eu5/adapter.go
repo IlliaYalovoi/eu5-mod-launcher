@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	adapterID            = "eu5"
-	SteamWorkshopAppID   = "3450310"
+	adapterID          = "eu5"
+	SteamWorkshopAppID = "3450310"
 )
 
 type Adapter struct{}

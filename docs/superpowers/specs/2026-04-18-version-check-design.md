@@ -16,11 +16,11 @@
 ## 3. Version Detection Logic (Game Specific)
 Extract final semantic version segment (e.g. `1.18.2` from `titus/release/1.18.2` or `release_1.37.5`).
 Fallback logic per adapter:
-- **CK3**: `titus_branch.txt` -> `clausewitz_branch.txt` -> "unknown"
-- **EU4**: `eu4branch.txt` -> `clausewitz_branch.txt` -> "unknown"
+- **CK3**: `GameVersionOverride` -> `titus_branch.txt` -> `clausewitz_branch.txt` -> "unknown"
+- **EU4**: `GameVersionOverride` -> `eu4branch.txt` -> `clausewitz_branch.txt` -> "unknown"
 - **EU5**: `GameVersionOverride` -> `caesar_branch.txt` -> `clausewitz_branch.txt` -> "unknown"
 - **HOI4**: `GameVersionOverride` -> "unknown" (files contain "None")
-- **Vic3**: `caligula_branch.txt` -> `clausewitz_branch.txt` -> "unknown"
+- **Vic3**: `GameVersionOverride` -> `caligula_branch.txt` -> `clausewitz_branch.txt` -> "unknown"
 
 ## 4. Compatibility Matching
 - [Action] Implement `IsVersionCompatible(gameVersion, supportedVersion)`.

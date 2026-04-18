@@ -10,9 +10,9 @@ import (
 	"eu5-mod-launcher/internal/game"
 	"eu5-mod-launcher/internal/utils"
 
+	"eu5-mod-launcher/internal/logging"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
-	"eu5-mod-launcher/internal/logging"
 )
 
 type SqliteAdapter struct {

@@ -106,11 +106,13 @@ export namespace mods {
 	    ID: string;
 	    Name: string;
 	    Version: string;
+	    SupportedVersion: string;
 	    Tags: string[];
 	    Description: string;
 	    ThumbnailPath: string;
 	    DirPath: string;
 	    Enabled: boolean;
+	    IsCompatible: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Mod(source);
@@ -121,11 +123,13 @@ export namespace mods {
 	        this.ID = source["ID"];
 	        this.Name = source["Name"];
 	        this.Version = source["Version"];
+	        this.SupportedVersion = source["SupportedVersion"];
 	        this.Tags = source["Tags"];
 	        this.Description = source["Description"];
 	        this.ThumbnailPath = source["ThumbnailPath"];
 	        this.DirPath = source["DirPath"];
 	        this.Enabled = source["Enabled"];
+	        this.IsCompatible = source["IsCompatible"];
 	    }
 	}
 
