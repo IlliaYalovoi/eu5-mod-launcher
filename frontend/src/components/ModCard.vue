@@ -30,14 +30,14 @@ function onSelect(): void {
 
 <style scoped>
 .disabled-mod {
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
+  font-size: 1rem;
   opacity: 0.7;
   cursor: pointer;
   transition: opacity 0.2s, background 0.2s;

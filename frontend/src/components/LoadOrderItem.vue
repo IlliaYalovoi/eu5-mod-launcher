@@ -43,9 +43,9 @@ function toggleEnabled(value: boolean) {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid rgba(255,255,255,0.02);
-  font-size: 14px;
+  font-size: 1rem;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -63,6 +63,6 @@ function toggleEnabled(value: boolean) {
 
 .version {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 0.85rem;
 }
 </style>

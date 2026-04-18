@@ -156,7 +156,7 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
 }
 
 .header h2 {
-  font-size: 18px;
+  font-size: 1.2rem;
   color: var(--color-accent);
   margin: 0;
   font-family: var(--font-display);
@@ -166,7 +166,7 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
   background: transparent;
   border: none;
   color: var(--color-text-muted);
-  font-size: 18px;
+  font-size: 1.2rem;
   cursor: pointer;
   padding: 4px;
   transition: color 0.2s;
@@ -224,7 +224,7 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
   border: 1px solid var(--color-border);
   padding: 8px;
   border-radius: 2px;
-  font-size: 13px;
+  font-size: 0.9rem;
   outline: none;
   font-family: var(--font-body);
 }
@@ -243,14 +243,14 @@ const hasPlaysetChoices = computed(() => playsetNames.value.length > 0)
 }
 
 .stats-mini {
-  font-size: 12px;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
   display: flex;
   justify-content: space-between;
 }
 
 .status-indicator {
-  font-size: 11px;
+  font-size: 0.75rem;
   text-align: center;
   color: var(--color-success);
   margin-top: 5px;

@@ -163,28 +163,27 @@ async function unsubscribeSelectedMod(): Promise<void> {
 .mod-details-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
   height: 100%;
   min-height: 0;
-  overflow: auto;
 }
 
 .header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .name {
   color: var(--color-text-primary);
-  font-size: 1rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .subtitle {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .preview {
@@ -199,12 +198,12 @@ async function unsubscribeSelectedMod(): Promise<void> {
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .section-title {
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -212,8 +211,8 @@ async function unsubscribeSelectedMod(): Promise<void> {
 
 .body {
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.45;
+  font-size: 1rem;
+  line-height: 1.6;
   white-space: pre-wrap;
 }
 

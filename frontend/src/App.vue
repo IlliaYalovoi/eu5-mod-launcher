@@ -324,9 +324,9 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  width: 600px;
-  max-width: 90vw;
-  max-height: 80vh;
+  width: min(90vw, 1000px);
+  padding: var(--space-6);
+  max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }

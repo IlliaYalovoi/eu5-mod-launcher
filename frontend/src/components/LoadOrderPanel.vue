@@ -238,7 +238,7 @@ function selectMod(modID: string) {
 
 .playset-title {
   margin: 0;
-  font-size: 24px;
+  font-size: 1.5rem;
   font-family: var(--font-display);
 }
 
@@ -255,7 +255,7 @@ function selectMod(modID: string) {
   cursor: pointer;
   text-transform: uppercase;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 0.9rem;
 }
 
 .view-content {
@@ -303,7 +303,7 @@ function selectMod(modID: string) {
 }
 
 .group-rule {
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--color-accent);
   text-transform: uppercase;
   margin-left: 10px;
@@ -321,7 +321,7 @@ function selectMod(modID: string) {
   border-radius: var(--radius-sm);
   background: var(--color-bg-elevated);
   color: var(--color-danger);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
 }
 
 .fold {

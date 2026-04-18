@@ -34,15 +34,15 @@
   --font-display: 'Crimson Pro', 'Georgia', serif;
   --font-body: 'Crimson Pro', 'Georgia', serif;
 
-  /* Spacing scale (4.5px-4.8px base for 1.15x-1.2x scale) */
-  --space-1: 0.3rem;
-  --space-2: 0.6rem;
-  --space-3: 0.9rem;
-  --space-4: 1.15rem;
-  --space-5: 1.45rem;
-  --space-6: 1.75rem;
-  --space-7: 2rem;
-  --space-8: 2.3rem;
+  /* Spacing scale (6px base) */
+  --space-1: 0.4rem;
+  --space-2: 0.8rem;
+  --space-3: 1.2rem;
+  --space-4: 1.6rem;
+  --space-5: 2rem;
+  --space-6: 2.4rem;
+  --space-7: 2.8rem;
+  --space-8: 3.2rem;
 
   /* Borders */
   --radius-sm: 0.25rem;
@@ -146,7 +146,7 @@ body {
   margin: 0;
   color: var(--color-text-primary);
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 20px;
   background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%231a1814" width="100" height="100"/><path d="M0 0l100 100M100 0L0 100" stroke="%23221f1a" stroke-width="0.5"/></svg>');
   background-color: var(--color-bg-base);
   line-height: 1.55;

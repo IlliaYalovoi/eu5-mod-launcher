@@ -18,10 +18,10 @@ function toggle() {
 
 <style scoped>
 .toggle {
-  width: 36px;
-  height: 18px;
+  width: 48px;
+  height: 24px;
   background: #444;
-  border-radius: 10px;
+  border-radius: 12px;
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
@@ -33,8 +33,8 @@ function toggle() {
 .toggle::after {
   content: '';
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
   background: white;
   border-radius: 50%;
   top: 2px;
@@ -42,6 +42,6 @@ function toggle() {
   transition: 0.2s;
 }
 .toggle.on::after {
-  left: 20px;
+  left: 26px;
 }
 </style>
