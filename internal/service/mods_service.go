@@ -14,7 +14,10 @@ func NewModsService() *ModsService {
 }
 
 func IsVersionCompatible(gameVersion, supportedVersion string) bool {
-	if gameVersion == "unknown" || supportedVersion == "" {
+	if supportedVersion == "" {
+		return true // Treat empty supported version as ANY
+	}
+	if gameVersion == "unknown" {
 		return false
 	}
 	if gameVersion == supportedVersion {
