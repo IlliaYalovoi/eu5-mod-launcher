@@ -64,16 +64,16 @@ function onDismissError(event: MouseEvent): void {
 
 <style scoped>
 .launch-btn {
-  background: linear-gradient(to bottom, #b9935a, #8e6d3d);
-  color: #1a1814;
-  border: 1px solid #5a4623;
+  background: linear-gradient(to bottom, var(--color-bg-panel), var(--color-bg-elevated));
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-accent);
   padding: 14px;
   border-radius: 3px;
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 2px;
   cursor: pointer;
-  box-shadow: 0 4px 0 #5a4623;
+  box-shadow: 0 4px 0 var(--color-border);
   width: 100%;
   text-align: center;
   transition: transform 0.1s, box-shadow 0.1s;
@@ -81,14 +81,14 @@ function onDismissError(event: MouseEvent): void {
 
 .launch-btn:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: 0 2px 0 #5a4623;
+  box-shadow: 0 2px 0 var(--color-border);
 }
 
 .launch-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: 0 4px 0 #3a2e18;
-  background: linear-gradient(to bottom, #8a734e, #6e5532);
+  background: linear-gradient(to bottom, var(--color-bg-elevated), var(--color-bg-panel));
 }
 
 .loading {
