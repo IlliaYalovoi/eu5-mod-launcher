@@ -115,7 +115,10 @@ async function unsubscribeSelectedMod(): Promise<void> {
     <template v-else>
       <header class="header">
         <h2 class="name">{{ selectedMod.Name }}</h2>
-        <p class="subtitle">Version {{ selectedMod.Version || 'Unknown' }} · {{ selectedMod.Enabled ? 'Enabled' : 'Disabled' }}</p>
+        <p class="subtitle">Supported: v{{ selectedMod.SupportedVersion || 'ANY' }} · {{ selectedMod.Enabled ? 'Enabled' : 'Disabled' }}</p>
+        <p class="text-sm text-surface-400 mb-4">
+          Mod Version: v{{ selectedMod.Version || 'Unknown' }}
+        </p>
       </header>
 
       <img class="preview" :src="steamThumbnail" :alt="`${selectedMod.Name} preview`" loading="lazy" />

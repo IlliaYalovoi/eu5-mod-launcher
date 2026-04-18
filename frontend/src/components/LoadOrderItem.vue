@@ -34,7 +34,10 @@ function toggleEnabled(value: boolean) {
   <div v-if="mod" class="mod-row" @contextmenu.prevent="onContextMenu" @click="emit('select', mod.ID)">
     <ModToggle :model-value="mod.Enabled" @update:model-value="toggleEnabled" />
     <span class="name">{{ mod.Name }}</span>
-    <span class="version">v{{ mod.Version || '?' }}</span>
+    <span class="version" style="display: flex; gap: 4px; align-items: center;">
+      v{{ mod.SupportedVersion || 'ANY' }}
+      <span v-if="!mod.IsCompatible" class="text-yellow-500" title="Incompatible game version">⚠️</span>
+    </span>
   </div>
 </template>
 

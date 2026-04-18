@@ -28,7 +28,7 @@ function onSelect(): void {
     <div class="info">
       <span class="name">{{ props.mod.Name }}</span>
       <div class="version-info">
-        <span v-if="props.mod.Version" class="version-text">v{{ props.mod.Version }}</span>
+        <span class="version-text">v{{ props.mod.SupportedVersion || 'ANY' }}</span>
         <span v-if="!props.mod.IsCompatible" class="warning-icon" title="Incompatible game version">⚠️</span>
       </div>
     </div>
