@@ -56,6 +56,12 @@ function onAutoDetectGameExe(): void {
   })
 }
 
+function onAutoDetectVersion(): void {
+  void withBusy(async () => {
+    await settingsStore.setGameVersionOverride('')
+  })
+}
+
 function onVersionOverrideChange(e: Event): void {
   const target = e.target as HTMLInputElement
   void withBusy(async () => {
@@ -98,14 +104,17 @@ function onVersionOverrideChange(e: Event): void {
 
       <div class="field">
         <label class="label">Game Version (Override)</label>
-        <input
-          class="value"
-          type="text"
-          :value="gameVersionOverride"
-          @change="onVersionOverrideChange"
-          placeholder="e.g. 1.37.5"
-          :disabled="busy"
-        />
+        <div class="input-row">
+          <input
+            class="value"
+            type="text"
+            :value="gameVersionOverride"
+            @change="onVersionOverrideChange"
+            placeholder="e.g. 1.37.5"
+            :disabled="busy"
+          />
+          <BaseButton variant="ghost" :disabled="busy" @click="onAutoDetectVersion">Auto detect</BaseButton>
+        </div>
         <p class="hint">
           Detected: {{ gameVersion }}
         </p>
@@ -166,6 +175,15 @@ function onVersionOverrideChange(e: Event): void {
   border-radius: var(--radius-sm);
   background: var(--color-bg-panel);
   color: var(--color-text-primary);
+}
+
+.input-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.input-row .value {
+  flex: 1;
 }
 
 .hint {
