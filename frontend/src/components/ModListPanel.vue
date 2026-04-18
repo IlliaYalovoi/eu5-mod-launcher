@@ -15,15 +15,16 @@ const searchText = ref('')
 
 const filteredMods = computed(() => {
   const query = searchText.value.trim().toLowerCase()
+  const disabled = allMods.value.filter(mod => !mod.Enabled)
   if (!query) {
-    return allMods.value
+    return disabled
   }
-  return allMods.value.filter((mod) => mod.Name.toLowerCase().includes(query))
+  return disabled.filter((mod) => mod.Name.toLowerCase().includes(query))
 })
 
 const emptyMessage = computed(() => {
-  if (allMods.value.length === 0) {
-    return 'No mods were discovered.'
+  if (allMods.value.filter(m => !m.Enabled).length === 0) {
+    return 'No disabled mods found.'
   }
   return 'No mods match your search query.'
 })
@@ -106,6 +107,7 @@ function selectMod(mod: Mod) {
 
 .list-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 

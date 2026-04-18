@@ -63,7 +63,10 @@ watch(
         next.push({
           id: ungroupedID,
           name: 'Ungrouped',
-          modIds: [...value.ungrouped],
+          modIds: value.ungrouped.filter(modID => {
+            const mod = allMods.value.find(m => m.ID === modID)
+            return mod && mod.Enabled
+          }),
           isUngrouped: true,
           collapsed: !!collapsed[ungroupedID],
         })
@@ -77,7 +80,10 @@ watch(
       next.push({
         id: category.id,
         name: category.name,
-        modIds: [...category.modIds],
+        modIds: category.modIds.filter(modID => {
+          const mod = allMods.value.find(m => m.ID === modID)
+          return mod && mod.Enabled
+        }),
         isUngrouped: false,
         collapsed: !!collapsed[category.id],
       })
@@ -87,7 +93,10 @@ watch(
       next.unshift({
         id: ungroupedID,
         name: 'Ungrouped',
-        modIds: [...value.ungrouped],
+        modIds: value.ungrouped.filter(modID => {
+          const mod = allMods.value.find(m => m.ID === modID)
+          return mod && mod.Enabled
+        }),
         isUngrouped: true,
         collapsed: !!collapsed[ungroupedID],
       })
@@ -100,7 +109,10 @@ watch(
       next.push({
         id: category.id,
         name: category.name,
-        modIds: [...category.modIds],
+        modIds: category.modIds.filter(modID => {
+          const mod = allMods.value.find(m => m.ID === modID)
+          return mod && mod.Enabled
+        }),
         isUngrouped: false,
         collapsed: !!collapsed[category.id],
       })
@@ -260,6 +272,7 @@ function selectMod(modID: string) {
 
 .view-content {
   flex: 1;
+  min-height: 0;
   padding: 20px 40px;
   overflow: hidden;
   display: grid;
