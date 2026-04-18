@@ -2,6 +2,8 @@
 import type { Mod } from '../types'
 import ModToggle from './ui/ModToggle.vue'
 
+const CompatibilityCardColoringEnabled = false
+
 const props = defineProps<{
   mod: Mod
   selected?: boolean
@@ -22,8 +24,14 @@ function onSelect(): void {
 </script>
 
 <template>
-  <div class="disabled-mod" :class="{ selected: props.selected }" @click="onSelect">
-    <span class="name">{{ props.mod.Name }}</span>
+  <div class="disabled-mod" :class="{ selected: props.selected, 'incompatible-card': !props.mod.IsCompatible && CompatibilityCardColoringEnabled }" @click="onSelect">
+    <div class="info">
+      <span class="name">{{ props.mod.Name }}</span>
+      <div class="version-info">
+        <span v-if="props.mod.Version" class="version-text">v{{ props.mod.Version }}</span>
+        <span v-if="!props.mod.IsCompatible" class="warning-icon" title="Incompatible game version">⚠️</span>
+      </div>
+    </div>
     <ModToggle :model-value="props.mod.Enabled" @update:model-value="onToggle" />
   </div>
 </template>
@@ -40,7 +48,12 @@ function onSelect(): void {
   font-size: 1rem;
   opacity: 0.7;
   cursor: pointer;
-  transition: opacity 0.2s, background 0.2s;
+  transition: opacity 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.disabled-mod.incompatible-card {
+  background: color-mix(in oklab, var(--color-danger) 20%, var(--color-bg-elevated));
+  border-color: color-mix(in oklab, var(--color-danger) 50%, var(--color-border));
 }
 
 .disabled-mod.selected {
@@ -53,10 +66,34 @@ function onSelect(): void {
   background: rgba(255,255,255,0.05);
 }
 
-.name {
+.info {
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  min-width: 0;
+  margin-right: var(--space-3);
+}
+
+.name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
+.version-text {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.warning-icon {
+  font-size: 0.85rem;
+  color: #eab308;
 }
 </style>
