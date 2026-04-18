@@ -3,6 +3,7 @@ package eu5
 import (
 	"encoding/json"
 	"eu5-mod-launcher/internal/game"
+	"eu5-mod-launcher/internal/utils"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -88,7 +89,17 @@ func (s *Adapter) SavePlayset(inst game.Instance, p game.Playset) error {
 }
 
 func (s *Adapter) DetectVersion(inst game.Instance, override string) (string, error) {
-	return override, nil
+	if override != "" {
+		return override, nil
+	}
+
+	for _, filename := range []string{"caesar_branch.txt", "clausewitz_branch.txt"} {
+		content, err := os.ReadFile(filepath.Join(inst.InstallPath, filename))
+		if err == nil {
+			return utils.ExtractVersion(string(content)), nil
+		}
+	}
+	return "unknown", nil
 }
 
 // Helpers moved from paths.go

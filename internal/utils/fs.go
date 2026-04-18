@@ -98,3 +98,16 @@ func DiscoverWorkshopModDirs(appID string) []string {
 
 	return out
 }
+
+func ExtractVersion(content string) string {
+	content = strings.TrimSpace(content)
+	parts := strings.Split(content, "/")
+	if len(parts) > 0 {
+		content = parts[len(parts)-1]
+	}
+	parts = strings.Split(content, "_")
+	if len(parts) > 0 {
+		content = parts[len(parts)-1]
+	}
+	return content
+}

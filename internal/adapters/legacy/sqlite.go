@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"eu5-mod-launcher/internal/game"
@@ -74,7 +75,35 @@ func (s *SqliteAdapter) DetectInstances() ([]game.Instance, error) {
 }
 
 func (s *SqliteAdapter) DetectVersion(inst game.Instance, override string) (string, error) {
-	return override, nil
+	if override != "" {
+		return override, nil
+	}
+
+	var primaryFile string
+	switch s.id {
+	case "ck3":
+		primaryFile = "titus_branch.txt"
+	case "eu4":
+		primaryFile = "eu4branch.txt"
+	case "victoria3":
+		primaryFile = "caligula_branch.txt"
+	case "hoi4":
+		// HOI4 files contain "None", handled below or just override
+		primaryFile = "ho4branch.txt"
+	default:
+		primaryFile = s.id + "_branch.txt"
+	}
+
+	for _, filename := range []string{primaryFile, "clausewitz_branch.txt"} {
+		content, err := os.ReadFile(filepath.Join(inst.InstallPath, filename))
+		if err == nil {
+			str := strings.TrimSpace(string(content))
+			if str != "None" {
+				return utils.ExtractVersion(str), nil
+			}
+		}
+	}
+	return "unknown", nil
 }
 
 func (s *SqliteAdapter) getDB(instance game.Instance) (*sqlx.DB, error) {
