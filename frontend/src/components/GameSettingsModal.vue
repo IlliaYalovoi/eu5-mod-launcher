@@ -15,7 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const settingsStore = useSettingsStore()
-const { modsDirStatus, gameExe, autoDetectedGameExe } = storeToRefs(settingsStore)
+const { modsDirStatus, gameExe, autoDetectedGameExe, gameVersion, gameVersionOverride } = storeToRefs(settingsStore)
 
 const error = ref<string | null>(null)
 const busy = ref(false)
@@ -55,6 +55,13 @@ function onAutoDetectGameExe(): void {
     await settingsStore.autoDetectGameExecutable()
   })
 }
+
+function onVersionOverrideChange(e: Event): void {
+  const target = e.target as HTMLInputElement
+  void withBusy(async () => {
+    await settingsStore.setGameVersionOverride(target.value)
+  })
+}
 </script>
 
 <template>
@@ -87,6 +94,21 @@ function onAutoDetectGameExe(): void {
           <BaseButton variant="ghost" :disabled="busy" @click="onBrowseGameExe">Browse...</BaseButton>
           <BaseButton variant="ghost" :disabled="busy" @click="onAutoDetectGameExe">Auto detect</BaseButton>
         </div>
+      </div>
+
+      <div class="field">
+        <label class="label">Game Version (Override)</label>
+        <input
+          class="value"
+          type="text"
+          :value="gameVersionOverride"
+          @change="onVersionOverrideChange"
+          placeholder="e.g. 1.37.5"
+          :disabled="busy"
+        />
+        <p class="hint">
+          Detected: {{ gameVersion }}
+        </p>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>

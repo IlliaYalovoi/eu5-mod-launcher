@@ -5,9 +5,12 @@ import type { Mod } from '../types'
 import ModCard from './ModCard.vue'
 import SearchInput from './ui/SearchInput.vue'
 import { useModsStore } from '../stores/mods'
+import { useSettingsStore } from '../stores/settings'
 
 const modsStore = useModsStore()
+const settingsStore = useSettingsStore()
 const { allMods, isLoading, error, selectedModID } = storeToRefs(modsStore)
+const { gameVersion } = storeToRefs(settingsStore)
 const searchText = ref('')
 
 const filteredMods = computed(() => {
@@ -36,6 +39,10 @@ function selectMod(mod: Mod) {
 
 <template>
   <aside class="repository">
+    <div v-if="gameVersion === 'unknown'" class="warning-banner">
+      Unknown game version - please set it manually in settings for correct mod compatibility check.
+    </div>
+
     <div class="repo-title">Mod Repository (Disabled)</div>
     <SearchInput v-model="searchText" placeholder="Search unmanaged mods..." class="search-box" />
 
@@ -75,6 +82,16 @@ function selectMod(mod: Mod) {
   text-transform: uppercase;
   color: var(--color-text-muted);
   letter-spacing: 1px;
+}
+
+.warning-banner {
+  background: rgba(133, 77, 14, 0.3);
+  color: #facc15;
+  padding: 8px;
+  text-align: center;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(161, 98, 7, 0.5);
+  border-radius: 4px;
 }
 
 .search-box {
