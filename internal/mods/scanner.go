@@ -148,12 +148,13 @@ func scanCandidatesSequential(candidates []scanCandidate) []Mod {
 			continue
 		}
 		modsByID[candidate.id] = Mod{
-			ID:          candidate.id,
-			Name:        descriptor.Name,
-			Version:     descriptor.Version,
-			Tags:        descriptor.Tags,
-			Description: descriptor.Description,
-			DirPath:     candidate.modDir,
+			ID:               candidate.id,
+			Name:             descriptor.Name,
+			Version:          descriptor.Version,
+			SupportedVersion: descriptor.SupportedVersion,
+			Tags:             descriptor.Tags,
+			Description:      descriptor.Description,
+			DirPath:          candidate.modDir,
 		}
 	}
 
@@ -198,12 +199,13 @@ func runScanWorker(jobs <-chan scanCandidate, results chan<- scanResult) {
 		}
 
 		results <- scanResult{index: candidate.index, mod: Mod{
-			ID:          candidate.id,
-			Name:        descriptor.Name,
-			Version:     descriptor.Version,
-			Tags:        descriptor.Tags,
-			Description: descriptor.Description,
-			DirPath:     candidate.modDir,
+			ID:               candidate.id,
+			Name:             descriptor.Name,
+			Version:          descriptor.Version,
+			SupportedVersion: descriptor.SupportedVersion,
+			Tags:             descriptor.Tags,
+			Description:      descriptor.Description,
+			DirPath:          candidate.modDir,
 		}}
 	}
 }

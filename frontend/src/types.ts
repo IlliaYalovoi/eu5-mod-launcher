@@ -2,11 +2,13 @@ export interface Mod {
   ID: string
   Name: string
   Version: string
+  SupportedVersion: string
   Tags: string[]
   Description: string
   ThumbnailPath: string
   DirPath: string
   Enabled: boolean
+  IsCompatible: boolean
 }
 
 export interface WorkshopItem {
@@ -34,5 +36,11 @@ export interface LauncherLayout {
   categories: LauncherCategory[]
   order?: string[]
   collapsed?: Record<string, boolean>
+}
+
+export interface GameSettingsData {
+  modsDir?: string
+  gameExe?: string
+  gameVersionOverride?: string
 }
 

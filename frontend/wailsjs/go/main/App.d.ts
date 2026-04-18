@@ -43,6 +43,10 @@ export function GetGameActivePlaysetIndex():Promise<number>;
 
 export function GetGameExe():Promise<string>;
 
+export function GetGameVersion():Promise<string>;
+
+export function GetGameVersionOverride():Promise<string>;
+
 export function GetLauncherActivePlaysetIndex():Promise<number>;
 
 export function GetLauncherLayout():Promise<main.LauncherLayout>;
@@ -92,6 +96,8 @@ export function SaveCompiledLoadOrder():Promise<Array<string>>;
 export function SetActiveGame(arg1:string):Promise<void>;
 
 export function SetGameExe(arg1:string):Promise<void>;
+
+export function SetGameVersionOverride(arg1:string):Promise<void>;
 
 export function SetLauncherActivePlaysetIndex(arg1:number):Promise<void>;
 

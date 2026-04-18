@@ -78,6 +78,14 @@ export function GetGameExe() {
   return window['go']['main']['App']['GetGameExe']();
 }
 
+export function GetGameVersion() {
+  return window['go']['main']['App']['GetGameVersion']();
+}
+
+export function GetGameVersionOverride() {
+  return window['go']['main']['App']['GetGameVersionOverride']();
+}
+
 export function GetLauncherActivePlaysetIndex() {
   return window['go']['main']['App']['GetLauncherActivePlaysetIndex']();
 }
@@ -176,6 +184,10 @@ export function SetActiveGame(arg1) {
 
 export function SetGameExe(arg1) {
   return window['go']['main']['App']['SetGameExe'](arg1);
+}
+
+export function SetGameVersionOverride(arg1) {
+  return window['go']['main']['App']['SetGameVersionOverride'](arg1);
 }
 
 export function SetLauncherActivePlaysetIndex(arg1) {

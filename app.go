@@ -362,11 +362,24 @@ func (a *App) GetAllMods() ([]mods.Mod, error) {
 		return nil, fmt.Errorf("get all mods: %w", err)
 	}
 
+	gameVersion := "unknown"
+	gameID := a.GetActiveGameID()
+	if inst, err := a.gameService.GetActiveInstance(); err == nil {
+		override := ""
+		if config, ok := a.settings.Games[gameID]; ok {
+			override = config.GameVersionOverride
+		}
+		adapter := a.gameService.GetAdapter(gameID)
+		if v, err := adapter.DetectVersion(*inst, override); err == nil {
+			gameVersion = v
+		}
+	}
+
 	scanRoots := make([]string, 0, 1+len(a.gamePaths.WorkshopModDirs))
 	scanRoots = append(scanRoots, a.effectiveModsDir())
 	scanRoots = append(scanRoots, a.gamePaths.WorkshopModDirs...)
 
-	allMods, nextPaths, err := a.modsService.Discover(scanRoots, a.loState.OrderedIDs, a.modPathByID)
+	allMods, nextPaths, err := a.modsService.Discover(scanRoots, a.loState.OrderedIDs, a.modPathByID, gameVersion)
 	if err != nil {
 		logging.Errorf("mods scan failed for roots %q: %v", scanRoots, err)
 		return nil, fmt.Errorf("get all mods: %w", err)
@@ -770,6 +783,49 @@ func (a *App) tryLaunchViaSteam() bool {
 // GetAutoDetectedGameExe returns autodetected EU5 executable path.
 func (a *App) GetAutoDetectedGameExe() string {
 	return a.gamePaths.GameExePath
+}
+
+// GetGameVersion returns the detected game version (or override if set).
+func (a *App) GetGameVersion() string {
+	gameID := a.GetActiveGameID()
+	if inst, err := a.gameService.GetActiveInstance(); err == nil {
+		override := ""
+		if config, ok := a.settings.Games[gameID]; ok {
+			override = config.GameVersionOverride
+		}
+		adapter := a.gameService.GetAdapter(gameID)
+		if v, err := adapter.DetectVersion(*inst, override); err == nil {
+			return v
+		}
+	}
+	return "unknown"
+}
+
+// GetGameVersionOverride returns the custom game version override.
+func (a *App) GetGameVersionOverride() string {
+	gameID := a.GetActiveGameID()
+	if config, ok := a.settings.Games[gameID]; ok {
+		return config.GameVersionOverride
+	}
+	return ""
+}
+
+// SetGameVersionOverride sets a custom game version string and persists it.
+func (a *App) SetGameVersionOverride(version string) error {
+	if err := a.ensureReady(); err != nil {
+		return fmt.Errorf("set game version override: %w", err)
+	}
+
+	gameID := a.GetActiveGameID()
+	config := a.settings.Games[gameID]
+	config.GameVersionOverride = strings.TrimSpace(version)
+	a.settings.Games[gameID] = config
+
+	if err := a.settingsRepo.Save(a.settingsPath, toRepoSettings(a.settings)); err != nil {
+		return fmt.Errorf("save settings with game version override: %w", err)
+	}
+
+	return nil
 }
 
 // SetGameExe persists game executable path.

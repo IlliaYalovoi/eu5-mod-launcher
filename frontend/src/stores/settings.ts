@@ -10,6 +10,9 @@ import {
   GetConfigPath,
   GetGameExe,
   GetModsDirStatus,
+  GetGameVersion,
+  GetGameVersionOverride,
+  SetGameVersionOverride,
   LaunchGame,
   OpenConfigFolder,
   PickExecutable,
@@ -47,6 +50,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const modsDirStatus = ref<ModsDirStatus>({ ...emptyStatus })
   const gameExe = ref('')
   const autoDetectedGameExe = ref('')
+  const gameVersion = ref('unknown')
+  const gameVersionOverride = ref('')
   const configPath = ref('')
   const isLoaded = ref(false)
   const isLaunching = ref(false)
@@ -59,13 +64,15 @@ export const useSettingsStore = defineStore('settings', () => {
   const requiresManualPaths = computed(() => isLoaded.value && !modsDirStatus.value.effectiveExists)
 
   async function fetch(): Promise<void> {
-    const [status, exe, autoExe, cfg, activeID, games] = await Promise.all([
+    const [status, exe, autoExe, cfg, activeID, games, ver, verOverride] = await Promise.all([
       logBackendCall('GetModsDirStatus', [], () => GetModsDirStatus()),
       logBackendCall('GetGameExe', [], () => GetGameExe()),
       logBackendCall('GetAutoDetectedGameExe', [], () => GetAutoDetectedGameExe()),
       logBackendCall('GetConfigPath', [], () => GetConfigPath()),
       logBackendCall('GetActiveGameID', [], () => GetActiveGameID()),
       logBackendCall('GetAvailableGames', [], () => GetAvailableGames()),
+      logBackendCall('GetGameVersion', [], () => GetGameVersion()),
+      logBackendCall('GetGameVersionOverride', [], () => GetGameVersionOverride()),
     ])
     modsDirStatus.value = (status || emptyStatus) as ModsDirStatus
     gameExe.value = exe || ''
@@ -73,6 +80,8 @@ export const useSettingsStore = defineStore('settings', () => {
     configPath.value = cfg || ''
     activeGameID.value = activeID || 'eu5'
     availableGames.value = (games as string[])
+    gameVersion.value = ver || 'unknown'
+    gameVersionOverride.value = verOverride || ''
     isLoaded.value = true
   }
 
@@ -120,6 +129,12 @@ export const useSettingsStore = defineStore('settings', () => {
     autoDetectedGameExe.value = await GetAutoDetectedGameExe()
   }
 
+  async function setGameVersionOverride(version: string): Promise<void> {
+    await SetGameVersionOverride(version)
+    gameVersionOverride.value = version
+    gameVersion.value = await GetGameVersion()
+  }
+
   async function openConfigFolder(): Promise<void> {
     await OpenConfigFolder()
   }
@@ -146,6 +161,8 @@ export const useSettingsStore = defineStore('settings', () => {
     modsDirStatus,
     gameExe,
     autoDetectedGameExe,
+    gameVersion,
+    gameVersionOverride,
     configPath,
     isLoaded,
     isLaunching,
@@ -162,6 +179,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setGameExecutable,
     browseGameExecutable,
     autoDetectGameExecutable,
+    setGameVersionOverride,
     openConfigFolder,
     launchGame,
     clearLaunchError,
