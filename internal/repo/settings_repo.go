@@ -10,8 +10,9 @@ import (
 )
 
 type GameSettingsData struct {
-	ModsDir string `json:"modsDir,omitempty"`
-	GameExe string `json:"gameExe,omitempty"`
+	ModsDir             string `json:"modsDir,omitempty"`
+	GameExe             string `json:"gameExe,omitempty"`
+	GameVersionOverride string `json:"gameVersionOverride,omitempty"`
 }
 
 type AppSettingsData struct {

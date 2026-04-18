@@ -87,6 +87,10 @@ func (s *Adapter) SavePlayset(inst game.Instance, p game.Playset) error {
 	return nil
 }
 
+func (s *Adapter) DetectVersion(inst game.Instance, override string) (string, error) {
+	return override, nil
+}
+
 // Helpers moved from paths.go
 
 func discoverWorkshopModDirs(appID string) []string {

@@ -73,6 +73,10 @@ func (s *SqliteAdapter) DetectInstances() ([]game.Instance, error) {
 	}, nil
 }
 
+func (s *SqliteAdapter) DetectVersion(inst game.Instance, override string) (string, error) {
+	return override, nil
+}
+
 func (s *SqliteAdapter) getDB(instance game.Instance) (*sqlx.DB, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

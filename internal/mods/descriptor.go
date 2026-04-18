@@ -33,10 +33,11 @@ type WorkshopMetadata struct {
 
 // Descriptor holds the metadata fields for a mod.
 type Descriptor struct {
-	Name        string
-	Version     string
-	Description string
-	Tags        []string
+	Name             string
+	Version          string
+	SupportedVersion string
+	Description      string
+	Tags             []string
 }
 
 // ParseDescriptor reads a descriptor.mod file and fills mod metadata fields.
@@ -80,6 +81,7 @@ func parseJSONDescriptor(content []byte) (Descriptor, error) {
 
 	name := extractJSONString(payload, "name")
 	version := extractJSONString(payload, "version")
+	supportedVersion := extractJSONString(payload, "supported_version")
 	description := extractJSONString(payload, "description")
 	if description == "" {
 		description = extractAnyJSONString(payload, "shortDescription", "short_description")
@@ -87,10 +89,11 @@ func parseJSONDescriptor(content []byte) (Descriptor, error) {
 	tags := extractJSONStringArray(payload, "tags")
 
 	return Descriptor{
-		Name:        name,
-		Version:     version,
-		Description: description,
-		Tags:        tags,
+		Name:             name,
+		Version:          version,
+		SupportedVersion: supportedVersion,
+		Description:      description,
+		Tags:             tags,
 	}, nil
 }
 
@@ -221,6 +224,8 @@ func parseTextDescriptor(content string) (Descriptor, error) {
 			parsed.Name = value
 		case "version":
 			parsed.Version = value
+		case "supported_version":
+			parsed.SupportedVersion = value
 		case "description", "short_description":
 			parsed.Description = value
 		}
