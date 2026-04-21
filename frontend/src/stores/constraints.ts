@@ -14,6 +14,7 @@ import {
 
 export const useConstraintsStore = defineStore('constraints', () => {
   const snapshotsStore = useSnapshotsStore()
+  const loadOrderStore = useLoadOrderStore()
 
   const constraints = computed(() => snapshotsStore.activeSnapshot?.constraints || [])
 
@@ -22,38 +23,49 @@ export const useConstraintsStore = defineStore('constraints', () => {
   }
 
   async function add(from: string, to: string): Promise<void> {
-    await AddConstraint(from, to)
-    await snapshotsStore.refreshActive()
+    await loadOrderStore.runLoadOrderMutation(async () => {
+      await AddConstraint(from, to)
+      await snapshotsStore.refreshActive()
+    })
   }
 
   async function remove(from: string, to: string): Promise<void> {
-    await RemoveConstraint(from, to)
-    await snapshotsStore.refreshActive()
+    await loadOrderStore.runLoadOrderMutation(async () => {
+      await RemoveConstraint(from, to)
+      await snapshotsStore.refreshActive()
+    })
   }
 
   async function addLoadFirst(modID: string): Promise<void> {
-    await AddLoadFirst(modID)
-    await snapshotsStore.refreshActive()
+    await loadOrderStore.runLoadOrderMutation(async () => {
+      await AddLoadFirst(modID)
+      await snapshotsStore.refreshActive()
+    })
   }
 
   async function addLoadLast(modID: string): Promise<void> {
-    await AddLoadLast(modID)
-    await snapshotsStore.refreshActive()
+    await loadOrderStore.runLoadOrderMutation(async () => {
+      await AddLoadLast(modID)
+      await snapshotsStore.refreshActive()
+    })
   }
 
   async function removeLoadFirst(modID: string): Promise<void> {
-    await RemoveLoadFirst(modID)
-    await snapshotsStore.refreshActive()
+    await loadOrderStore.runLoadOrderMutation(async () => {
+      await RemoveLoadFirst(modID)
+      await snapshotsStore.refreshActive()
+    })
   }
 
   async function removeLoadLast(modID: string): Promise<void> {
-    await RemoveLoadLast(modID)
-    await snapshotsStore.refreshActive()
+    await loadOrderStore.runLoadOrderMutation(async () => {
+      await RemoveLoadLast(modID)
+      await snapshotsStore.refreshActive()
+    })
   }
 
   function forMod(id: string): Constraint[] {
     if (id.indexOf('category:') === 0) {
-      const loadOrderStore = useLoadOrderStore()
       const category = loadOrderStore.launcherLayout.categories.find((item) => item.id === id)
       if (!category) {
         return constraints.value.filter((c) => c.modId === id || c.from === id || c.to === id)

@@ -54,6 +54,21 @@ const categoryNames = computed(() => {
   return byID
 })
 
+const modCategoryByID = computed<Record<string, string>>(() => {
+  const byID: Record<string, string> = {}
+  for (const modID of launcherLayout.value.ungrouped) {
+    byID[modID] = 'category:ungrouped'
+  }
+  for (const category of launcherLayout.value.categories) {
+    for (const modID of category.modIds) {
+      byID[modID] = category.id
+    }
+  }
+  return byID
+})
+
+const currentCategoryID = computed(() => modCategoryByID.value[props.modID] || '')
+
 const currentTargetName = computed(() => {
   return modsByID.value[props.modID]?.Name || categoryNames.value[props.modID] || props.modID
 })
@@ -178,6 +193,12 @@ const availableMods = computed(() => {
     if (blocked[mod.ID]) {
       continue
     }
+    if (!currentCategoryID.value) {
+      continue
+    }
+    if (modCategoryByID.value[mod.ID] !== currentCategoryID.value) {
+      continue
+    }
     result.push(mod)
   }
 
@@ -275,6 +296,7 @@ function onAddConstraint(): void {
           <span v-else class="fixed-target">(this {{ targetNoun }})</span>
         </div>
         <BaseButton variant="primary" :disabled="(direction === 'after' || direction === 'before') && !pickedModID" @click="onAddConstraint">Add</BaseButton>
+        <p v-if="!isCategoryTarget" class="hint">Only mods in same category can be constrained.</p>
         <p v-if="addError" class="error">{{ addError }}</p>
       </section>
     </div>
@@ -390,6 +412,11 @@ function onAddConstraint(): void {
 .fixed-target {
   color: var(--color-text-secondary);
   padding: 0 var(--space-2);
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
 }
 
 .error {

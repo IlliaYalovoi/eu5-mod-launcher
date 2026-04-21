@@ -115,7 +115,7 @@ onBeforeUnmount(() => {
 }
 
 .modal-panel {
-  width: min(36rem, 100%);
+  width: min(92vh, 1100px);
   max-height: 100%;
   overflow: auto;
   padding: var(--space-5);

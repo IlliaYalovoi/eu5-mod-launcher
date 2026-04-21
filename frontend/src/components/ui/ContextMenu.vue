@@ -28,6 +28,7 @@ const left = ref(0)
 const top = ref(0)
 const submenuStyles = ref<Record<string, Record<string, string>>>({})
 const submenuDirections = ref<Record<string, 'left' | 'right'>>({})
+const submenuSafeZoneStyles = ref<Record<string, Record<string, string>>>({})
 
 function reposition(): void {
   const menu = menuRef.value
@@ -106,30 +107,38 @@ function onSubmenuEnter(itemID: string, event: MouseEvent): void {
   const submenuRect = submenu.getBoundingClientRect()
   const padding = 8
   const gap = 4
+  const corridorPadding = 12
 
+  const minLeft = padding
+  const maxLeft = Math.max(minLeft, window.innerWidth - submenuRect.width - padding)
   let x = nodeRect.width + gap
-  let y = 0
   let direction: 'left' | 'right' = 'right'
 
-  if (nodeRect.right + gap + submenuRect.width + padding > window.innerWidth) {
+  if (nodeRect.left + x > maxLeft) {
     x = -submenuRect.width - gap
     direction = 'left'
   }
 
-  const overflowBottom = nodeRect.top + submenuRect.height + padding - window.innerHeight
-  if (overflowBottom > 0) {
-    y = -overflowBottom
-  }
+  const clampedAbsoluteLeft = Math.min(maxLeft, Math.max(minLeft, nodeRect.left + x))
+  x = clampedAbsoluteLeft - nodeRect.left
 
-  const minTopOffset = -nodeRect.top + padding
-  if (y < minTopOffset) {
-    y = minTopOffset
-  }
+  const minTop = padding
+  const maxTop = Math.max(minTop, window.innerHeight - submenuRect.height - padding)
+  const clampedAbsoluteTop = Math.min(maxTop, Math.max(minTop, nodeRect.top))
+  const y = clampedAbsoluteTop - nodeRect.top
+
+  const corridorTop = Math.min(0, y) - corridorPadding
+  const corridorBottom = Math.max(nodeRect.height, y + submenuRect.height) + corridorPadding
 
   submenuDirections.value[itemID] = direction
   submenuStyles.value[itemID] = {
     left: `${x}px`,
     top: `${y}px`,
+  }
+  submenuSafeZoneStyles.value[itemID] = {
+    top: `${corridorTop}px`,
+    height: `${corridorBottom - corridorTop}px`,
+    width: `${gap + corridorPadding}px`,
   }
 }
 
@@ -164,6 +173,9 @@ watch(
       window.addEventListener('scroll', onScroll, true)
       return
     }
+    submenuStyles.value = {}
+    submenuDirections.value = {}
+    submenuSafeZoneStyles.value = {}
     window.removeEventListener('mousedown', onOutsideClick)
     window.removeEventListener('keydown', onKeydown)
     window.removeEventListener('scroll', onScroll, true)
@@ -213,12 +225,14 @@ onBeforeUnmount(() => {
           <div
             v-if="item.children && item.children.length > 0 && submenuDirections[item.id] === 'left'"
             class="submenu-safe-zone submenu-safe-zone--left"
+            :style="submenuSafeZoneStyles[item.id]"
             @mousedown="onSafeZoneMousedown"
           />
 
           <div
             v-if="item.children && item.children.length > 0 && submenuDirections[item.id] !== 'left'"
             class="submenu-safe-zone submenu-safe-zone--right"
+            :style="submenuSafeZoneStyles[item.id]"
             @mousedown="onSafeZoneMousedown"
           />
 

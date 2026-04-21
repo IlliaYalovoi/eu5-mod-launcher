@@ -18,6 +18,7 @@ const mod = computed(() => modsStore.getMod(props.modID))
 
 function onContextMenu(event: MouseEvent): void {
   event.preventDefault()
+  event.stopPropagation()
   emit('contextmenu', {
     modID: props.modID,
     x: event.clientX,
@@ -35,7 +36,7 @@ function toggleEnabled(value: boolean) {
     <ModToggle :model-value="mod.Enabled" @update:model-value="toggleEnabled" />
     <span class="name">{{ mod.Name }}</span>
     <span class="version" style="display: flex; gap: 4px; align-items: center;">
-      v{{ mod.SupportedVersion || 'ANY' }}
+      {{ mod.SupportedVersion }}
       <span v-if="!mod.IsCompatible" class="text-yellow-500" title="Incompatible game version">⚠️</span>
     </span>
   </div>

@@ -10,29 +10,31 @@ import (
 )
 
 var (
-	errNoModsResolved            = errors.New("no mods resolved from target")
-	errLoadFirstModIDEmpty       = errors.New("add load-first: mod id must not be empty")
-	errLoadLastModIDEmpty        = errors.New("add load-last: mod id must not be empty")
-	errConflictAlreadyLoadFirst  = errors.New("conflict: target is already marked load first")
-	errConflictAlreadyLoadLast   = errors.New("conflict: target is already marked load last")
-	errConflictHasOutgoingAfter  = errors.New("conflict: target has loads-after dependencies")
-	errConflictHasIncomingAfter  = errors.New("conflict: target has incoming constraints")
-	errConflictModLoadFirst      = errors.New("conflict: mod is already marked load first")
-	errConflictModLoadLast       = errors.New("conflict: mod is already marked load last")
-	errConflictModOutgoingAfter  = errors.New("conflict: mod has loads-after dependencies")
-	errConflictModIncomingAfter  = errors.New("conflict: mod has incoming constraints")
-	errSourceAndTargetMustDiffer = errors.New("source and target must differ")
-	errSaveConstraints           = errors.New("save constraints")
+	errNoModsResolved             = errors.New("no mods resolved from target")
+	errLoadFirstModIDEmpty        = errors.New("add load-first: mod id must not be empty")
+	errLoadLastModIDEmpty         = errors.New("add load-last: mod id must not be empty")
+	errConflictAlreadyLoadFirst   = errors.New("conflict: target is already marked load first")
+	errConflictAlreadyLoadLast    = errors.New("conflict: target is already marked load last")
+	errConflictHasOutgoingAfter   = errors.New("conflict: target has loads-after dependencies")
+	errConflictHasIncomingAfter   = errors.New("conflict: target has incoming constraints")
+	errConflictModLoadFirst       = errors.New("conflict: mod is already marked load first")
+	errConflictModLoadLast        = errors.New("conflict: mod is already marked load last")
+	errConflictModOutgoingAfter   = errors.New("conflict: mod has loads-after dependencies")
+	errConflictModIncomingAfter   = errors.New("conflict: mod has incoming constraints")
+	errSourceAndTargetMustDiffer  = errors.New("source and target must differ")
+	errCrossCategoryModConstraint = errors.New("mod constraints must stay in same category")
+	errSaveConstraints            = errors.New("save constraints")
 )
 
 const errTypeMismatchMsg = "categories can only constrain categories, and mods can only constrain mods"
 
 type ConstraintsService struct {
-	graph      *graph.Graph
-	repo       repo.ConstraintsRepository
-	path       string
-	expand     func(string) []string
-	isCategory func(string) bool
+	graph       *graph.Graph
+	repo        repo.ConstraintsRepository
+	path        string
+	expand      func(string) []string
+	isCategory  func(string) bool
+	modCategory func(string) string
 }
 
 func NewConstraintsService(
@@ -41,6 +43,7 @@ func NewConstraintsService(
 	repository repo.ConstraintsRepository,
 	expand func(string) []string,
 	isCategory func(string) bool,
+	modCategory func(string) string,
 ) *ConstraintsService {
 	if expand == nil {
 		expand = func(string) []string { return nil }
@@ -51,12 +54,16 @@ func NewConstraintsService(
 	if repository == nil {
 		repository = repo.NewFileConstraintsRepository()
 	}
+	if modCategory == nil {
+		modCategory = func(string) string { return "" }
+	}
 	return &ConstraintsService{
-		graph:      constraintGraph,
-		path:       constraintsPath,
-		repo:       repository,
-		expand:     expand,
-		isCategory: isCategory,
+		graph:       constraintGraph,
+		path:        constraintsPath,
+		repo:        repository,
+		expand:      expand,
+		isCategory:  isCategory,
+		modCategory: modCategory,
 	}
 }
 
@@ -91,6 +98,9 @@ func (s *ConstraintsService) AddConstraint(from, target string) error {
 	toIDs := s.expand(target)
 	if len(fromIDs) == 0 || len(toIDs) == 0 {
 		return fmt.Errorf("add constraint %q -> %q: %w", from, target, errNoModsResolved)
+	}
+	if err := s.validateSameCategory(fromIDs, toIDs); err != nil {
+		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
 	}
 
 	return s.applyWithRollback(func() error {
@@ -267,6 +277,32 @@ func (s *ConstraintsService) RemoveLoadLast(target string) error {
 		}
 		return nil
 	}, "save constraints after remove load-last %q", target)
+}
+
+func (s *ConstraintsService) validateSameCategory(fromIDs, toIDs []string) error {
+	for _, fromID := range fromIDs {
+		fromCategory := strings.TrimSpace(s.modCategory(fromID))
+		if fromCategory == "" {
+			continue
+		}
+		for _, toID := range toIDs {
+			toCategory := strings.TrimSpace(s.modCategory(toID))
+			if toCategory == "" {
+				continue
+			}
+			if fromCategory != toCategory {
+				return fmt.Errorf(
+					"%w: %q (%s) -> %q (%s)",
+					errCrossCategoryModConstraint,
+					fromID,
+					fromCategory,
+					toID,
+					toCategory,
+				)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *ConstraintsService) save(format string, args ...any) error {

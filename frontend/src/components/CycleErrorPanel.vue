@@ -10,6 +10,11 @@ const emit = defineEmits<{
 const loadOrderStore = useLoadOrderStore()
 const { autosortError } = storeToRefs(loadOrderStore)
 
+const isCycleError = computed(() => {
+  const source = (autosortError.value || '').toLowerCase()
+  return source.includes('cycle detected') || source.includes('constraint cycle detected')
+})
+
 const cycleText = computed(() => {
   const source = autosortError.value || ''
   const lowered = source.toLowerCase()
@@ -54,7 +59,7 @@ function onOpenConstraints(): void {
 <template>
   <Transition name="cycle-panel-slide">
     <section v-if="autosortError" class="cycle-panel" role="alert">
-      <h3 class="title">Constraint Cycle Detected</h3>
+      <h3 class="title">{{ isCycleError ? 'Constraint Cycle Detected' : 'Autosort Failed' }}</h3>
       <p class="message">{{ autosortError }}</p>
       <pre v-if="cycleDiagram" class="diagram">{{ cycleDiagram }}</pre>
       <div class="actions">

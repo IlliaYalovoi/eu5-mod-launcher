@@ -37,8 +37,6 @@ const (
 	sortPriorityFirst       = 0
 	sortPriorityMiddle      = 1
 	sortPriorityLast        = 2
-	maxSortWorkers          = 8
-	minLayoutForWorkers     = 8
 	steamMetadataTTL        = 24 * time.Hour
 	steamMetadataMaxEntries = 5000
 	steamImageMaxEntries    = 1000
@@ -46,13 +44,14 @@ const (
 )
 
 var (
-	errLauncherCategoryNameEmpty = errors.New("launcher category name must not be empty")
-	errAppStorageNotInitialized  = errors.New("app storage is not initialized")
-	errSteamCacheRootEmpty       = errors.New("steam cache root is empty")
-	errWorkshopItemIDInvalid     = errors.New("workshop item id is invalid")
-	errWorkshopOpenInAppFallback = errors.New("in-app workshop fallback unavailable")
-	errExternalLinkInvalid       = errors.New("external link is invalid")
-	errUnsubscribeDisabled       = errors.New("unsubscribe feature is disabled")
+	errLauncherCategoryNameEmpty  = errors.New("launcher category name must not be empty")
+	errAppStorageNotInitialized   = errors.New("app storage is not initialized")
+	errSteamCacheRootEmpty        = errors.New("steam cache root is empty")
+	errWorkshopItemIDInvalid      = errors.New("workshop item id is invalid")
+	errWorkshopOpenInAppFallback  = errors.New("in-app workshop fallback unavailable")
+	errExternalLinkInvalid        = errors.New("external link is invalid")
+	errUnsubscribeDisabled        = errors.New("unsubscribe feature is disabled")
+	errCrossCategoryModConstraint = errors.New("mod constraint crosses category boundary")
 )
 
 // workshopMetadataFetcher is an interface for fetching workshop metadata.
@@ -104,6 +103,7 @@ type App struct {
 	settingsPath    string
 	layoutPath      string
 
+	mutationMu          sync.Mutex
 	snapshotBuildMu     sync.Mutex
 	snapshotCacheMu     sync.RWMutex
 	snapshotCache       map[string]GameSnapshot
@@ -426,6 +426,13 @@ func (a *App) SetLoadOrder(ids []string) error {
 		return fmt.Errorf("set load order: %w", err)
 	}
 
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
+	return a.setLoadOrderLocked(ids)
+}
+
+func (a *App) setLoadOrderLocked(ids []string) error {
 	next, err := a.loadorderSvc.ValidateAndNormalize(ids)
 	if err != nil {
 		return fmt.Errorf("set load order: %w", err)
@@ -466,12 +473,15 @@ func (a *App) EnableMod(id string) error {
 		return fmt.Errorf("enable mod %q: %w", id, err)
 	}
 
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	next, err := a.loadorderSvc.Enable(a.loState.OrderedIDs, id)
 	if err != nil {
 		return fmt.Errorf("enable mod %q: %w", id, err)
 	}
 
-	return a.SetLoadOrder(next)
+	return a.setLoadOrderLocked(next)
 }
 
 // DisableMod disables a single mod ID.
@@ -480,12 +490,15 @@ func (a *App) DisableMod(id string) error {
 		return fmt.Errorf("disable mod %q: %w", id, err)
 	}
 
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	next, err := a.loadorderSvc.Disable(a.loState.OrderedIDs, id)
 	if err != nil {
 		return fmt.Errorf("disable mod %q: %w", id, err)
 	}
 
-	return a.SetLoadOrder(next)
+	return a.setLoadOrderLocked(next)
 }
 
 // GetConstraints returns all active constraints.
@@ -502,6 +515,10 @@ func (a *App) AddConstraint(from, target string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	if err := a.conService.AddConstraint(from, target); err != nil {
 		return fmt.Errorf("add constraint %q -> %q: %w", from, target, err)
 	}
@@ -514,6 +531,10 @@ func (a *App) AddLoadFirst(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("add load-first %q: %w", modID, err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	if err := a.conService.AddLoadFirst(modID); err != nil {
 		return fmt.Errorf("add load-first %q: %w", modID, err)
 	}
@@ -526,6 +547,10 @@ func (a *App) AddLoadLast(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("add load-last %q: %w", modID, err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	if err := a.conService.AddLoadLast(modID); err != nil {
 		return fmt.Errorf("add load-last %q: %w", modID, err)
 	}
@@ -538,6 +563,10 @@ func (a *App) RemoveConstraint(from, target string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("remove constraint %q -> %q: %w", from, target, err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	if err := a.conService.RemoveConstraint(from, target); err != nil {
 		return fmt.Errorf("remove constraint %q -> %q: %w", from, target, err)
 	}
@@ -550,6 +579,10 @@ func (a *App) RemoveLoadFirst(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("remove load-first %q: %w", modID, err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	if err := a.conService.RemoveLoadFirst(modID); err != nil {
 		return fmt.Errorf("remove load-first %q: %w", modID, err)
 	}
@@ -562,6 +595,10 @@ func (a *App) RemoveLoadLast(modID string) error {
 	if err := a.ensureReady(); err != nil {
 		return fmt.Errorf("remove load-last %q: %w", modID, err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	if err := a.conService.RemoveLoadLast(modID); err != nil {
 		return fmt.Errorf("remove load-last %q: %w", modID, err)
 	}
@@ -575,29 +612,49 @@ func (a *App) Autosort() ([]string, error) {
 	if err := a.ensureReady(); err != nil {
 		return nil, fmt.Errorf("autosort: %w", err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	previousOrder := append([]string(nil), a.loState.OrderedIDs...)
 	previousLayout := a.launcherLayout
 
-	sorted, err := a.conGraph.Sort(a.loState.OrderedIDs)
-	if err != nil {
+	layout := normalizeLauncherLayout(a.launcherLayout, a.loState.OrderedIDs)
+	constraints := a.conGraph.All()
+	categoryByMod := buildModCategoryIndex(layout)
+	if err := validateModConstraintsWithinCategories(constraints, categoryByMod); err != nil {
 		return nil, fmt.Errorf("sort constraints: %w", err)
 	}
 
-	if saveErr := a.SetLoadOrder(sorted); saveErr != nil {
+	categoryByID := indexCategoriesByID(layout.Categories)
+	blockIDs := completeCategoryBlockOrder(layout)
+	sortGraph := buildCategorySortGraph(blockIDs, constraints)
+	order, err := sortCategoryBlocks(blockIDs, sortGraph, categoryByID)
+	if err != nil {
+		return nil, fmt.Errorf("sort category constraints: %w", err)
+	}
+
+	layout.Order = order
+	for _, blockID := range order {
+		ids := categoryModIDs(layout, blockID)
+		if len(ids) == 0 {
+			continue
+		}
+		sorted, sortErr := a.conGraph.Sort(ids)
+		if sortErr != nil {
+			return nil, fmt.Errorf("sort constraints in %q: %w", blockID, sortErr)
+		}
+		setCategoryModIDs(&layout, blockID, sorted)
+	}
+
+	compiled := compileLauncherLayout(layout)
+	if saveErr := a.setLoadOrderLocked(compiled); saveErr != nil {
 		return nil, fmt.Errorf("persist autosorted load order: %w", saveErr)
 	}
 
-	nextLayout, err := a.reorderLauncherLayoutAfterAutosort(sorted)
-	if err != nil {
-		if rollbackErr := a.SetLoadOrder(previousOrder); rollbackErr != nil {
-			logging.Errorf("autosort rollback failed after category-sort error: %v", rollbackErr)
-		}
-		a.launcherLayout = previousLayout
-		return nil, fmt.Errorf("sort category constraints: %w", err)
-	}
-	a.launcherLayout = nextLayout
+	a.launcherLayout = layout
 	if err := a.layoutRepo.Save(a.layoutPath, toRepoLayout(a.launcherLayout)); err != nil {
-		if rollbackErr := a.SetLoadOrder(previousOrder); rollbackErr != nil {
+		if rollbackErr := a.setLoadOrderLocked(previousOrder); rollbackErr != nil {
 			logging.Errorf("autosort rollback failed after layout save error: %v", rollbackErr)
 		}
 		a.launcherLayout = previousLayout
@@ -622,6 +679,9 @@ func (a *App) SetLauncherLayout(layout LauncherLayout) error {
 		return fmt.Errorf("set launcher layout: %w", err)
 	}
 
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	next := layout
 	if err := a.layoutSvc.Persist(&next, a.loState.OrderedIDs); err != nil {
 		return fmt.Errorf("save launcher layout: %w", err)
@@ -637,6 +697,9 @@ func (a *App) CreateLauncherCategory(name string) (LauncherCategory, error) {
 	if err := a.ensureReady(); err != nil {
 		return LauncherCategory{}, fmt.Errorf("create launcher category: %w", err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
 
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
@@ -662,6 +725,9 @@ func (a *App) DeleteLauncherCategory(categoryID string) error {
 	if _, err := domain.ParseCategoryID(categoryID); err != nil {
 		return fmt.Errorf("delete launcher category %q: %w", categoryID, err)
 	}
+
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
 
 	next := LauncherLayout{
 		Ungrouped:  append([]string(nil), a.launcherLayout.Ungrouped...),
@@ -692,11 +758,14 @@ func (a *App) SaveCompiledLoadOrder() ([]string, error) {
 		return nil, fmt.Errorf("save compiled load order: %w", err)
 	}
 
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	next := a.launcherLayout
 	a.layoutSvc.Normalize(&next, a.loState.OrderedIDs)
 	a.launcherLayout = next
 	compiled := compileLauncherLayout(a.launcherLayout)
-	if err := a.SetLoadOrder(compiled); err != nil {
+	if err := a.setLoadOrderLocked(compiled); err != nil {
 		return nil, fmt.Errorf("persist compiled load order: %w", err)
 	}
 
@@ -958,6 +1027,9 @@ func (a *App) SetLauncherActivePlaysetIndex(index int) error {
 		return fmt.Errorf("set launcher active playset index %d: %w", index, err)
 	}
 
+	a.mutationMu.Lock()
+	defer a.mutationMu.Unlock()
+
 	playsetState, pathByID, err := a.playsetSvc.Load(a.gamePaths.PlaysetsPath, index)
 	if err != nil {
 		return fmt.Errorf("load playset at index %d: %w", index, err)
@@ -1176,6 +1248,7 @@ func (a *App) initConstraintsService() {
 		a.constraintsRepo,
 		a.expandConstraintTarget,
 		isCategoryID,
+		a.categoryForConstraintMod,
 	)
 }
 
@@ -1220,31 +1293,22 @@ func (a *App) expandConstraintTarget(target string) []string {
 	return sortedKeys(ids)
 }
 
-func (a *App) reorderLauncherLayoutAfterAutosort(sorted []string) (LauncherLayout, error) {
-	layout := normalizeLauncherLayout(a.launcherLayout, sorted)
-
-	position := buildIDPositionMap(sorted)
-	sortLayoutModIDs(&layout, position, len(sorted))
-
-	categoryByID := indexCategoriesByID(layout.Categories)
-	blockIDs := completeCategoryBlockOrder(layout)
-	sortGraph := buildCategorySortGraph(blockIDs, a.conGraph.All())
-
-	order, err := sortCategoryBlocks(blockIDs, sortGraph, categoryByID)
-	if err != nil {
-		return layout, err
+func (a *App) categoryForConstraintMod(modID string) string {
+	normalized := normalizeLauncherLayout(a.launcherLayout, a.loState.OrderedIDs)
+	for _, id := range normalized.Ungrouped {
+		if id == modID {
+			return defaultUngroupedCategoryID
+		}
 	}
-
-	layout.Order = order
-	return layout, nil
-}
-
-func buildIDPositionMap(sorted []string) map[string]int {
-	position := make(map[string]int, len(sorted))
-	for i, id := range sorted {
-		position[id] = i
+	for i := range normalized.Categories {
+		category := normalized.Categories[i]
+		for _, id := range category.ModIDs {
+			if id == modID {
+				return category.ID
+			}
+		}
 	}
-	return position
+	return ""
 }
 
 func indexCategoriesByID(categories []LauncherCategory) map[string]LauncherCategory {
@@ -1282,6 +1346,88 @@ func completeCategoryBlockOrder(layout LauncherLayout) []string {
 		present[catID] = struct{}{}
 	}
 	return blockIDs
+}
+
+func buildModCategoryIndex(layout LauncherLayout) map[string]string {
+	out := make(map[string]string, len(layout.Ungrouped))
+	for _, modID := range layout.Ungrouped {
+		if strings.TrimSpace(modID) == "" {
+			continue
+		}
+		out[modID] = defaultUngroupedCategoryID
+	}
+	for i := range layout.Categories {
+		category := layout.Categories[i]
+		for _, modID := range category.ModIDs {
+			if strings.TrimSpace(modID) == "" {
+				continue
+			}
+			out[modID] = category.ID
+		}
+	}
+	return out
+}
+
+func categoryModIDs(layout LauncherLayout, categoryID string) []string {
+	if categoryID == defaultUngroupedCategoryID {
+		return append([]string(nil), layout.Ungrouped...)
+	}
+	for i := range layout.Categories {
+		if layout.Categories[i].ID == categoryID {
+			return append([]string(nil), layout.Categories[i].ModIDs...)
+		}
+	}
+	return []string{}
+}
+
+func setCategoryModIDs(layout *LauncherLayout, categoryID string, modIDs []string) {
+	if layout == nil {
+		return
+	}
+	if categoryID == defaultUngroupedCategoryID {
+		layout.Ungrouped = append([]string(nil), modIDs...)
+		return
+	}
+	for i := range layout.Categories {
+		if layout.Categories[i].ID == categoryID {
+			layout.Categories[i].ModIDs = append([]string(nil), modIDs...)
+			return
+		}
+	}
+}
+
+func validateModConstraintsWithinCategories(constraints []graph.Constraint, categoryByMod map[string]string) error {
+	for i := range constraints {
+		constraint := constraints[i]
+		typ := constraint.Type
+		if typ == "" {
+			typ = graph.ConstraintTypeAfter
+		}
+		if typ != graph.ConstraintTypeAfter {
+			continue
+		}
+		if isCategoryID(constraint.From) || isCategoryID(constraint.To) {
+			continue
+		}
+
+		fromCategory, fromOK := categoryByMod[constraint.From]
+		toCategory, toOK := categoryByMod[constraint.To]
+		if !fromOK || !toOK {
+			continue
+		}
+		if fromCategory != toCategory {
+			return fmt.Errorf(
+				"%w: %q (%s) -> %q (%s)",
+				errCrossCategoryModConstraint,
+				constraint.From,
+				fromCategory,
+				constraint.To,
+				toCategory,
+			)
+		}
+	}
+
+	return nil
 }
 
 type categorySortGraph struct {
@@ -1507,67 +1653,6 @@ func isWorkshopNumericID(value string) bool {
 		}
 	}
 	return true
-}
-
-func sortIDsByPosition(ids []string, position map[string]int, fallback int) []string {
-	out := append([]string(nil), ids...)
-	sort.Slice(out, func(i, j int) bool {
-		pi, okI := position[out[i]]
-		pj, okJ := position[out[j]]
-		if !okI {
-			pi = fallback
-		}
-		if !okJ {
-			pj = fallback
-		}
-		if pi == pj {
-			return out[i] < out[j]
-		}
-		return pi < pj
-	})
-	return out
-}
-
-func sortLayoutModIDs(layout *LauncherLayout, position map[string]int, sortedCount int) {
-	workers := max(goruntime.NumCPU(), 1)
-	if workers > maxSortWorkers {
-		workers = maxSortWorkers
-	}
-	if len(layout.Categories) < minLayoutForWorkers || workers == 1 {
-		sortLayoutModIDsSequential(layout, position, sortedCount)
-		return
-	}
-	sortLayoutModIDsConcurrent(layout, position, sortedCount, workers)
-}
-
-func sortLayoutModIDsSequential(layout *LauncherLayout, position map[string]int, sortedCount int) {
-	fallback := sortedCount + 1_000_000
-	layout.Ungrouped = sortIDsByPosition(layout.Ungrouped, position, fallback)
-	for i := range layout.Categories {
-		layout.Categories[i].ModIDs = sortIDsByPosition(layout.Categories[i].ModIDs, position, fallback)
-	}
-}
-
-func sortLayoutModIDsConcurrent(layout *LauncherLayout, position map[string]int, sortedCount, workers int) {
-	fallback := sortedCount + 1_000_000
-	layout.Ungrouped = sortIDsByPosition(layout.Ungrouped, position, fallback)
-
-	jobs := make(chan int)
-	var wg sync.WaitGroup
-	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range jobs {
-				layout.Categories[idx].ModIDs = sortIDsByPosition(layout.Categories[idx].ModIDs, position, fallback)
-			}
-		}()
-	}
-	for i := range layout.Categories {
-		jobs <- i
-	}
-	close(jobs)
-	wg.Wait()
 }
 
 func toRepoSettings(settings appSettings) repo.AppSettingsData {

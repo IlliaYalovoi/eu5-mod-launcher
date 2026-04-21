@@ -33,7 +33,7 @@ const gameIcons: Record<string, string> = {
 }
 
 const gameNames: Record<string, string> = {
-  eu5: 'Project Caesar',
+  eu5: 'Europa Universalis V',
   hoi4: 'Hearts of Iron IV',
   ck3: 'Crusader Kings III',
   stellaris: 'Stellaris',

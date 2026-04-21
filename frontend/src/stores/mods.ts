@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { useLoadOrderStore } from './loadorder'
 import { useSnapshotsStore } from './snapshots'
 import type { Mod, WorkshopItem } from '../types'
 import {
@@ -24,6 +25,7 @@ function errorMessage(err: unknown): string {
 
 export const useModsStore = defineStore('mods', () => {
   const snapshotsStore = useSnapshotsStore()
+  const loadOrderStore = useLoadOrderStore()
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -222,13 +224,15 @@ export const useModsStore = defineStore('mods', () => {
     error.value = null
 
     try {
-      if (enabled) {
-        await EnableMod(id)
-      } else {
-        await DisableMod(id)
-      }
-      await snapshotsStore.refreshActive()
-      syncSelectedModID()
+      await loadOrderStore.runLoadOrderMutation(async () => {
+        if (enabled) {
+          await EnableMod(id)
+        } else {
+          await DisableMod(id)
+        }
+        await snapshotsStore.refreshActive()
+        syncSelectedModID()
+      })
     } catch (err) {
       error.value = errorMessage(err)
     } finally {

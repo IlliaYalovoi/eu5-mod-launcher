@@ -135,27 +135,27 @@ const contextMenuItems = computed<MenuItem[]>(() => {
     return ''
   })()
 
-  const moveToCategoryItems: MenuItem[] = [
+  const moveToGroupItems: MenuItem[] = [
     {
-      id: `move_to_category:${ungroupedCategoryID}`,
-      label: 'Move to category: Ungrouped',
+      id: `move_to_group:${ungroupedCategoryID}`,
+      label: 'Ungrouped',
       icon: '📁',
       disabled: currentCategoryForTarget === ungroupedCategoryID,
     },
     ...launcherLayout.value.categories.map((category) => ({
-      id: `move_to_category:${category.id}`,
-      label: `Move to category: ${category.name}`,
+      id: `move_to_group:${category.id}`,
+      label: category.name,
       icon: '📁',
       disabled: currentCategoryForTarget === category.id,
     })),
   ]
 
-  const moveToCategoryMenu: MenuItem = {
-    id: 'move_to_category_menu',
-    label: 'Move to category',
+  const moveToGroupMenu: MenuItem = {
+    id: 'move_to_group_menu',
+    label: 'Move to group',
     icon: '📁',
-    disabled: moveToCategoryItems.every((item) => item.disabled),
-    children: moveToCategoryItems,
+    disabled: moveToGroupItems.every((item) => item.disabled),
+    children: moveToGroupItems,
   }
 
   if (isCategory) {
@@ -176,7 +176,7 @@ const contextMenuItems = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
     { id: 'add_constraint', label: 'Add constraint...', icon: '⛓' },
     { id: 'view_constraints', label: 'View constraints', icon: '📖' },
-    moveToCategoryMenu,
+    moveToGroupMenu,
     { id: 'move_top', label: 'Move to top', icon: '⬆', disabled: missing || atTop },
     { id: 'move_bottom', label: 'Move to bottom', icon: '⬇', disabled: missing || atBottom },
     { id: 'disable_mod', label: 'Disable mod', icon: '⛔', danger: true, disabled: missing },
@@ -279,8 +279,8 @@ async function handleMenuAction(event: { itemID: string; targetID: string }): Pr
     return
   }
 
-  if (event.itemID.indexOf('move_to_category:') === 0) {
-    const categoryID = event.itemID.slice('move_to_category:'.length)
+  if (event.itemID.indexOf('move_to_group:') === 0) {
+    const categoryID = event.itemID.slice('move_to_group:'.length)
     await moveModToCategory(targetID, categoryID)
     return
   }

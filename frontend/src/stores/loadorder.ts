@@ -13,6 +13,12 @@ import {
 } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
 
+type LoadOrderMutationOptions = {
+  scheduleAutosort?: boolean
+}
+
+const autosortDebounceMs = 250
+
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
@@ -23,6 +29,11 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
   const autosortError = ref<string | null>(null)
   const isSorting = ref(false)
   const lastSortedAt = ref<number | null>(null)
+
+  let autosortTimer: number | null = null
+  let autosortQueued = false
+  let autosortRunning = false
+  let mutationQueue: Promise<void> = Promise.resolve()
 
   const orderedIDs = computed(() => snapshotsStore.activeSnapshot?.loadOrder || [])
   const playsetNames = computed(() => snapshotsStore.activeSnapshot?.playsetNames || [])
@@ -38,6 +49,76 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
     }
   })
 
+  function scheduleAutosort(): void {
+    autosortQueued = true
+    if (autosortRunning) {
+      return
+    }
+    if (autosortTimer !== null) {
+      window.clearTimeout(autosortTimer)
+    }
+    autosortTimer = window.setTimeout(() => {
+      autosortTimer = null
+      void flushAutosortQueue()
+    }, autosortDebounceMs)
+  }
+
+  async function waitForMutationQueue(): Promise<void> {
+    while (true) {
+      const pending = mutationQueue
+      await pending
+      if (pending === mutationQueue) {
+        return
+      }
+    }
+  }
+
+  async function runAutosortPass(): Promise<void> {
+    isSorting.value = true
+    try {
+      await Autosort()
+      await snapshotsStore.refreshActive()
+      autosortError.value = null
+      lastSortedAt.value = Date.now()
+    } catch (err) {
+      autosortError.value = errorMessage(err)
+    } finally {
+      isSorting.value = false
+    }
+  }
+
+  async function flushAutosortQueue(): Promise<void> {
+    if (autosortRunning) {
+      return
+    }
+
+    autosortRunning = true
+    try {
+      while (autosortQueued) {
+        autosortQueued = false
+        await waitForMutationQueue()
+        await runAutosortPass()
+      }
+    } finally {
+      autosortRunning = false
+    }
+  }
+
+  async function runLoadOrderMutation(
+    mutation: () => Promise<void>,
+    options: LoadOrderMutationOptions = {},
+  ): Promise<void> {
+    const shouldScheduleAutosort = options.scheduleAutosort ?? true
+    const nextMutation = mutationQueue.then(async () => {
+      await mutation()
+      if (shouldScheduleAutosort) {
+        scheduleAutosort()
+      }
+    })
+    mutationQueue = nextMutation.catch(() => undefined)
+    return nextMutation
+  }
+
   async function fetch(): Promise<void> {
     await snapshotsStore.refreshActive()
   }
@@ -47,8 +128,10 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
   }
 
   async function persist(ids: string[]): Promise<void> {
-    await SetLoadOrder(ids)
-    await snapshotsStore.refreshActive()
+    await runLoadOrderMutation(async () => {
+      await SetLoadOrder(ids)
+      await snapshotsStore.refreshActive()
+    })
   }
 
   async function persistLauncherLayout(next: LauncherLayout): Promise<void> {
@@ -73,17 +156,12 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
   }
 
   async function autosort(): Promise<void> {
-    isSorting.value = true
-    try {
-      await Autosort()
-      await snapshotsStore.refreshActive()
-      autosortError.value = null
-      lastSortedAt.value = Date.now()
-    } catch (err) {
-      autosortError.value = errorMessage(err)
-    } finally {
-      isSorting.value = false
+    autosortQueued = true
+    if (autosortTimer !== null) {
+      window.clearTimeout(autosortTimer)
+      autosortTimer = null
     }
+    await flushAutosortQueue()
   }
 
   function clearAutosortError(): void {
@@ -111,6 +189,7 @@ export const useLoadOrderStore = defineStore('loadorder', () => {
     autosort,
     clearAutosortError,
     setLauncherPlayset,
+    runLoadOrderMutation,
     autosortError,
     isSorting,
     lastSortedAt,

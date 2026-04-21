@@ -116,6 +116,7 @@ function selectMod(mod: Mod) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
 }
 
 .state {
@@ -137,17 +138,30 @@ function selectMod(mod: Mod) {
 }
 
 .repo-card-move {
-  transition: transform 180ms ease, opacity 180ms ease;
+  transition: transform 320ms cubic-bezier(0.22, 1.28, 0.32, 1);
+  transition-delay: 35ms;
 }
 
-.repo-card-enter-active,
+.repo-card-enter-active {
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .repo-card-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity 220ms ease-out, transform 220ms cubic-bezier(0.4, 0, 1, 1);
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.repo-card-enter-from,
+.repo-card-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+
 .repo-card-leave-to {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateX(-52px) scale(0.95) rotate(-2deg);
 }
 </style>
